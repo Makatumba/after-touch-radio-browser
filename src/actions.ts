@@ -39,6 +39,17 @@ export function setLanguage(lang: Language, state: State) {
     document.documentElement.lang = lang === 'ukr' ? 'uk' : lang;
 }
 
+export async function pingSoundtouch(host: string): Promise<boolean> {
+    const clean = host.trim().replace(/^https?:\/\//, '').replace(/\/$/, '');
+    if (!clean) return false;
+    try {
+        await fetch(`http://${clean}:8000/`, {method: 'HEAD', mode: 'no-cors'});
+        return true;
+    } catch {
+        return false;
+    }
+}
+
 export async function sendToSoundtouch(station: Station, state: State) {
     const host = state.soundtouchAddress.trim().replace(/^https?:\/\//, '').replace(/\/$/, '');
     if (!host) return;

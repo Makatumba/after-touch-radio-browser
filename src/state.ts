@@ -34,5 +34,6 @@ export interface State {
     playerMeta: string;
     status: string;
     soundtouchAddress: string;
+    soundtouchStatus: 'idle' | 'checking' | 'available' | 'unreachable';
     currentIndex: number;
 }

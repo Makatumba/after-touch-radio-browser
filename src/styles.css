@@ -86,6 +86,21 @@ button {
     flex-wrap: wrap
 }
 
+.soundtouch-status {
+    font-weight: 700;
+    font-size: 1.1rem;
+    min-width: 1.5rem;
+    text-align: center
+}
+
+.soundtouch-status.status-ok {
+    color: var(--primary)
+}
+
+.soundtouch-status.status-err {
+    color: #c33
+}
+
 .soundtouch-config .input {
     flex: 1;
     min-width: 200px

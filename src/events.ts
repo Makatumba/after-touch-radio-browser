@@ -2,7 +2,7 @@ import type {Language} from './i18n';
 import type {Mode, Station} from './state';
 import {state} from './app';
 import {render, refresh, searchFromInputs, reset, loadNextResultSet, loadPreviousResultSet} from './app';
-import {playStation, toggleFavorite, sendToSoundtouch, setLanguage} from './actions';
+import {playStation, toggleFavorite, sendToSoundtouch, setLanguage, pingSoundtouch} from './actions';
 
 export function setupEvents(): void {
     const app = document.querySelector('#app')!;
@@ -42,7 +42,12 @@ export function setupEvents(): void {
                 const host = (document.querySelector<HTMLInputElement>('#soundtouch')?.value || '').trim();
                 state.soundtouchAddress = host;
                 localStorage.setItem('radio-browser-soundtouch-host', host);
+                state.soundtouchStatus = 'checking';
                 render();
+                pingSoundtouch(host).then(ok => {
+                    state.soundtouchStatus = ok ? 'available' : 'unreachable';
+                    render();
+                });
                 break;
             }
             case 'search': searchFromInputs(); break;

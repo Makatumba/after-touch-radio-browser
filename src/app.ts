@@ -29,6 +29,7 @@ export const state: State = {
     playerMeta: 'Pick a station to start streaming.',
     status: 'Idle',
     soundtouchAddress: localStorage.getItem(LS_SOUNDTOUCH) || '',
+    soundtouchStatus: 'idle',
     currentIndex: -1
 };
 
