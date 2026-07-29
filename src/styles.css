@@ -41,7 +41,7 @@ button {
     padding: 1rem 0 4rem
 }
 
-.topbar, .layout, .panel, .controls, .results-panel, .player, .soundtouch-form, .lang-switcher-inline {
+.topbar, .layout, .panel, .controls, .results-panel, .player, .lang-switcher-inline {
     display: grid;
     gap: 1rem
 }
@@ -79,20 +79,16 @@ button {
     padding: 1rem
 }
 
-.soundtouch-bar summary {
-    cursor: pointer;
-    font-weight: 700;
-    list-style: none
+.soundtouch-config {
+    display: flex;
+    gap: .75rem;
+    align-items: center;
+    flex-wrap: wrap
 }
 
-.soundtouch-bar summary::-webkit-details-marker {
-    display: none
-}
-
-.soundtouch-bar .soundtouch-body {
-    margin-top: 1rem;
-    display: grid;
-    gap: 1rem
+.soundtouch-config .input {
+    flex: 1;
+    min-width: 200px
 }
 
 .layout {
@@ -312,36 +308,6 @@ button {
 
 .audio-actions .btn {
     flex: 1 1 160px
-}
-
-.soundtouch-collapsed {
-    display: flex;
-    justify-content: space-between;
-    gap: 1rem;
-    align-items: center;
-    flex-wrap: wrap
-}
-
-.soundtouch-host {
-    margin-top: .75rem
-}
-
-.host-chip {
-    display: inline-flex;
-    align-items: center;
-    padding: .4rem .8rem;
-    border-radius: 9999px;
-    background: var(--surface-2);
-    color: var(--text);
-    border: 1px solid color-mix(in srgb, var(--text) 10%, transparent)
-}
-
-.host-chip.empty {
-    color: var(--muted)
-}
-
-.soundtouch-body.collapsed {
-    display: none
 }
 
 .player-stop {

@@ -1,7 +1,11 @@
 let audio: HTMLAudioElement | null = null;
 
 export function getAudioElement(): HTMLAudioElement {
-    if (!audio) audio = new Audio();
+    if (!audio) {
+        audio = new Audio();
+        audio.id = 'audio-widget';
+        audio.controls = true;
+    }
     return audio;
 }
 

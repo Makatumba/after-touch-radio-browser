@@ -1,0 +1,53 @@
+import type {Station, State} from './state';
+import {getLabels} from './i18n';
+import type {Language} from './i18n';
+import {playStream, stopStream} from './player';
+
+export function playStation(station: Station, state: State) {
+    const url = station.url_resolved || station.url;
+    if (!url) return;
+    state.nowPlaying = station.name || 'Unnamed station';
+    state.playerMeta = [station.country, station.language, station.codec, station.bitrate ? `${station.bitrate} kbps` : ''].filter(Boolean).join(' · ');
+    state.currentIndex = Math.max(0, state.stations.findIndex(s => s.stationuuid === station.stationuuid));
+    playStream(url);
+}
+
+export function stopPlayback(state: State) {
+    stopStream();
+    const t = getLabels(state);
+    state.nowPlaying = t.playbackStopped;
+    state.playerMeta = t.playbackStoppedMeta;
+}
+
+export function toggleFavorite(station: Station, state: State) {
+    const idx = state.favorites.findIndex(s => s.stationuuid === station.stationuuid);
+    if (idx >= 0) {
+        state.favorites.splice(idx, 1);
+    } else {
+        state.favorites.push(station);
+    }
+    localStorage.setItem('radio-browser-favorites', JSON.stringify(state.favorites));
+}
+
+export function isFavorite(uuid: string, state: State): boolean {
+    return state.favorites.some(s => s.stationuuid === uuid);
+}
+
+export function setLanguage(lang: Language, state: State) {
+    state.language = lang;
+    localStorage.setItem('radio-browser-language', lang);
+    document.documentElement.lang = lang === 'ukr' ? 'uk' : lang;
+}
+
+export async function sendToSoundtouch(station: Station, state: State) {
+    const host = state.soundtouchAddress.trim().replace(/^https?:\/\//, '').replace(/\/$/, '');
+    if (!host) return;
+    await fetch(`http://${host}:8090/select`, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: {'Content-Type': 'text/plain;charset=UTF-8'},
+        body: `<ContentItem source="RADIO_BROWSER" type="stationurl" location="/stations/byuuid/${station.stationuuid}"/>`
+    });
+}
+
+

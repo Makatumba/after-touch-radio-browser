@@ -12,7 +12,6 @@ export const translations = {
         tag: 'Tag / genre',
         limit: 'Result limit',
         hideBroken: 'Hide broken stations',
-        soundtouch: 'SoundTouch address',
         save: 'Save',
         favorites: 'Favorites',
         top: 'Top voted',
@@ -40,10 +39,6 @@ export const translations = {
         maybeDiscover: 'Use the filters to find stations faster.',
         allCountries: 'All countries',
         allLanguages: 'All languages',
-        enterSoundTouch: 'Enter the SoundTouch device address once, then send any station card directly to that device.',
-        suggested: 'Suggested starting points',
-        suggestedUp: 'Suggested starting point up',
-        suggestedDown: 'Suggested starting point down',
         soundtouchCollapsed: 'SoundTouch:'
     },
     de: {
@@ -58,7 +53,6 @@ export const translations = {
         tag: 'Tag / Genre',
         limit: 'Ergebnislimit',
         hideBroken: 'Defekte Sender ausblenden',
-        soundtouch: 'SoundTouch-Adresse',
         save: 'Speichern',
         favorites: 'Favoriten',
         top: 'Top bewertet',
@@ -86,10 +80,6 @@ export const translations = {
         maybeDiscover: 'Nutze die Filter, um schneller Sender zu finden.',
         allCountries: 'Alle Länder',
         allLanguages: 'Alle Sprachen',
-        enterSoundTouch: 'Gib die SoundTouch-Adresse einmal ein, dann kannst du jede Senderkarte direkt an das Gerät senden.',
-        suggested: 'Vorgeschlagene Startpunkte',
-        suggestedUp: 'Vorgeschlagener Startpunkt nach oben',
-        suggestedDown: 'Vorgeschlagener Startpunkt nach unten',
         soundtouchCollapsed: 'SoundTouch:'
     },
     ru: {
@@ -104,7 +94,6 @@ export const translations = {
         tag: 'Тег / жанр',
         limit: 'Лимит результатов',
         hideBroken: 'Скрыть нерабочие станции',
-        soundtouch: 'Адрес SoundTouch',
         save: 'Сохранить',
         favorites: 'Избранное',
         top: 'Лучшие',
@@ -132,10 +121,6 @@ export const translations = {
         maybeDiscover: 'Используйте фильтры, чтобы быстрее находить станции.',
         allCountries: 'Все страны',
         allLanguages: 'Все языки',
-        enterSoundTouch: 'Введите адрес SoundTouch один раз, затем отправляйте любую карточку станции прямо на устройство.',
-        suggested: 'Рекомендуемые точки старта',
-        suggestedUp: 'Рекомендуемая точка старта вверх',
-        suggestedDown: 'Рекомендуемая точка старта вниз',
         soundtouchCollapsed: 'SoundTouch:'
     },
     ukr: {
@@ -150,7 +135,6 @@ export const translations = {
         tag: 'Тег / жанр',
         limit: 'Ліміт результатів',
         hideBroken: 'Приховати непрацюючі станції',
-        soundtouch: 'Адреса SoundTouch',
         save: 'Зберегти',
         favorites: 'Вибране',
         top: 'Найкращі',
@@ -178,10 +162,11 @@ export const translations = {
         maybeDiscover: 'Використовуйте фільтри, щоб швидше знаходити станції.',
         allCountries: 'Усі країни',
         allLanguages: 'Усі мови',
-        enterSoundTouch: 'Введіть адресу SoundTouch один раз, а потім надсилайте будь-яку картку станції прямо на пристрій.',
-        suggested: 'Рекомендовані точки старту',
-        suggestedUp: 'Рекомендована точка старту вгору',
-        suggestedDown: 'Рекомендована точка старту вниз',
         soundtouchCollapsed: 'SoundTouch:'
     }
 } as const;
+
+export function getLabels(state: { language: Language }): Record<string, string> {
+    const langKey = state.language === ('uk' as Language) ? 'ukr' : state.language;
+    return (translations as Record<string, any>)[langKey] || translations.en;
+}

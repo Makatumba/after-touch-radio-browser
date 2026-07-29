@@ -14,6 +14,6 @@ describe('app', () => {
   });
   it('includes translations', () => {
     expect(translations.ru.search).toContain('Искать');
-    expect(translations.uk.search).toContain('Шукати');
+    expect(translations.ukr.search).toContain('Шукати');
   });
 });
