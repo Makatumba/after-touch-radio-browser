@@ -39,7 +39,12 @@ export const translations = {
         maybeDiscover: 'Use the filters to find stations faster.',
         allCountries: 'All countries',
         allLanguages: 'All languages',
-        soundtouchCollapsed: 'SoundTouch:'
+        soundtouchCollapsed: 'SoundTouch:',
+        settingsTitle: 'Settings',
+        settingDisablePlayer: 'Disable player',
+        settingDisablePlayButton: 'Disable play buttons',
+        settingSoundtouchDefault: 'Send to SoundTouch by default',
+        resetDefaults: 'Reset to defaults'
     },
     de: {
         title: 'AfterTouch radio browser',
@@ -80,7 +85,12 @@ export const translations = {
         maybeDiscover: 'Nutze die Filter, um schneller Sender zu finden.',
         allCountries: 'Alle Länder',
         allLanguages: 'Alle Sprachen',
-        soundtouchCollapsed: 'SoundTouch:'
+        soundtouchCollapsed: 'SoundTouch:',
+        settingsTitle: 'Einstellungen',
+        settingDisablePlayer: 'Player deaktivieren',
+        settingDisablePlayButton: 'Play-Buttons deaktivieren',
+        settingSoundtouchDefault: 'Standardmäßig an SoundTouch senden',
+        resetDefaults: 'Auf Standard zurücksetzen'
     },
     ru: {
         title: 'AfterTouch radio browser',
@@ -121,7 +131,12 @@ export const translations = {
         maybeDiscover: 'Используйте фильтры, чтобы быстрее находить станции.',
         allCountries: 'Все страны',
         allLanguages: 'Все языки',
-        soundtouchCollapsed: 'SoundTouch:'
+        soundtouchCollapsed: 'SoundTouch:',
+        settingsTitle: 'Настройки',
+        settingDisablePlayer: 'Отключить плеер',
+        settingDisablePlayButton: 'Отключить кнопки воспроизведения',
+        settingSoundtouchDefault: 'Отправлять в SoundTouch по умолчанию',
+        resetDefaults: 'Сбросить на стандартные'
     },
     ukr: {
         title: 'AfterTouch radio browser',
@@ -162,7 +177,12 @@ export const translations = {
         maybeDiscover: 'Використовуйте фільтри, щоб швидше знаходити станції.',
         allCountries: 'Усі країни',
         allLanguages: 'Усі мови',
-        soundtouchCollapsed: 'SoundTouch:'
+        soundtouchCollapsed: 'SoundTouch:',
+        settingsTitle: 'Налаштування',
+        settingDisablePlayer: 'Вимкнути плеєр',
+        settingDisablePlayButton: 'Вимкнути кнопки відтворення',
+        settingSoundtouchDefault: 'Надсилати до SoundTouch за замовчуванням',
+        resetDefaults: 'Скинути до стандартних'
     }
 } as const;
 

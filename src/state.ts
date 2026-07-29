@@ -19,6 +19,12 @@ export interface Station {
     lastcheckok?: boolean;
 }
 
+export interface Settings {
+    disablePlayer: boolean;
+    disablePlayButton: boolean;
+    soundtouchDefault: boolean;
+}
+
 export interface State {
     language: Language;
     query: string;
@@ -36,4 +42,6 @@ export interface State {
     soundtouchAddress: string;
     soundtouchStatus: 'idle' | 'checking' | 'available' | 'unreachable';
     currentIndex: number;
+    showSettings: boolean;
+    settings: Settings;
 }

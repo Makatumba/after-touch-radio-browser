@@ -4,6 +4,7 @@ import type {Language} from './i18n';
 import {playStream, stopStream} from './player';
 
 export function playStation(station: Station, state: State) {
+    if (state.settings.disablePlayer) return;
     const url = station.url_resolved || station.url;
     if (!url) return;
     state.nowPlaying = station.name || 'Unnamed station';
