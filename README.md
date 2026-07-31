@@ -41,7 +41,10 @@ npm run deploy   # build, then replace docs/ with the build (GitHub Pages)
 Notes:
 
 - `--skipLibCheck` is required for the typecheck because `@types/node` is not installed.
-- `docs/` is generated build output for GitHub Pages and is wiped on every deploy — do not edit it.
+- `docs/` is the GitHub Pages hosting output: `npm run deploy` wipes it and regenerates it from
+  the build. Because this repo is hosted from the `docs/` folder, the generated files are kept
+  **committed** — after every deploy, commit the regenerated `docs/`. Never edit `docs/` by hand.
+  `dist/` and `.DS_Store` are gitignored.
 
 ## Architecture
 
@@ -76,6 +79,8 @@ Notes:
   document). The host input is sanitized (scheme and trailing slash stripped).
 - **Status line** — shows "Loading stations…" during a fetch, "N loaded" on success, or
   "Service unavailable" on error.
+- **Hosting** — GitHub Pages serves the app from the committed `docs/` folder; `dist/` and
+  `.DS_Store` are gitignored.
 
 ## License
 

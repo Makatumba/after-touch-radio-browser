@@ -5,7 +5,7 @@
 - **Test** (vitest, jsdom): `npm test`
 - **Build**: `npm run build`
 - **Typecheck**: `npx tsc --noEmit --skipLibCheck` (`@types/node` not installed; `--skipLibCheck` required)
-- **Deploy**: `npm run deploy` → `vite build && rm -rf docs && mv dist docs`
+- **Deploy**: `npm run deploy` → `vite build && rimraf docs && mv dist docs` (wipes and regenerates `docs/`). GitHub Pages hosts from the `docs/` folder, so commit the regenerated `docs/` after every deploy. `dist/` and `.DS_Store` are gitignored.
 
 ## Architecture
 - **Vanilla TypeScript SPA** — no framework. Vite bundler.
@@ -21,6 +21,7 @@
 - **localStorage keys**: `radio-browser-language`, `radio-browser-soundtouch-host`, `radio-browser-favorites`, `radio-browser-settings`
 - **Settings** (3 toggles, stored as JSON): `disablePlayer`, `disablePlayButton`, `soundtouchDefault`. Defaults in `src/settings.ts`.
 - **SoundTouch**: Port 8000 for reachability (HEAD, `no-cors`), port 8090 for station send (POST, `no-cors`, `text/plain;charset=UTF-8` body).
+- **Git artifacts**: `docs/` is tracked (GitHub Pages hosting output — commit it after deploys); `dist/` and `.DS_Store` are gitignored.
 
 ## Testing notes
 - Tests set up via `document.body.innerHTML = '<div id="app"></div>'` in `beforeEach`.
