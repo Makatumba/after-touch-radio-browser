@@ -7,14 +7,17 @@ Bose shut down the SoundTouch cloud on May 6, 2026, so the app is built for the 
 software that keeps these speakers alive: [AfterTouch — Bose SoundTouch Toolkit]
 (https://gesellix.github.io/Bose-SoundTouch/). Not affiliated with Bose Corporation.
 
-Planned features for the next release are specified in [FEATURES.md](FEATURES.md).
+Features shipped in this release and planned for the next are specified in
+[FEATURES.md](FEATURES.md) — wave-1 features are implemented; wave-2 features (live device
+state, lock-screen controls, PWA) remain planned.
 
 ## SoundTouch remote control
 
 The app turns your phone into a remote control for a Bose SoundTouch speaker on your network.
-The speaker plays the radio; the phone shows what's playing and lets you control it. The app
-connects straight to the speaker's own Web API — no account, cloud, or service in the app
-itself.
+The speaker plays the radio; the phone picks what plays on it — and can preview stations in the
+browser instead. The app connects straight to the speaker's own Web API — no account, cloud, or
+service in the app itself. Live state from the speaker (now playing, volume) and lock-screen
+controls are planned for the next wave.
 
 Because Bose shut down the SoundTouch cloud on May 6, 2026, the speaker must be migrated to
 [AfterTouch](https://gesellix.github.io/Bose-SoundTouch/) with the **Radio Browser** source
@@ -30,25 +33,27 @@ local host, or on a VPS) doesn't matter. Two things must be true first: the spea
 to AfterTouch, and the AfterTouch Health tab shows **Radio Browser** as active.
 
 1. Find the speaker's IP address (e.g. in your router's device list).
-2. When no speaker is configured, the app shows a setup view: enter the address and press
-   **Save**. The app checks the speaker and shows ✓ reachable (or ✗ unreachable).
-3. The app remembers the speaker — setup is needed only once.
+2. When no speaker is configured, the app shows a full-screen setup view: enter the address and
+   press **Save**. The app checks the speaker and shows ✓ reachable (or ✗ unreachable). You can
+   also skip setup and browse stations first — the play-on-speaker action stays disabled until
+   an address is saved.
+3. The app remembers the speaker — setup is needed only once. The address stays editable in the
+   compact SoundTouch bar on the main screen.
 
-### Control from the phone
+### Play stations on the speaker
 
-- **Play any station on the speaker** — the play action on a station card targets the speaker;
-  favorites play straight to the speaker too.
-- **See what's playing** — track, artist, and source, updated live from the speaker.
-- **Control playback** — play/pause, next/previous.
-- **Adjust volume** — slider and mute, always in sync with the speaker.
-- **Lock-screen controls** — while connected, your phone's lock screen shows what's playing and
-  offers play/pause/next/previous (on supported browsers).
+- **Play on speaker** — the primary action on every station card sends the station straight to
+  the speaker; favorites play to the speaker too. A confirmation ("Playing on speaker…") shows
+  when the station was sent.
+- **Preview instead (optional)** — with in-browser preview enabled in Settings, a Preview action
+  on each card plays the station in the phone's browser without touching the speaker (see
+  below).
 
 ### When the speaker is unreachable
 
 The phone must be on the same Wi-Fi as the speaker. If it isn't (e.g. mobile data), the app
-shows a notice and keeps the station list usable; speaker controls are disabled until the phone
-is back on the home network.
+shows an offline banner and keeps the station list usable; the play-on-speaker action is
+disabled until the phone is back on the home network.
 
 If the speaker is reachable but a station won't play, the Radio Browser source is probably not
 active on the speaker — check the AfterTouch Health tab (see the
@@ -56,17 +61,18 @@ active on the speaker — check the AfterTouch Health tab (see the
 
 ### Preview in the browser (optional)
 
-By default the app is a remote and plays no audio itself. Enable **Preview in browser** in
-Settings to listen on the phone instead of the speaker.
+By default the app is a remote and plays no audio itself. Enable **in-browser preview** in
+Settings to add a Preview action to every station card and listen on the phone instead of the
+speaker.
 
 ### Notes
 
-- The app connects to the speaker directly: WebSocket port 8080 for live state updates, HTTP
-  port 8090 for commands, port 8000 for the reachability check.
+- The app connects to the speaker directly: HTTP port 8090 for play commands, port 8000 for the
+  reachability check. Live state via WebSocket (port 8080) is planned for the next wave.
 - Chrome (and other Chromium browsers) may ask permission to *look for and connect to devices on
   your local network* — allow it for the app.
-- Remote control works from a browser on the same network; installed as a PWA, the app opens
-  full-screen from your home screen.
+- Remote control works from a browser on the same network. PWA installability (home screen,
+  offline shell) is planned for the next wave.
 
 ## Quick start
 
@@ -114,16 +120,17 @@ A full codebase map — structure, key files, module dependency graph, and conve
 
 ## Key conventions
 
-- **Language codes** — `en`, `de`, `ru`, `ukr` (not `uk`); `getLabels()` maps `'uk'` → `'ukr'`,
-  and `<html lang>` is set to `uk` for Ukrainian.
+- **Language codes** — `en`, `de`, `ru`, `ukr` (not `uk`); auto-detected from the browser on
+  first run (`'uk'` → `'ukr'`, unsupported → English), manually overridable via the language
+  chips; `getLabels()` maps `'uk'` → `'ukr'`, and `<html lang>` is set to `uk` for Ukrainian.
 - **localStorage keys** — `radio-browser-language`, `radio-browser-soundtouch-host`,
-  `radio-browser-favorites`, `radio-browser-settings` (settings stored as JSON; defaults in
-  `src/settings.ts`).
-- **SoundTouch ports** — 8000: reachability check (HEAD, `no-cors`); 8090: commands (POST,
+  `radio-browser-favorites`, `radio-browser-settings` (settings stored as JSON; a single
+  `enablePreview` toggle, default off; defaults in `src/settings.ts`).
+- **SoundTouch ports** — 8000: reachability check (HEAD, `no-cors`); 8090: play commands (POST,
   `no-cors`, `text/plain;charset=UTF-8`, body is a
   `<ContentItem source="RADIO_BROWSER" type="stationurl" location="/stations/byuuid/{uuid}"/>`
-  document); 8080: WebSocket live state ("gabbo" protocol). The host input is sanitized (scheme
-  and trailing slash stripped).
+  document). WebSocket live state (port 8080, "gabbo" protocol) is planned for the next wave.
+  The host input is sanitized before use (scheme, path, and unsafe characters stripped).
 - **Status line** — shows "Loading stations…" during a fetch, "N loaded" on success, or
   "Service unavailable" on error.
 - **Hosting** — GitHub Pages serves the app from the committed `docs/` folder; `dist/` and
