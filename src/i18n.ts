@@ -1,4 +1,12 @@
 export type Language = 'en' | 'de' | 'ru' | 'ukr';
+
+export function detectLanguage(locale: string): Language {
+    const primary = locale.toLowerCase().split('-')[0];
+    if (primary === 'uk') return 'ukr';
+    if (primary === 'en' || primary === 'de' || primary === 'ru') return primary;
+    return 'en';
+}
+
 export const translations = {
     en: {
         title: 'AfterTouch radio browser',
@@ -45,7 +53,17 @@ export const translations = {
         settingDisablePlayButton: 'Disable play buttons',
         settingSoundtouchDefault: 'Send to SoundTouch by default',
         resetDefaults: 'Reset to defaults',
-        footerAttribution: 'Station data by {service}'
+        footerAttribution: 'Station data by {service}',
+        setupTitle: 'Set up your speaker',
+        setupIntro: "Enter your speaker's address — it's in your router's device list.",
+        setupSkip: 'Browse stations anyway',
+        hostPlaceholder: '192.168.1.42',
+        checking: 'Checking…',
+        reachable: 'Reachable',
+        unreachable: 'Unreachable',
+        offlineBanner: 'Speaker is offline — connect to the same Wi-Fi as your speaker.',
+        unconfiguredHint: "Save your speaker's address to play on it.",
+        settingEnablePreview: 'Enable in-browser preview'
     },
     de: {
         title: 'AfterTouch radio browser',
@@ -92,7 +110,17 @@ export const translations = {
         settingDisablePlayButton: 'Play-Buttons deaktivieren',
         settingSoundtouchDefault: 'Standardmäßig an SoundTouch senden',
         resetDefaults: 'Auf Standard zurücksetzen',
-        footerAttribution: 'Senderdaten von {service}'
+        footerAttribution: 'Senderdaten von {service}',
+        setupTitle: 'Lautsprecher einrichten',
+        setupIntro: 'Geben Sie die Adresse Ihres Lautsprechers ein — sie steht in der Geräteliste Ihres Routers.',
+        setupSkip: 'Trotzdem Sender durchsuchen',
+        hostPlaceholder: '192.168.1.42',
+        checking: 'Prüfe…',
+        reachable: 'Erreichbar',
+        unreachable: 'Nicht erreichbar',
+        offlineBanner: 'Lautsprecher ist offline — verbinde dich mit demselben Wi-Fi wie dein Lautsprecher.',
+        unconfiguredHint: 'Speichere die Adresse deines Lautsprechers, um darauf abzuspielen.',
+        settingEnablePreview: 'Vorschau im Browser aktivieren'
     },
     ru: {
         title: 'AfterTouch radio browser',
@@ -139,7 +167,17 @@ export const translations = {
         settingDisablePlayButton: 'Отключить кнопки воспроизведения',
         settingSoundtouchDefault: 'Отправлять в SoundTouch по умолчанию',
         resetDefaults: 'Сбросить на стандартные',
-        footerAttribution: 'Данные о станциях предоставляет {service}'
+        footerAttribution: 'Данные о станциях предоставляет {service}',
+        setupTitle: 'Настройте колонку',
+        setupIntro: 'Введите адрес вашей колонки — он есть в списке устройств вашего роутера.',
+        setupSkip: 'Всё равно просматривать станции',
+        hostPlaceholder: '192.168.1.42',
+        checking: 'Проверка…',
+        reachable: 'Доступна',
+        unreachable: 'Недоступна',
+        offlineBanner: 'Колонка не в сети — подключитесь к той же Wi-Fi-сети, что и колонка.',
+        unconfiguredHint: 'Сохраните адрес колонки, чтобы воспроизводить на ней.',
+        settingEnablePreview: 'Включить предпрослушивание в браузере'
     },
     ukr: {
         title: 'AfterTouch radio browser',
@@ -186,7 +224,17 @@ export const translations = {
         settingDisablePlayButton: 'Вимкнути кнопки відтворення',
         settingSoundtouchDefault: 'Надсилати до SoundTouch за замовчуванням',
         resetDefaults: 'Скинути до стандартних',
-        footerAttribution: 'Дані про станції надає {service}'
+        footerAttribution: 'Дані про станції надає {service}',
+        setupTitle: 'Налаштуйте колонку',
+        setupIntro: 'Введіть адресу вашої колонки — вона є у списку пристроїв вашого роутера.',
+        setupSkip: 'Усе одно переглядати станції',
+        hostPlaceholder: '192.168.1.42',
+        checking: 'Перевірка…',
+        reachable: 'Доступна',
+        unreachable: 'Недоступна',
+        offlineBanner: 'Колонка не в мережі — підключіться до тієї ж Wi-Fi-мережі, що й колонка.',
+        unconfiguredHint: 'Збережіть адресу колонки, щоб відтворювати на ній.',
+        settingEnablePreview: 'Увімкнути попередній перегляд у браузері'
     }
 } as const;
 

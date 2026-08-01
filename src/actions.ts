@@ -3,8 +3,17 @@ import {getLabels} from './i18n';
 import type {Language} from './i18n';
 import {playStream, stopStream} from './player';
 
+export function sanitizeHost(raw: string): string {
+    let host = raw.trim();
+    host = host.replace(/^https?:\/\//i, '');
+    const cut = host.search(/[/?#]/);
+    if (cut !== -1) host = host.slice(0, cut);
+    host = host.replace(/\/+$/, '');
+    if (/[^A-Za-z0-9._:\-]/.test(host)) return '';
+    return host;
+}
+
 export function playStation(station: Station, state: State) {
-    if (state.settings.disablePlayer) return;
     const url = station.url_resolved || station.url;
     if (!url) return;
     state.nowPlaying = station.name || 'Unnamed station';
@@ -41,7 +50,7 @@ export function setLanguage(lang: Language, state: State) {
 }
 
 export async function pingSoundtouch(host: string): Promise<boolean> {
-    const clean = host.trim().replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const clean = sanitizeHost(host);
     if (!clean) return false;
     try {
         await fetch(`http://${clean}:8000/`, {method: 'HEAD', mode: 'no-cors'});
@@ -61,5 +70,3 @@ export async function sendToSoundtouch(station: Station, state: State) {
         body: `<ContentItem source="RADIO_BROWSER" type="stationurl" location="/stations/byuuid/${station.stationuuid}"/>`
     });
 }
-
-

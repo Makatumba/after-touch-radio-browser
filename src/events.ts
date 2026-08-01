@@ -2,7 +2,7 @@ import type {Language} from './i18n';
 import type {Mode, Station} from './state';
 import {state} from './app';
 import {render, refresh, searchFromInputs, reset, loadNextResultSet, loadPreviousResultSet} from './app';
-import {playStation, stopPlayback, toggleFavorite, sendToSoundtouch, setLanguage, pingSoundtouch} from './actions';
+import {playStation, stopPlayback, toggleFavorite, sendToSoundtouch, setLanguage, pingSoundtouch, sanitizeHost} from './actions';
 import {defaultSettings, saveSettings} from './settings';
 
 export function setupEvents(): void {
@@ -20,14 +20,7 @@ export function setupEvents(): void {
         const playBtn = target.closest('[data-play]') as HTMLElement | null;
         if (playBtn) {
             const s = state.stations.find((x: Station) => x.stationuuid === playBtn!.dataset.play);
-            if (s) {
-                if (state.settings.soundtouchDefault) {
-                    sendToSoundtouch(s, state).catch(console.error);
-                } else {
-                    playStation(s, state);
-                }
-                render();
-            }
+            if (s) { playStation(s, state); render(); }
             return;
         }
 
@@ -47,17 +40,28 @@ export function setupEvents(): void {
 
         switch (target.id) {
             case 'saveSoundtouch': {
-                const host = (document.querySelector<HTMLInputElement>('#soundtouch')?.value || '').trim();
+                const raw = document.querySelector<HTMLInputElement>('#soundtouch')?.value || '';
+                const host = sanitizeHost(raw);
                 state.soundtouchAddress = host;
                 localStorage.setItem('radio-browser-soundtouch-host', host);
-                state.soundtouchStatus = 'checking';
+                state.deviceMessage = '';
+                state.soundtouchStatus = host ? 'checking' : 'idle';
                 render();
-                pingSoundtouch(host).then(ok => {
-                    state.soundtouchStatus = ok ? 'available' : 'unreachable';
-                    render();
-                });
+                if (host) {
+                    pingSoundtouch(host).then(ok => {
+                        if (state.soundtouchAddress === host) {
+                            state.soundtouchStatus = ok ? 'available' : 'unreachable';
+                            render();
+                        }
+                    });
+                }
                 break;
             }
+            case 'skipSetup':
+                e.preventDefault();
+                state.skippedSetup = true;
+                render();
+                break;
             case 'search': searchFromInputs(); break;
             case 'reset': reset(); break;
             case 'refresh': refresh(state.mode); break;
@@ -94,23 +98,12 @@ export function setupEvents(): void {
             searchFromInputs();
             return;
         }
-        if (target.id === 'settingDisablePlayer') {
-            state.settings.disablePlayer = (target as HTMLInputElement).checked;
-            if (state.settings.disablePlayer) stopPlayback(state);
+        if (target.id === 'settingEnablePreview') {
+            state.settings.enablePreview = (target as HTMLInputElement).checked;
+            if (!state.settings.enablePreview) stopPlayback(state);
             saveSettings(state.settings);
             render();
             return;
-        }
-        if (target.id === 'settingDisablePlayButton') {
-            state.settings.disablePlayButton = (target as HTMLInputElement).checked;
-            saveSettings(state.settings);
-            render();
-            return;
-        }
-        if (target.id === 'settingSoundtouchDefault') {
-            state.settings.soundtouchDefault = (target as HTMLInputElement).checked;
-            saveSettings(state.settings);
-            render();
         }
     });
 }

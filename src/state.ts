@@ -20,9 +20,7 @@ export interface Station {
 }
 
 export interface Settings {
-    disablePlayer: boolean;
-    disablePlayButton: boolean;
-    soundtouchDefault: boolean;
+    enablePreview: boolean;
 }
 
 export interface State {
@@ -43,5 +41,7 @@ export interface State {
     soundtouchStatus: 'idle' | 'checking' | 'available' | 'unreachable';
     currentIndex: number;
     showSettings: boolean;
+    skippedSetup: boolean;
+    deviceMessage: string;
     settings: Settings;
 }

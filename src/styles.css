@@ -456,3 +456,69 @@ button {
     from { opacity: 0; transform: translateY(16px) scale(.97) }
     to { opacity: 1; transform: translateY(0) scale(1) }
 }
+
+.setup-view {
+    min-height: 100dvh;
+    display: grid;
+    place-items: center;
+    padding: 1rem
+}
+
+.setup-panel {
+    width: min(calc(100% - 2rem), 420px);
+    background: var(--surface);
+    border: 1px solid color-mix(in srgb, var(--text) 9%, transparent);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 2rem;
+    display: grid;
+    gap: 1rem;
+    text-align: center
+}
+
+.setup-panel h1 {
+    margin: 0;
+    font-size: 1.4rem
+}
+
+.setup-panel p {
+    margin: 0;
+    color: var(--muted)
+}
+
+.setup-form {
+    display: grid;
+    gap: .75rem
+}
+
+.setup-form .input {
+    text-align: center
+}
+
+.skip-setup-link {
+    color: var(--primary);
+    text-decoration: underline;
+    cursor: pointer;
+    justify-self: center
+}
+
+.offline-banner {
+    background: color-mix(in srgb, #c33 12%, var(--surface));
+    color: #a11;
+    border: 1px solid color-mix(in srgb, #c33 35%, transparent);
+    border-radius: var(--radius);
+    padding: .85rem 1rem;
+    font-weight: 600
+}
+
+.soundtouch-hint {
+    display: block;
+    color: var(--muted);
+    font-size: .8rem;
+    margin-top: .5rem
+}
+
+.btn:disabled {
+    opacity: .5;
+    cursor: not-allowed
+}

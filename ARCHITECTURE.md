@@ -32,8 +32,10 @@ AfterTouch-RadioBrowser/
 │       ├── filters.ts          # Search inputs, limit select, mode chips
 │       ├── station-card.ts     # Play/favorite/send card actions
 │       ├── player-bar.ts       # Now-playing info
-│       ├── soundtouch.ts       # Host input + reachability status
-│       └── settings.ts         # Settings modal (3 toggles + reset)
+│       ├── soundtouch.ts       # Host input + reachability status + hints
+│       ├── setup.ts            # Full-screen first-run setup view
+│       ├── banner.ts           # Device-offline banner
+│       └── settings.ts         # Settings modal (enablePreview toggle + reset)
 ├── tests/
 │   └── app.test.ts             # Vitest suite (jsdom)
 ├── docs/                       # GitHub Pages hosting output (tracked, deploy-generated)
@@ -72,6 +74,8 @@ graph TD
     APP --> ACT[actions.ts]
     APP --> SET[settings.ts]
     APP --> COMP[components/*]
+    APP --> SETUP[components/setup.ts]
+    APP --> BANNER[components/banner.ts]
     EVT --> APP
     EVT --> ACT
     EVT --> SET
@@ -101,10 +105,18 @@ graph TD
 - **Event delegation**: all interaction handled by exactly 3 listeners on `#app` (click,
   keydown, change) — no per-element bindings.
 - **Audio widget**: single persistent `<audio>` from `player.ts`; `render()` detaches it before
-  `innerHTML` and re-inserts it into `.player` (breaking this kills playback).
-- **Language codes**: `en`/`de`/`ru`/`ukr` (not `uk`); `getLabels()` maps `'uk'` → `'ukr'`.
+  `innerHTML` and re-inserts it into `.player` while preview is enabled (breaking this kills
+  playback).
+- **Setup view**: rendered (instead of the app shell) when no address is saved and setup was not
+  skipped; the same `#soundtouch`/`#saveSoundtouch` ids are reused by the compact bar.
+- **Host sanitization**: `sanitizeHost()` in `actions.ts` strips scheme, path/query and invalid
+  characters; a non-hostname result is rejected (empty string).
+- **Language codes**: `en`/`de`/`ru`/`ukr` (not `uk`); `getLabels()` maps `'uk'` → `'ukr'`;
+  `detectLanguage()` maps `'uk'` → `'ukr'` and unsupported locales → `en`.
 - **localStorage keys**: `radio-browser-language`, `radio-browser-soundtouch-host`,
   `radio-browser-favorites`, `radio-browser-settings`.
+- **Settings**: single `enablePreview` toggle (default off); legacy settings keys are ignored on
+  load.
 - **SoundTouch ports**: 8000 = reachability (HEAD, `no-cors`); 8090 = station send (POST,
   `text/plain;charset=UTF-8`).
 - **Hosting**: `docs/` is committed deploy output for GitHub Pages; `dist/` and `.DS_Store`
