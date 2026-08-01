@@ -24,10 +24,8 @@ export const translations = {
         favorites: 'Favorites',
         top: 'Top voted',
         recent: 'Recently clicked',
-        play: 'Play',
         favorite: 'Favorite',
         remove: 'Remove favorite',
-        send: 'Send to SoundTouch',
         noResults: 'No stations found.',
         loading: 'Loading stations…',
         active: 'Active language',
@@ -63,6 +61,10 @@ export const translations = {
         unreachable: 'Unreachable',
         offlineBanner: 'Speaker is offline — connect to the same Wi-Fi as your speaker.',
         unconfiguredHint: "Save your speaker's address to play on it.",
+        playOnSpeaker: 'Play on speaker',
+        playingOnSpeaker: 'Playing on speaker…',
+        sendFailed: "Couldn't reach the speaker.",
+        offlineHint: 'Speaker is offline — reconnect it.',
         settingEnablePreview: 'Enable in-browser preview'
     },
     de: {
@@ -81,10 +83,8 @@ export const translations = {
         favorites: 'Favoriten',
         top: 'Top bewertet',
         recent: 'Zuletzt geklickt',
-        play: 'Abspielen',
         favorite: 'Favorit',
         remove: 'Favorit entfernen',
-        send: 'An SoundTouch senden',
         noResults: 'Keine Sender gefunden.',
         loading: 'Lade Sender…',
         active: 'Aktive Sprache',
@@ -120,6 +120,10 @@ export const translations = {
         unreachable: 'Nicht erreichbar',
         offlineBanner: 'Lautsprecher ist offline — verbinde dich mit demselben Wi-Fi wie dein Lautsprecher.',
         unconfiguredHint: 'Speichere die Adresse deines Lautsprechers, um darauf abzuspielen.',
+        playOnSpeaker: 'Auf Lautsprecher abspielen',
+        playingOnSpeaker: 'Wird auf dem Lautsprecher abgespielt…',
+        sendFailed: 'Lautsprecher nicht erreichbar.',
+        offlineHint: 'Lautsprecher ist offline — verbinde ihn neu.',
         settingEnablePreview: 'Vorschau im Browser aktivieren'
     },
     ru: {
@@ -138,10 +142,8 @@ export const translations = {
         favorites: 'Избранное',
         top: 'Лучшие',
         recent: 'Недавние',
-        play: 'Воспроизвести',
         favorite: 'В избранное',
         remove: 'Удалить из избранного',
-        send: 'Отправить в SoundTouch',
         noResults: 'Станции не найдены.',
         loading: 'Загрузка станций…',
         active: 'Активный язык',
@@ -177,6 +179,10 @@ export const translations = {
         unreachable: 'Недоступна',
         offlineBanner: 'Колонка не в сети — подключитесь к той же Wi-Fi-сети, что и колонка.',
         unconfiguredHint: 'Сохраните адрес колонки, чтобы воспроизводить на ней.',
+        playOnSpeaker: 'Воспроизвести на колонке',
+        playingOnSpeaker: 'Воспроизводится на колонке…',
+        sendFailed: 'Не удалось связаться с колонкой.',
+        offlineHint: 'Колонка не в сети — переподключите её.',
         settingEnablePreview: 'Включить предпрослушивание в браузере'
     },
     ukr: {
@@ -195,10 +201,8 @@ export const translations = {
         favorites: 'Вибране',
         top: 'Найкращі',
         recent: 'Нещодавні',
-        play: 'Відтворити',
         favorite: 'У вибране',
         remove: 'Видалити з вибраного',
-        send: 'Надіслати в SoundTouch',
         noResults: 'Станції не знайдено.',
         loading: 'Завантаження станцій…',
         active: 'Активна мова',
@@ -234,6 +238,10 @@ export const translations = {
         unreachable: 'Недоступна',
         offlineBanner: 'Колонка не в мережі — підключіться до тієї ж Wi-Fi-мережі, що й колонка.',
         unconfiguredHint: 'Збережіть адресу колонки, щоб відтворювати на ній.',
+        playOnSpeaker: 'Відтворити на колонці',
+        playingOnSpeaker: 'Відтворюється на колонці…',
+        sendFailed: 'Не вдалося зв\'язатися з колонкою.',
+        offlineHint: 'Колонка не в мережі — підключіть її знову.',
         settingEnablePreview: 'Увімкнути попередній перегляд у браузері'
     }
 } as const;

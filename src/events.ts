@@ -2,13 +2,13 @@ import type {Language} from './i18n';
 import type {Mode, Station} from './state';
 import {state} from './app';
 import {render, refresh, searchFromInputs, reset, loadNextResultSet, loadPreviousResultSet} from './app';
-import {playStation, stopPlayback, toggleFavorite, sendToSoundtouch, setLanguage, pingSoundtouch, sanitizeHost} from './actions';
+import {stopPlayback, toggleFavorite, sendToSoundtouch, setLanguage, pingSoundtouch, sanitizeHost} from './actions';
 import {defaultSettings, saveSettings} from './settings';
 
 export function setupEvents(): void {
     const app = document.querySelector('#app')!;
 
-    app.addEventListener('click', (e) => {
+    app.addEventListener('click', async (e) => {
         const target = e.target as HTMLElement;
 
         const langBtn = target.closest('[data-lang]') as HTMLElement | null;
@@ -19,8 +19,9 @@ export function setupEvents(): void {
 
         const playBtn = target.closest('[data-play]') as HTMLElement | null;
         if (playBtn) {
+            if (!state.soundtouchAddress || state.soundtouchStatus === 'unreachable') return;
             const s = state.stations.find((x: Station) => x.stationuuid === playBtn!.dataset.play);
-            if (s) { playStation(s, state); render(); }
+            if (s) { await sendToSoundtouch(s, state); render(); }
             return;
         }
 
@@ -28,13 +29,6 @@ export function setupEvents(): void {
         if (favBtn) {
             const s = state.stations.find((x: Station) => x.stationuuid === favBtn!.dataset.fav);
             if (s) { toggleFavorite(s, state); render(); }
-            return;
-        }
-
-        const sendBtn = target.closest('[data-send]') as HTMLElement | null;
-        if (sendBtn) {
-            const s = state.stations.find((x: Station) => x.stationuuid === sendBtn!.dataset.send);
-            if (s) sendToSoundtouch(s, state).catch(console.error);
             return;
         }
 

@@ -3,7 +3,6 @@ import {detectLanguage, getLabels, translations} from './i18n';
 import type {Mode, Settings, State, Station} from './state';
 import {getAudioElement} from './player';
 import {topStations, recentStations, searchStations} from './api';
-import {playStation} from './actions';
 import {loadSettings} from './settings';
 import {renderHeader} from './components/header';
 import {renderSoundtouch} from './components/soundtouch';

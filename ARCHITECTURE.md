@@ -19,7 +19,7 @@ AfterTouch-RadioBrowser/
 │   ├── main.ts                 # Entry point: render, wire events, fetch, ping SoundTouch
 │   ├── app.ts                  # Global mutable state + render/refresh orchestration
 │   ├── events.ts               # All user interaction via 3 delegated listeners
-│   ├── actions.ts              # Domain actions: play, favorites, language, SoundTouch
+│   ├── actions.ts              # Domain actions: sanitize, favorites, language, SoundTouch send/preview
 │   ├── api.ts                  # Radio Browser API client (axios)
 │   ├── i18n.ts                 # Translations: en/de/ru/ukr (as const)
 │   ├── player.ts               # Persistent <audio> singleton
@@ -30,7 +30,7 @@ AfterTouch-RadioBrowser/
 │       ├── header.ts           # Branding, language chips, settings gear
 │       ├── footer.ts           # Site footer with Radio Browser attribution
 │       ├── filters.ts          # Search inputs, limit select, mode chips
-│       ├── station-card.ts     # Play/favorite/send card actions
+│       ├── station-card.ts     # Primary play-on-speaker + favorite card actions
 │       ├── player-bar.ts       # Now-playing info
 │       ├── soundtouch.ts       # Host input + reachability status + hints
 │       ├── setup.ts            # Full-screen first-run setup view
@@ -111,6 +111,8 @@ graph TD
   skipped; the same `#soundtouch`/`#saveSoundtouch` ids are reused by the compact bar.
 - **Host sanitization**: `sanitizeHost()` in `actions.ts` strips scheme, path/query and invalid
   characters; a non-hostname result is rejected (empty string).
+- **Station card**: primary action is play-on-speaker (`data-play`, disabled with a hint when
+  unconfigured/offline); there is no separate send button.
 - **Language codes**: `en`/`de`/`ru`/`ukr` (not `uk`); `getLabels()` maps `'uk'` → `'ukr'`;
   `detectLanguage()` maps `'uk'` → `'ukr'` and unsupported locales → `en`.
 - **localStorage keys**: `radio-browser-language`, `radio-browser-soundtouch-host`,
