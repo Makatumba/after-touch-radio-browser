@@ -27,7 +27,7 @@ export function initLanguage(): Language {
 }
 
 export const state: State = {
-    language: (localStorage.getItem(LS_LANGUAGE) as Language) || 'en',
+    language: initLanguage(),
     query: '',
     country: '',
     langFilter: '',
