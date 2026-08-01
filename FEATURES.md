@@ -21,7 +21,9 @@ auto-detected (`en`/`de`/`ru`/`ukr`).
   announcement later.
 - **Devices**: one SoundTouch device, remembered.
 - **Stack**: vanilla TypeScript + Vite (no framework change).
-- **Connection model**: direct to the device (no bridge service in v1).
+- **Connection model**: direct to the device (no bridge service in v1). Works with every
+  AfterTouch install path (on-device, local host, VPS) — the app only talks to the speaker's
+  own Web API.
 
 ## Functional requirements
 
@@ -131,6 +133,8 @@ branding still renders. A downscaled favicon copy is an implementation detail.
 - Multiple browser tabs — last-write-wins, accepted limitation.
 - Missing translations — English fallback (existing behavior).
 - iOS Safari blocking http/ws to LAN — degrade with a plain-language message.
+- Speaker reachable but the Radio Browser source is inactive (`INVALID_SOURCE`) — show a
+  plain-language hint to check the AfterTouch Health tab.
 - Station stream fails on the device — surface the device error event.
 - Missing/broken logo image — text branding still renders (graceful degradation).
 
@@ -150,5 +154,7 @@ branding still renders. A downscaled favicon copy is an implementation detail.
   Access permission prompt; iOS Safari blocks it outright. WebSockets to LAN are not gated yet
   but are on the roadmap.
 - SSDP/mDNS discovery is UDP multicast — not a browser API.
-- SoundTouch is an end-of-life product line; Bose published the Web API (Jan 2026) so community
-  software can control devices locally. Devices will never speak HTTPS/WSS.
+- SoundTouch is an end-of-life product line; Bose shut down the SoundTouch cloud on May 6, 2026
+  and published the Web API (Jan 2026) so community software can control devices locally. The
+  speaker must be migrated to AfterTouch (any install path) with the Radio Browser source
+  active for stations to play. Devices will never speak HTTPS/WSS.
