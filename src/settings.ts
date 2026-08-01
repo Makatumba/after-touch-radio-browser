@@ -3,15 +3,15 @@ import type { Settings } from './state';
 const LS_SETTINGS = 'radio-browser-settings';
 
 export const defaultSettings: Settings = {
-    disablePlayer: false,
-    disablePlayButton: false,
-    soundtouchDefault: false,
+    enablePreview: false,
 };
 
 export function loadSettings(): Settings {
     try {
         const raw = localStorage.getItem(LS_SETTINGS);
-        return raw ? { ...defaultSettings, ...JSON.parse(raw) } : { ...defaultSettings };
+        if (!raw) return { ...defaultSettings };
+        const parsed = JSON.parse(raw) as Record<string, unknown>;
+        return { enablePreview: parsed.enablePreview === true };
     } catch {
         return { ...defaultSettings };
     }
