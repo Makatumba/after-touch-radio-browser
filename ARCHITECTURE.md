@@ -28,6 +28,7 @@ AfterTouch-RadioBrowser/
 │   ├── styles.css              # All styling
 │   └── components/             # Pure render functions returning HTML strings
 │       ├── header.ts           # Branding, language chips, settings gear
+│       ├── footer.ts           # Site footer with Radio Browser attribution
 │       ├── filters.ts          # Search inputs, limit select, mode chips
 │       ├── station-card.ts     # Play/favorite/send card actions
 │       ├── player-bar.ts       # Now-playing info
