@@ -304,6 +304,24 @@ button {
     flex: 1 1 180px
 }
 
+.footer {
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
+    color: var(--muted);
+    font-size: .875rem;
+    text-align: center
+}
+
+.footer a {
+    color: var(--primary);
+    text-decoration: none
+}
+
+.footer a:hover {
+    text-decoration: underline
+}
+
 .audio-wrap {
     display: grid;
     gap: .75rem

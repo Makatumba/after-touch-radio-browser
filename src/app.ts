@@ -8,6 +8,7 @@ import {loadSettings} from './settings';
 import {renderHeader} from './components/header';
 import {renderSoundtouch} from './components/soundtouch';
 import {renderFilters} from './components/filters';
+import {renderFooter} from './components/footer';
 import {renderStationCard} from './components/station-card';
 import {renderPlayerBar} from './components/player-bar';
 import {renderSettings} from './components/settings';
@@ -41,7 +42,7 @@ function App() {
     const t = getLabels(state);
     const playerHtml = state.settings.disablePlayer ? '' : renderPlayerBar(state, t);
     const settingsHtml = state.showSettings ? renderSettings(state) : '';
-    return `<div class="app-shell"><a class="skip-link" href="#main">Skip to content</a>${renderHeader(state, t)}<main id="main">${renderSoundtouch(state, t)}<section class="layout">${renderFilters(state, t)}<section class="panel results-panel"><div class="toolbar"><div><h2>${state.mode === 'favorites' ? t.favorites : state.mode === 'recent' ? t.recent : state.mode === 'top' ? t.top : t.searchResults}</h2><small>${state.status}</small></div><button class="pill-btn" id="refresh">↻</button></div><div class="station-list">${state.stations.length ? state.stations.map(s => renderStationCard(s, state, t)).join('') : `<div class="empty-state"><strong>${t.noResults}</strong></div>`}</div><div class="results-footer"><button class="btn btn-secondary" id="prevResults">${t.previousSet}</button><button class="btn btn-secondary" id="nextResults">${t.nextSet}</button></div></section></section>${playerHtml}</main>${settingsHtml}</div>`;
+    return `<div class="app-shell"><a class="skip-link" href="#main">Skip to content</a>${renderHeader(state, t)}<main id="main">${renderSoundtouch(state, t)}<section class="layout">${renderFilters(state, t)}<section class="panel results-panel"><div class="toolbar"><div><h2>${state.mode === 'favorites' ? t.favorites : state.mode === 'recent' ? t.recent : state.mode === 'top' ? t.top : t.searchResults}</h2><small>${state.status}</small></div><button class="pill-btn" id="refresh">↻</button></div><div class="station-list">${state.stations.length ? state.stations.map(s => renderStationCard(s, state, t)).join('') : `<div class="empty-state"><strong>${t.noResults}</strong></div>`}</div><div class="results-footer"><button class="btn btn-secondary" id="prevResults">${t.previousSet}</button><button class="btn btn-secondary" id="nextResults">${t.nextSet}</button></div></section></section>${playerHtml}</main>${renderFooter(state, t)}${settingsHtml}</div>`;
 }
 
 export async function refresh(mode: Mode = state.mode) {

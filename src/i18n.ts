@@ -44,7 +44,8 @@ export const translations = {
         settingDisablePlayer: 'Disable player',
         settingDisablePlayButton: 'Disable play buttons',
         settingSoundtouchDefault: 'Send to SoundTouch by default',
-        resetDefaults: 'Reset to defaults'
+        resetDefaults: 'Reset to defaults',
+        footerAttribution: 'Station data by {service}'
     },
     de: {
         title: 'AfterTouch radio browser',
@@ -90,7 +91,8 @@ export const translations = {
         settingDisablePlayer: 'Player deaktivieren',
         settingDisablePlayButton: 'Play-Buttons deaktivieren',
         settingSoundtouchDefault: 'Standardmäßig an SoundTouch senden',
-        resetDefaults: 'Auf Standard zurücksetzen'
+        resetDefaults: 'Auf Standard zurücksetzen',
+        footerAttribution: 'Senderdaten von {service}'
     },
     ru: {
         title: 'AfterTouch radio browser',
@@ -136,7 +138,8 @@ export const translations = {
         settingDisablePlayer: 'Отключить плеер',
         settingDisablePlayButton: 'Отключить кнопки воспроизведения',
         settingSoundtouchDefault: 'Отправлять в SoundTouch по умолчанию',
-        resetDefaults: 'Сбросить на стандартные'
+        resetDefaults: 'Сбросить на стандартные',
+        footerAttribution: 'Данные о станциях предоставляет {service}'
     },
     ukr: {
         title: 'AfterTouch radio browser',
@@ -182,7 +185,8 @@ export const translations = {
         settingDisablePlayer: 'Вимкнути плеєр',
         settingDisablePlayButton: 'Вимкнути кнопки відтворення',
         settingSoundtouchDefault: 'Надсилати до SoundTouch за замовчуванням',
-        resetDefaults: 'Скинути до стандартних'
+        resetDefaults: 'Скинути до стандартних',
+        footerAttribution: 'Дані про станції надає {service}'
     }
 } as const;
 
