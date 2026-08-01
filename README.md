@@ -1,29 +1,24 @@
 # AfterTouch Radio Browser
 
-A lightweight single-page app for searching, filtering, previewing, and playing internet radio
-stations, built with vanilla TypeScript and Vite. Station data comes from the
-[Radio Browser API](https://www.radio-browser.info/).
+AfterTouch Radio Browser is an app for searching radio stations and listening to them on Bose
+SoundTouch speakers or right in the browser. Stations come from the Radio Browser service
+(https://www.radio-browser.info/) — a community-maintained catalog of internet radio stations.
+Since the manufacturer no longer supports these speakers, the app is built for aftermarket
+software: [AfterTouch — Bose SoundTouch Toolkit](https://gesellix.github.io/Bose-SoundTouch/).
 
-## Features
+## Listening on a Bose SoundTouch speaker
 
-- **Search & filters** — filter stations by name, country, language, or tag; choose a result
-  limit (12 / 24 / 50 / 100); hide broken stations; Search and Reset buttons; pressing Enter in
-  any filter field triggers a search. Results are ordered by click count (descending).
-- **Browse modes** — Top voted, Recently clicked, and Favorites. The Previous / Next result-set
-  buttons cycle through Top → Recent → Search → Favorites (and back); entering Search mode grows
-  the limit by 24 (up to 100) and leaving it shrinks it back (down to 12).
-- **Player** — a single persistent audio element in a player bar showing the current station and
-  its metadata (country · language · codec · bitrate). Playback uses the station's resolved URL,
-  falling back to its raw URL.
-- **Favorites** — toggle any station as a favorite from its card; favorites persist in
-  `localStorage` and appear in the Favorites mode.
-- **SoundTouch integration** — configure your Bose SoundTouch host; the app checks reachability
-  (HEAD on port 8000) and can send a station to the speaker (POST on port 8090).
-- **Settings** — modal with three toggles: disable the player bar, hide play buttons on station
-  cards, or make the play button send to SoundTouch by default. A "Reset to defaults" button
-  restores the defaults.
-- **Internationalization** — interface in English, German, Russian, and Ukrainian, switchable via
-  header chips and persisted across sessions.
+The app can send a station straight to a SoundTouch speaker on your network. Because Bose no
+longer supports these speakers, this requires AfterTouch to be running on your network — the
+local aftermarket service this app is built for (see the AfterTouch project page for
+installation).
+
+1. Find the speaker's IP address (e.g. in your router's device list).
+2. In the app's header, enter the address into the **SoundTouch** field and press **Save**. The
+   status icon next to the field shows the result: ✓ reachable, ✗ unreachable.
+3. On a station card, press **Send to SoundTouch** to play the station on the speaker — or enable
+   *Send to SoundTouch by default* in Settings so the play button always targets the speaker
+   instead of the browser.
 
 ## Quick start
 
