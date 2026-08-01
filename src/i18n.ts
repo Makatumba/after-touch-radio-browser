@@ -11,6 +11,7 @@ export const translations = {
     en: {
         title: 'AfterTouch radio browser',
         subtitle: 'Search, filter, preview, and play live stations.',
+        logoAlt: 'AfterTouch radio browser logo',
         language: 'Language',
         search: 'Search stations',
         reset: 'Reset filters',
@@ -68,6 +69,7 @@ export const translations = {
     de: {
         title: 'AfterTouch radio browser',
         subtitle: 'Sender suchen, filtern, anhören und abspielen.',
+        logoAlt: 'AfterTouch radio browser Logo',
         language: 'Sprache',
         search: 'Sender suchen',
         reset: 'Filter zurücksetzen',
@@ -125,6 +127,7 @@ export const translations = {
     ru: {
         title: 'AfterTouch radio browser',
         subtitle: 'Искать, фильтровать, просматривать и воспроизводить станции.',
+        logoAlt: 'Логотип AfterTouch radio browser',
         language: 'Язык',
         search: 'Искать станции',
         reset: 'Сбросить фильтры',
@@ -182,6 +185,7 @@ export const translations = {
     ukr: {
         title: 'AfterTouch radio browser',
         subtitle: 'Шукати, фільтрувати, переглядати та відтворювати станції.',
+        logoAlt: 'Логотип AfterTouch radio browser',
         language: 'Мова',
         search: 'Шукати станції',
         reset: 'Скинути фільтри',

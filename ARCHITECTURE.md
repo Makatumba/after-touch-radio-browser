@@ -27,7 +27,7 @@ AfterTouch-RadioBrowser/
 │   ├── state.ts                # Shared types (Station, Settings, State, Mode)
 │   ├── styles.css              # All styling
 │   └── components/             # Pure render functions returning HTML strings
-│       ├── header.ts           # Branding, language chips, settings gear
+│       ├── header.ts           # Logo branding, title, language chips, settings gear
 │       ├── footer.ts           # Site footer with Radio Browser attribution
 │       ├── filters.ts          # Search inputs, limit select, mode chips
 │       ├── station-card.ts     # Primary play-on-speaker + preview + favorite card actions
@@ -39,7 +39,8 @@ AfterTouch-RadioBrowser/
 ├── tests/
 │   └── app.test.ts             # Vitest suite (jsdom)
 ├── docs/                       # GitHub Pages hosting output (tracked, deploy-generated)
-├── index.html                  # Vite entry HTML
+├── public/                     # Static assets copied as-is (logo.png: favicon + header brand)
+├── index.html                  # Vite entry HTML (favicon link, relative href)
 ├── vite.config.ts              # Build + test config (jsdom, base '')
 ├── tsconfig.json               # Strict TS config
 ├── package.json                # Scripts: start/test/build/deploy
@@ -122,4 +123,5 @@ graph TD
 - **SoundTouch ports**: 8000 = reachability (HEAD, `no-cors`); 8090 = station send (POST,
   `text/plain;charset=UTF-8`).
 - **Hosting**: `docs/` is committed deploy output for GitHub Pages; `dist/` and `.DS_Store`
-  are gitignored.
+  are gitignored. `public/` is copied to the dist/docs root by Vite; the favicon uses a
+  relative `href="logo.png"` so it resolves under the GitHub Pages subpath.

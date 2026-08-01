@@ -68,7 +68,8 @@ button {
     width: 3rem;
     height: 3rem;
     border-radius: .9rem;
-    background: linear-gradient(145deg, var(--primary-soft), color-mix(in srgb, var(--primary) 24%, var(--surface)))
+    object-fit: cover;
+    flex-shrink: 0
 }
 
 .panel {
@@ -277,6 +278,11 @@ button {
 }
 
 @media (max-width: 720px) {
+    .brand-mark {
+        width: 2.5rem;
+        height: 2.5rem
+    }
+
     .toolbar, .player-top {
         align-items: stretch
     }
