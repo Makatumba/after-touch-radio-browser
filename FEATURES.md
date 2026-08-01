@@ -89,6 +89,13 @@ remote-first model — the exact resulting toggle set is an implementation decis
 On cellular / wrong Wi-Fi: friendly banner "Speaker is offline — connect to the same Wi-Fi as
 your speaker"; browsing still works; play-on-speaker disabled. Never crashes.
 
+### FR-12 Branding / logo
+
+The app shows the logo (`public/logo.png`, 1254×1254 PNG) as the browser tab icon (favicon), as
+header branding next to the title, and as the source asset for the future PWA icon (FR-8). The
+header logo has an `alt` text and scales on small screens; if the image is missing, the text
+branding still renders. A downscaled favicon copy is an implementation detail.
+
 ## User flows
 
 1. **First run** — setup → enter address → verified → main screen.
@@ -111,6 +118,8 @@ your speaker"; browsing still works; play-on-speaker disabled. Never crashes.
   `'ukr'`.
 - PWA: installable from the hosted URL; standalone; browsing works offline.
 - Device offline: correct banner; the app never crashes.
+- Logo: favicon loads with no console errors; header shows the logo with alt text and no layout
+  shift on small screens; text branding still renders if the image is missing.
 
 ## Edge cases
 
@@ -123,6 +132,7 @@ your speaker"; browsing still works; play-on-speaker disabled. Never crashes.
 - Missing translations — English fallback (existing behavior).
 - iOS Safari blocking http/ws to LAN — degrade with a plain-language message.
 - Station stream fails on the device — surface the device error event.
+- Missing/broken logo image — text branding still renders (graceful degradation).
 
 ## Non-goals (v1)
 
@@ -131,6 +141,8 @@ your speaker"; browsing still works; play-on-speaker disabled. Never crashes.
 - Streaming audio as a first-class mode (preview only, default off).
 - Accounts, cloud sync.
 - Bass/source switching (v1 is transport + volume only).
+- Logo variants (SVG/ICO, animation) — a single PNG; the small favicon copy is an implementation
+  detail.
 
 ## Platform constraints (researched)
 
