@@ -61,12 +61,24 @@ export async function pingSoundtouch(host: string): Promise<boolean> {
 }
 
 export async function sendToSoundtouch(station: Station, state: State) {
-    const host = state.soundtouchAddress.trim().replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const host = sanitizeHost(state.soundtouchAddress);
     if (!host) return;
-    await fetch(`http://${host}:8090/select`, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: {'Content-Type': 'text/plain;charset=UTF-8'},
-        body: `<ContentItem source="RADIO_BROWSER" type="stationurl" location="/stations/byuuid/${station.stationuuid}"/>`
-    });
+    const t = getLabels(state);
+    try {
+        await fetch(`http://${host}:8090/select`, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: {'Content-Type': 'text/plain;charset=UTF-8'},
+            body: `<ContentItem source="RADIO_BROWSER" type="stationurl" location="/stations/byuuid/${station.stationuuid}"/>`
+        });
+        if (state.soundtouchAddress === host) {
+            state.soundtouchStatus = 'available';
+            state.deviceMessage = t.playingOnSpeaker;
+        }
+    } catch {
+        if (state.soundtouchAddress === host) {
+            state.soundtouchStatus = 'unreachable';
+            state.deviceMessage = t.sendFailed;
+        }
+    }
 }
