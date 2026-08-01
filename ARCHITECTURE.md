@@ -30,7 +30,7 @@ AfterTouch-RadioBrowser/
 │       ├── header.ts           # Branding, language chips, settings gear
 │       ├── footer.ts           # Site footer with Radio Browser attribution
 │       ├── filters.ts          # Search inputs, limit select, mode chips
-│       ├── station-card.ts     # Primary play-on-speaker + favorite card actions
+│       ├── station-card.ts     # Primary play-on-speaker + preview + favorite card actions
 │       ├── player-bar.ts       # Now-playing info
 │       ├── soundtouch.ts       # Host input + reachability status + hints
 │       ├── setup.ts            # Full-screen first-run setup view

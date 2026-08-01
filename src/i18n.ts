@@ -60,6 +60,7 @@ export const translations = {
         unconfiguredHint: "Save your speaker's address to play on it.",
         playOnSpeaker: 'Play on speaker',
         playingOnSpeaker: 'Playing on speaker…',
+        preview: 'Preview',
         sendFailed: "Couldn't reach the speaker.",
         offlineHint: 'Speaker is offline — reconnect it.',
         settingEnablePreview: 'Enable in-browser preview'
@@ -116,6 +117,7 @@ export const translations = {
         unconfiguredHint: 'Speichere die Adresse deines Lautsprechers, um darauf abzuspielen.',
         playOnSpeaker: 'Auf Lautsprecher abspielen',
         playingOnSpeaker: 'Wird auf dem Lautsprecher abgespielt…',
+        preview: 'Vorschau',
         sendFailed: 'Lautsprecher nicht erreichbar.',
         offlineHint: 'Lautsprecher ist offline — verbinde ihn neu.',
         settingEnablePreview: 'Vorschau im Browser aktivieren'
@@ -172,6 +174,7 @@ export const translations = {
         unconfiguredHint: 'Сохраните адрес колонки, чтобы воспроизводить на ней.',
         playOnSpeaker: 'Воспроизвести на колонке',
         playingOnSpeaker: 'Воспроизводится на колонке…',
+        preview: 'Прослушать',
         sendFailed: 'Не удалось связаться с колонкой.',
         offlineHint: 'Колонка не в сети — переподключите её.',
         settingEnablePreview: 'Включить предпрослушивание в браузере'
@@ -228,6 +231,7 @@ export const translations = {
         unconfiguredHint: 'Збережіть адресу колонки, щоб відтворювати на ній.',
         playOnSpeaker: 'Відтворити на колонці',
         playingOnSpeaker: 'Відтворюється на колонці…',
+        preview: 'Перегляд',
         sendFailed: 'Не вдалося зв\'язатися з колонкою.',
         offlineHint: 'Колонка не в мережі — підключіть її знову.',
         settingEnablePreview: 'Увімкнути попередній перегляд у браузері'

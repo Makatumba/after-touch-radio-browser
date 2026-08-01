@@ -2,7 +2,7 @@ import type {Language} from './i18n';
 import type {Mode, Station} from './state';
 import {state} from './app';
 import {render, refresh, searchFromInputs, reset, loadNextResultSet, loadPreviousResultSet} from './app';
-import {stopPlayback, toggleFavorite, sendToSoundtouch, setLanguage, pingSoundtouch, sanitizeHost} from './actions';
+import {playStation, stopPlayback, toggleFavorite, sendToSoundtouch, setLanguage, pingSoundtouch, sanitizeHost} from './actions';
 import {defaultSettings, saveSettings} from './settings';
 
 export function setupEvents(): void {
@@ -22,6 +22,13 @@ export function setupEvents(): void {
             if (!state.soundtouchAddress || state.soundtouchStatus === 'unreachable') return;
             const s = state.stations.find((x: Station) => x.stationuuid === playBtn!.dataset.play);
             if (s) { await sendToSoundtouch(s, state); render(); }
+            return;
+        }
+
+        const previewBtn = target.closest('[data-preview]') as HTMLElement | null;
+        if (previewBtn) {
+            const s = state.stations.find((x: Station) => x.stationuuid === previewBtn!.dataset.preview);
+            if (s) { playStation(s, state); render(); }
             return;
         }
 
