@@ -8,6 +8,7 @@
 - **Deploy**: `npm run deploy` → `vite build && rimraf docs && mv dist docs` (wipes and regenerates `docs/`). GitHub Pages hosts from the `docs/` folder, so commit the regenerated `docs/` after every deploy. `dist/` and `.DS_Store` are gitignored.
 
 ## Architecture
+- **Full map**: `ARCHITECTURE.md` at repo root contains the complete structure/dependency map. Read it before major changes; **keep it in sync** (update it in the same commit) whenever the module structure or dependencies change.
 - **Vanilla TypeScript SPA** — no framework. Vite bundler.
 - **Entry**: `src/main.ts` → render app, wire events, fetch initial data.
 - **Global mutable state** (`src/app.ts` → `state` export). Components read/write it directly.

@@ -48,6 +48,9 @@ Notes:
 
 ## Architecture
 
+A full codebase map — structure, key files, module dependency graph, and conventions — lives in
+[ARCHITECTURE.md](ARCHITECTURE.md).
+
 - **Vanilla TypeScript SPA** — no framework; Vite bundler.
 - **Entry point** — `src/main.ts` renders the app, wires the event listeners, fetches the
   initial Top-voted list, and pings a saved SoundTouch host.
