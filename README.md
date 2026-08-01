@@ -3,9 +3,9 @@
 AfterTouch Radio Browser is an app for searching radio stations and controlling them on a Bose
 SoundTouch speaker from your phone. Stations come from the Radio Browser service
 (https://www.radio-browser.info/) — a community-maintained catalog of internet radio stations.
-Since the manufacturer no longer supports these speakers, the app is built for aftermarket
-software: [AfterTouch — Bose SoundTouch Toolkit](https://gesellix.github.io/Bose-SoundTouch/).
-Not affiliated with Bose Corporation.
+Bose shut down the SoundTouch cloud on May 6, 2026, so the app is built for the aftermarket
+software that keeps these speakers alive: [AfterTouch — Bose SoundTouch Toolkit]
+(https://gesellix.github.io/Bose-SoundTouch/). Not affiliated with Bose Corporation.
 
 Planned features for the next release are specified in [FEATURES.md](FEATURES.md).
 
@@ -13,12 +13,21 @@ Planned features for the next release are specified in [FEATURES.md](FEATURES.md
 
 The app turns your phone into a remote control for a Bose SoundTouch speaker on your network.
 The speaker plays the radio; the phone shows what's playing and lets you control it. The app
-talks to the speaker directly — no account, no cloud, no extra service. SoundTouch is a
-discontinued product line, so this is aftermarket software for the
-[AfterTouch — Bose SoundTouch Toolkit](https://gesellix.github.io/Bose-SoundTouch/) ecosystem.
+connects straight to the speaker's own Web API — no account, cloud, or service in the app
+itself.
+
+Because Bose shut down the SoundTouch cloud on May 6, 2026, the speaker must be migrated to
+[AfterTouch](https://gesellix.github.io/Bose-SoundTouch/) with the **Radio Browser** source
+active (AfterTouch Health tab) for stations to play. The app works with every AfterTouch
+install path — on the speaker itself, on a local host (Raspberry Pi, NAS, PC), or on a VPS —
+because it only ever talks to the speaker's own Web API, wherever AfterTouch runs.
 Not affiliated with Bose Corporation.
 
 ### One-time setup
+
+The app needs only the speaker's address — how AfterTouch is installed (on the speaker, on a
+local host, or on a VPS) doesn't matter. Two things must be true first: the speaker is migrated
+to AfterTouch, and the AfterTouch Health tab shows **Radio Browser** as active.
 
 1. Find the speaker's IP address (e.g. in your router's device list).
 2. When no speaker is configured, the app shows a setup view: enter the address and press
@@ -40,6 +49,10 @@ Not affiliated with Bose Corporation.
 The phone must be on the same Wi-Fi as the speaker. If it isn't (e.g. mobile data), the app
 shows a notice and keeps the station list usable; speaker controls are disabled until the phone
 is back on the home network.
+
+If the speaker is reachable but a station won't play, the Radio Browser source is probably not
+active on the speaker — check the AfterTouch Health tab (see the
+[AfterTouch Radio Browser reference](https://gesellix.github.io/Bose-SoundTouch/docs/reference/radio-browser/)).
 
 ### Preview in the browser (optional)
 
