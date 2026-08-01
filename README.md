@@ -5,6 +5,7 @@ SoundTouch speakers or right in the browser. Stations come from the Radio Browse
 (https://www.radio-browser.info/) — a community-maintained catalog of internet radio stations.
 Since the manufacturer no longer supports these speakers, the app is built for aftermarket
 software: [AfterTouch — Bose SoundTouch Toolkit](https://gesellix.github.io/Bose-SoundTouch/).
+Not affiliated with Bose Corporation.
 
 ## Listening on a Bose SoundTouch speaker
 
