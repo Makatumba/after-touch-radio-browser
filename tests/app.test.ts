@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+// @ts-expect-error the repo has no @types/node; node:fs is available at runtime via vitest
 import fs from 'node:fs';
 import { App, render, state } from '../src/app';
 import { getLabels, translations } from '../src/i18n';
