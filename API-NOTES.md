@@ -50,7 +50,8 @@ that actually work. "Verified" means the claim was checked with real requests ag
 - `GET /json/languages` — canonical lowercase language names, `iso_639` code, `stationcount`.
 - `GET /json/countries` — canonical English country names, `iso_3166_1` code, `stationcount`.
 - Sort with `?hidebroken=true&order=stationcount&reverse=true` (most-populated first; the app
-  re-sorts the dropdown options alphabetically by label for display, with "All" always first).
+  re-sorts the dropdown options for display — alphabetically by the localized label in the
+  active UI language, with "All" always first).
 - The path filters are NOT symmetric:
   - `/json/languages/<text>` — case-sensitive substring on the NAME
     (`/json/languages/ukrain` → "ukrainian" + "ukrainisch").
@@ -94,5 +95,11 @@ the app uses dropdowns instead of free text.
 - Language filter: send `language=<canonical lowercase name>` with `languageExact=true`.
 - Country filter: send `countrycode=<ISO 3166-1 alpha-2 code>`.
 - Both are omitted when "All" is selected. `name` and `tag` remain free-text substring filters.
-- Dropdown options are sorted alphabetically by label client-side; the "All" option is always
-  first.
+- Dropdown option labels are localized client-side to the active UI language: each option
+  carries its ISO code (`iso_639` for languages, `iso_3166_1` for countries) and
+  `Intl.DisplayNames` renders the localized name, with a per-language override map
+  (`filterLabelOverrides` in `src/i18n.ts`) winning over `Intl.DisplayNames` and the canonical
+  English label as fallback for unmappable codes. Sorting uses the active locale's collation.
+  The values sent to the API are never localized (canonical lowercase names / ISO codes).
+- Switching the UI language re-renders the dropdowns in the new locale immediately — no
+  refetch of `/languages` or `/countries`.
