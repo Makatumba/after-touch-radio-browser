@@ -39,6 +39,13 @@ Search by name/country/language/tag; Top / Recent / Favorites modes; limit selec
 hide-broken; status line ("Loading…", "N loaded", "Service unavailable"). Data from the Radio
 Browser API.
 
+Results are paged: **Prev/Next** buttons under the list move within the current mode's results
+in fixed-size sets (the limit selector's value) — they never switch lists. Next loads the
+following set (API offset, or the next slice of the local favorites list); Prev returns to the
+previous set, clamped at the first. Favorites page through the local favorites array, with no
+API call. A mode change, a new search, a filter change, or reset always restarts at the first
+set (offset 0); the ↻ refresh button reloads the first set too.
+
 ### FR-2 One-time device setup
 
 Shown as a **full-screen setup view** when no speaker is configured: plain-language instructions
@@ -119,6 +126,10 @@ subpath hosting; a downscaled favicon copy is an implementation detail.
   confirmation; the action is disabled with a clear message when the device is offline or
   unconfigured; a failed send shows an error and marks the device unreachable; the separate
   "Send to SoundTouch" button is gone. Favorites play straight to the speaker too.
+- **Pagination**: Prev/Next page within the current mode's list (never switch lists); Prev is
+  disabled on the first set and Next on a short/empty final set, both staying visible;
+  favorites page through the local list without an API call; a mode change, new search, filter
+  change, or reset restarts at the first set.
 - **Preview**: off by default; when on, a Preview action plays in-browser without disturbing
   device state; disabling it stops preview audio.
 - **i18n**: language is auto-detected on first run (`'uk'` → `'ukr'`, unsupported → English);
@@ -139,6 +150,10 @@ subpath hosting; a downscaled favicon copy is an implementation detail.
   marked unreachable; never crashes.
 - Stale status renders — a check/send that resolves after a re-render must not show outdated
   state.
+- A final set with exactly `limit` stations — Next stays enabled once more and the following
+  page is empty (the API exposes no total count, so a short set is the only signal).
+- The ↻ refresh button always reloads the first set (offset 0), even while a later page is
+  shown.
 - Missing translations — English fallback (existing behavior).
 - Missing/broken logo image — text branding still renders (graceful degradation).
 
