@@ -34,7 +34,7 @@ to AfterTouch, and the AfterTouch Health tab shows **Radio Browser** as active.
 
 1. Find the speaker's IP address (e.g. in your router's device list).
 2. When no speaker is configured, the app shows a full-screen setup view: enter the address and
-   press **Save**. The app checks the speaker and shows ✓ reachable (or ✗ unreachable). You can
+   press **Save**. The app checks the speaker and shows ✓ Reachable (or ✗ Unreachable). You can
    also skip setup and browse stations first — the play-on-speaker action stays disabled until
    an address is saved.
 3. The app remembers the speaker — setup is needed only once. The address stays editable in the

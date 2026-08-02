@@ -20,7 +20,7 @@
 - **Language codes**: `en`, `de`, `ru`, `ukr` (not `uk`). `getLabels()` maps `'uk'` → `'ukr'`.
 - **Translations**: `as const` object in `i18n.ts`. Add new keys to all 4 languages when extending.
 - **localStorage keys**: `radio-browser-language`, `radio-browser-soundtouch-host`, `radio-browser-favorites`, `radio-browser-settings`
-- **Settings** (3 toggles, stored as JSON): `disablePlayer`, `disablePlayButton`, `soundtouchDefault`. Defaults in `src/settings.ts`.
+- **Settings** (1 toggle, stored as JSON): `enablePreview` (default off). Defaults in `src/settings.ts`.
 - **SoundTouch**: Port 8000 for reachability (HEAD, `no-cors`), port 8090 for station send (POST, `no-cors`, `text/plain;charset=UTF-8` body).
 - **Git artifacts**: `docs/` is tracked (GitHub Pages hosting output — commit it after deploys); `dist/` and `.DS_Store` are gitignored.
 
