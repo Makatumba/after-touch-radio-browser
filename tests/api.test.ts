@@ -73,12 +73,12 @@ describe('searchStations — canonical filter params', () => {
 });
 
 describe('fetchLanguages / fetchCountries — dropdown option lists', () => {
-    it('fetchLanguages drops entries without a valid iso_639 code and keeps order', async () => {
+    it('fetchLanguages drops entries without a valid iso_639 code and sorts alphabetically by label', async () => {
         get.mockResolvedValue({
             data: [
-                { name: 'english', iso_639: 'en', stationcount: 100 },
-                { name: 'engilsh', iso_639: null, stationcount: 5 },
                 { name: 'german', iso_639: 'de', stationcount: 50 },
+                { name: 'engilsh', iso_639: null, stationcount: 5 },
+                { name: 'english', iso_639: 'en', stationcount: 100 },
             ],
         });
         const result = await fetchLanguages();
@@ -94,11 +94,11 @@ describe('fetchLanguages / fetchCountries — dropdown option lists', () => {
         ]);
     });
 
-    it('fetchCountries maps ISO 3166-1 alpha-2 codes as option values', async () => {
+    it('fetchCountries maps ISO 3166-1 alpha-2 codes as option values and sorts alphabetically by label', async () => {
         get.mockResolvedValue({
             data: [
-                { name: 'Germany', iso_3166_1: 'DE', stationcount: 100 },
                 { name: 'Ukraine', iso_3166_1: 'UA', stationcount: 10 },
+                { name: 'Germany', iso_3166_1: 'DE', stationcount: 100 },
             ],
         });
         const result = await fetchCountries();
