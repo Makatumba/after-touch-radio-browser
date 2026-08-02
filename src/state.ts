@@ -33,6 +33,7 @@ export interface State {
     hideBroken: boolean;
     mode: Mode;
     stations: Station[];
+    offset: number;
     favorites: Station[];
     nowPlaying: string;
     playerMeta: string;

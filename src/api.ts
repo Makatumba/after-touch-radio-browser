@@ -10,24 +10,25 @@ export async function searchStations(params: {
     tag?: string;
     limit: number;
     hideBroken: boolean;
+    offset?: number;
 }): Promise<Station[]> {
     const {data} = await api.get('/stations/search', {
         params: {
             limit: params.limit,
             hidebroken: params.hideBroken,
             order: 'clickcount',
-            reverse: true, ...(params.name ? {name: params.name} : {}), ...(params.country ? {country: params.country} : {}), ...(params.language ? {language: params.language} : {}), ...(params.tag ? {tag: params.tag} : {})
+            reverse: true, ...(params.offset != null ? {offset: params.offset} : {}), ...(params.name ? {name: params.name} : {}), ...(params.country ? {country: params.country} : {}), ...(params.language ? {language: params.language} : {}), ...(params.tag ? {tag: params.tag} : {})
         }
     });
     return data;
 }
 
-export async function topStations(limit: number, hideBroken: boolean): Promise<Station[]> {
-    const {data} = await api.get('/stations/topvote', {params: {limit, hidebroken: hideBroken}});
+export async function topStations(limit: number, hideBroken: boolean, offset = 0): Promise<Station[]> {
+    const {data} = await api.get('/stations/topvote', {params: {limit, hidebroken: hideBroken, offset}});
     return data;
 }
 
-export async function recentStations(limit: number, hideBroken: boolean): Promise<Station[]> {
-    const {data} = await api.get('/stations/lastclick', {params: {limit, hidebroken: hideBroken}});
+export async function recentStations(limit: number, hideBroken: boolean, offset = 0): Promise<Station[]> {
+    const {data} = await api.get('/stations/lastclick', {params: {limit, hidebroken: hideBroken, offset}});
     return data;
 }

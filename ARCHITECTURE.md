@@ -113,6 +113,12 @@ graph TD
   characters; a non-hostname result is rejected (empty string).
 - **Station card**: primary action is play-on-speaker (`data-play`, disabled with a hint when
   unconfigured/offline); there is no separate send button.
+- **Pagination**: station lists are paged by `offset` (start index in `state.offset`, step
+  `state.limit`); `refresh(mode)` always loads the first set (resets `offset` to 0) and every
+  API call passes `offset` (`topvote`, `lastclick`, `search`), while favorites are sliced
+  locally; `loadNextResultSet()`/`loadPreviousResultSet()` reload the current mode at the new
+  offset (they never cycle modes) and no-op at the edges; the prev/next buttons stay visible
+  and render `disabled` at the edges (first set / short final set).
 - **Language codes**: `en`/`de`/`ru`/`ukr` (not `uk`); `getLabels()` maps `'uk'` → `'ukr'`;
   `detectLanguage()` maps `'uk'` → `'ukr'` and unsupported locales → `en`.
 - **localStorage keys**: `radio-browser-language`, `radio-browser-soundtouch-host`,
