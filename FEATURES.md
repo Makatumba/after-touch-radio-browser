@@ -31,7 +31,8 @@ auto-detected (`en`/`de`/`ru`/`ukr`).
 
 Shipped features. Low-risk, self-contained: they need no live WebSocket state. The setup view,
 play-on-speaker as the primary card action, in-browser preview, the device-offline banner,
-language auto-detection, the single preview setting, and the logo/branding.
+language auto-detection, the single preview setting, the logo/branding, and PWA
+installability.
 
 ### FR-1 Station picker (existing, touch-adapted)
 
@@ -123,10 +124,53 @@ browsing still works; play-on-speaker actions are disabled with a clear message.
 ### FR-12 Branding / logo
 
 The app shows the logo (`public/logo.png`, 1254×1254 PNG) as the browser tab icon (favicon), as
-header branding next to the title, and as the source asset for the future PWA icon (see FR-8,
-planned). The header logo has an `alt` text and scales on small screens; if the image is
-missing, the text branding still renders. The favicon reference resolves under the GitHub Pages
-subpath hosting; a downscaled favicon copy is an implementation detail.
+header branding next to the title, and as the source asset for the PWA icons (see FR-8). The
+header logo has an `alt` text and scales on small screens; if the image is missing, the text
+branding still renders. The favicon reference resolves under the GitHub Pages subpath hosting;
+a downscaled favicon copy is an implementation detail.
+
+### FR-8 PWA — installable standalone app
+
+Installable from the hosted URL, standalone (own window), mobile-first touch UI. Shipped as
+installability (web app manifest + icons + launch behavior) and app-like polish only — **no
+service worker**. The app is inherently online (station search needs the Radio Browser API,
+device control needs the LAN, preview needs streaming), so offline caching, offline UI, and an
+update lifecycle would add complexity without user value: when the network is unavailable the
+existing "Service unavailable" status behavior applies unchanged. Installation is discovered
+through native browser affordances only (Chrome/Edge desktop address-bar Install icon, Android
+browser menu or browser-triggered prompt, iOS Share menu); the app ships no install banners,
+hints, or prompts. Push notifications, background sync, badging, share target, and any offline
+capability are non-goals (see Non-goals).
+
+#### FR-8.1 Web app manifest & installability
+
+- A web app manifest is served from `public/manifest.webmanifest` (Vite copies `public/` to the
+  build/docs root, same convention as `public/logo.png`) and linked from `index.html` with:
+  `name` ("AfterTouch Radio Browser"), `short_name` ("AfterTouch", ≤ 12 characters), `id`,
+  `start_url`, and `scope` all relative (`./`) so installation works under the GitHub Pages
+  subpath, `display: "standalone"`, `theme_color` `#f7f6f2` (the app chrome/first-paint
+  background from `styles.css`), `background_color` `#f7f6f2`, `lang`, and icons derived from
+  `public/logo.png` at 192×192 and 512×512 with `purpose: "any maskable"`.
+- `index.html` links: `<link rel="manifest" href="manifest.webmanifest">`, a `theme-color` meta
+  matching the manifest `theme_color`, and a relative `<link rel="apple-touch-icon">` (180×180,
+  opaque) for iOS home-screen installs.
+- The installed app launches in its own standalone window (no URL bar), shows the correct icon
+  (including Android's maskable crop), and shows no white flash at launch (`background_color`
+  matches the real first-paint background).
+- No service worker: installability is manifest-based in current Chromium and Safari, so the
+  app remains a plain SPA otherwise. New releases reach users on the next visit (content-hashed
+  assets + normal HTTP caching) — there is no stale-worker lifecycle to manage.
+- The app remains a single-screen SPA — no routes or deep links.
+
+#### FR-8.2 App-like polish
+
+- Launch feel: `theme-color` matches the app chrome (`#f7f6f2`, the light theme's `--bg`);
+  `background_color` matches the first-paint background; `<title>` stays meaningful (it becomes
+  the standalone window title).
+- Touch feel: interactive chrome uses `user-select: none`; `accent-color` aligns form controls
+  with the brand; scroll bounce is contained (`overscroll-behavior-y: contain`); and
+  `viewport-fit=cover` + `env(safe-area-inset-*)` keeps content clear of notches and home
+  indicators.
 
 ### User flows
 
@@ -136,6 +180,8 @@ subpath hosting; a downscaled favicon copy is an implementation detail.
    speaker…" confirmation.
 3. **Offline device** — banner + disabled device actions.
 4. **Preview opt-in** — Settings → enable preview → Preview action appears on station cards.
+5. **Install** — visit → browser-native install affordance (address-bar icon, browser menu, or
+   iOS Share menu) → icon on launcher → launches standalone. No in-app install UI.
 
 ### Acceptance criteria
 
@@ -166,6 +212,13 @@ subpath hosting; a downscaled favicon copy is an implementation detail.
   on load; reset restores defaults.
 - **Logo**: favicon loads with no console errors; header shows the logo with alt text and no
   layout shift on small screens; text branding still renders if the image is missing.
+- **PWA**: the manifest is valid and complete (name, short_name ≤ 12, relative
+  `id`/`start_url`/`scope`, `display: "standalone"`, theme/background colors, icons 192 + 512
+  incl. `maskable`); the hosted URL is installable in Chrome (DevTools installability audit);
+  the installed app opens standalone, shows the correct icon (maskable-safe), and launches
+  without a white flash; no service worker is registered; the app ships no install banners,
+  hints, offline UI, or update UI; no new translation keys; the deploy regenerates `docs/` and
+  the regenerated output is committed.
 
 ### Edge cases
 
@@ -187,12 +240,19 @@ subpath hosting; a downscaled favicon copy is an implementation detail.
   label is shown and the dropdowns still sort in the active locale.
 - Missing translations — English fallback (existing behavior).
 - Missing/broken logo image — text branding still renders (graceful degradation).
+- First visit offline — the app behaves exactly as today (no cached shell exists — accepted;
+  the app is online-only by design).
+- Android maskable crop — the maskable icon honors the safe zone (defensive padding).
+- iOS — installs via the Share menu; `apple-touch-icon` is used for the home-screen icon; there
+  is no `beforeinstallprompt` — irrelevant, the app ships no install UI.
+- GitHub Pages subpath — all manifest URLs are relative and resolve under the subpath.
+- Browser without install support — the app simply works as a normal website (unchanged).
 
 ## Planned (wave 2+)
 
 Not yet implemented. These features build the live remote on top of the shipped wave-1 base:
-the WebSocket remote core, media-session / lock-screen controls, the PWA, and confirmation of
-play actions from live device state.
+the WebSocket remote core, media-session / lock-screen controls, and confirmation of play
+actions from live device state.
 
 ### FR-3 Device remote (core)
 
@@ -205,83 +265,6 @@ loss: "Connection lost — retrying", keep last-known state, auto-reconnect with
 
 While connected, publish now-playing metadata plus play/pause/next/prev actions (→ device
 commands). Graceful no-op where unsupported.
-
-### FR-8 PWA — installable standalone app
-
-Installable from the hosted URL, standalone (own window), mobile-first touch UI. This wave ships
-installability (web app manifest + icons + launch behavior) and app-like polish only — **no
-service worker**. The app is inherently online (station search needs the Radio Browser API,
-device control needs the LAN, preview needs streaming), so offline caching, offline UI, and an
-update lifecycle would add complexity without user value: when the network is unavailable the
-existing "Service unavailable" status behavior applies unchanged. Installation is discovered
-through native browser affordances only (Chrome/Edge desktop address-bar Install icon, Android
-browser menu or browser-triggered prompt, iOS Share menu); the app ships no install banners,
-hints, or prompts. Push notifications, background sync, badging, share target, and any offline
-capability are non-goals (see Non-goals).
-
-#### FR-8.1 Web app manifest & installability
-
-- A web app manifest served from `public/manifest.webmanifest` (Vite copies `public/` to the
-  build/docs root, same convention as `public/logo.png`) is linked from `index.html` with:
-  `name` ("AfterTouch Radio Browser"),
-  `short_name` ("AfterTouch", ≤ 12 characters), `id`, `start_url`, and `scope` all relative
-  (`./`) so installation works under the GitHub Pages subpath, `display: "standalone"`,
-  `theme_color` `#f7f6f2` (the app chrome/first-paint background from `styles.css`),
-  `background_color` `#f7f6f2`, `lang`, and icons derived from `public/logo.png` at 192×192 and
-  512×512 including a `purpose: "any maskable"` variant.
-- `index.html` adds: `<link rel="manifest" href="manifest.webmanifest">`, a `theme-color` meta
-  matching the manifest `theme_color`, and a relative `<link rel="apple-touch-icon">` (180×180)
-  for iOS home-screen installs.
-- The installed app launches in its own standalone window (no URL bar), shows the correct icon
-  (including Android's maskable crop), and shows no white flash at launch (`background_color`
-  matches the real first-paint background).
-- No service worker: installability is manifest-based in current Chromium and Safari, so the
-  app remains a plain SPA otherwise. New releases reach users on the next visit (content-hashed
-  assets + normal HTTP caching) — there is no stale-worker lifecycle to manage.
-- The app remains a single-screen SPA — no routes or deep links to design.
-
-#### FR-8.2 App-like polish
-
-- Launch feel: `theme-color` matches the app chrome (current light theme; a dark variant only
-  if a dark theme is added this wave); `background_color` matches the first-paint background;
-  `<title>` stays meaningful (it becomes the standalone window title).
-- Touch feel: interactive chrome uses `user-select: none`, `accent-color` aligns form controls
-  with the brand, tap feedback is instant, scroll bounce is contained where app-like
-  (`overscroll-behavior`), `100dvh`-style height handling avoids mobile URL-bar shifts, and
-  `viewport-fit=cover` + `env(safe-area-inset-*)` keeps content clear of notches and home
-  indicators.
-
-#### User flows
-
-1. **Install (Chrome/Edge/Android)** — visit → browser-native install affordance (desktop:
-   address-bar Install icon; Android: browser menu or browser-triggered prompt) → install →
-   icon on launcher → launches standalone. The app provides no in-app install UI.
-2. **Install (iOS Safari)** — visit → Share menu → "Add to Home Screen" → icon on home screen →
-   launches standalone. The app provides no in-app hint.
-3. **Daily use (unchanged)** — open → tap a station → it plays on the speaker.
-4. **No internet** — existing "Service unavailable" status line; nothing else changes.
-
-#### Acceptance criteria
-
-- The manifest is valid and complete (name, short_name ≤ 12, relative `id`/`start_url`/`scope`,
-  `display: "standalone"`, theme/background colors, icons 192 + 512 incl. `maskable`); the
-  hosted URL is installable in Chrome (DevTools installability audit); the installed app opens
-  standalone, shows the correct icon (maskable-safe), and launches without a white flash.
-- No service worker is registered, and the app ships no install banners, hints, offline UI, or
-  update UI — installation relies on native browser affordances only.
-- No new translation keys are introduced by this feature.
-- `npm test`, `npx tsc --noEmit --skipLibCheck`, and `npm run build` pass; the deploy
-  regenerates `docs/` and the regenerated output is committed.
-
-#### Edge cases
-
-- First visit offline: the app behaves exactly as today (no cached shell exists — accepted; the
-  app is online-only by design).
-- Android maskable crop: the maskable icon honors the safe zone (defensive padding).
-- iOS: installs via the Share menu; `apple-touch-icon` is used for the home-screen icon; there
-  is no `beforeinstallprompt` — irrelevant, the app ships no install UI.
-- GitHub Pages subpath: all manifest URLs are relative and resolve under the subpath.
-- Browser without install support: the app simply works as a normal website (unchanged).
 
 ### FR-4/FR-5 extension: now-playing confirmation
 
