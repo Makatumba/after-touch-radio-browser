@@ -37,7 +37,8 @@ AfterTouch-RadioBrowser/
 │       ├── banner.ts           # Device-offline banner
 │       └── settings.ts         # Settings modal (enablePreview toggle + reset)
 ├── tests/
-│   └── app.test.ts             # Vitest suite (jsdom)
+│   ├── app.test.ts             # Vitest suite (jsdom)
+│   └── pagination.test.ts      # List-pagination tests (jsdom)
 ├── docs/                       # GitHub Pages hosting output (tracked, deploy-generated)
 ├── public/                     # Static assets copied as-is (logo.png: favicon + header brand)
 ├── index.html                  # Vite entry HTML (favicon link, relative href)
@@ -95,7 +96,7 @@ graph TD
 ## Entry Points
 
 - **Main**: `src/main.ts` — renders app, calls `refresh('top')`, pings saved SoundTouch host
-- **Tests**: `tests/app.test.ts` — Vitest, jsdom environment
+- **Tests**: `tests/app.test.ts`, `tests/pagination.test.ts` — Vitest, jsdom environment
 - **Deploy**: `npm run deploy` — build → `dist/` → `docs/` (GitHub Pages)
 
 ## Conventions
