@@ -88,14 +88,14 @@ export function setupEvents(): void {
             return;
         }
         if (ke.key !== 'Enter') return;
-        if (['query', 'country', 'languageFilter', 'tag'].includes(target.id)) {
+        if (['query', 'tag'].includes(target.id)) {
             searchFromInputs();
         }
     });
 
     app.addEventListener('change', (e) => {
         const target = e.target as HTMLElement;
-        if (target.id === 'limit' || target.id === 'hideBroken') {
+        if (['limit', 'hideBroken', 'country', 'languageFilter'].includes(target.id)) {
             searchFromInputs();
             return;
         }

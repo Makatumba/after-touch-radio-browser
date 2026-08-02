@@ -2,7 +2,7 @@ import type {Language} from './i18n';
 import {detectLanguage, getLabels, translations} from './i18n';
 import type {Mode, Settings, State, Station} from './state';
 import {getAudioElement} from './player';
-import {topStations, recentStations, searchStations} from './api';
+import {topStations, recentStations, searchStations, fetchLanguages, fetchCountries} from './api';
 import {loadSettings} from './settings';
 import {renderHeader} from './components/header';
 import {renderSoundtouch} from './components/soundtouch';
@@ -29,8 +29,10 @@ export function initLanguage(): Language {
 export const state: State = {
     language: initLanguage(),
     query: '',
-    country: '',
+    countryCode: '',
     langFilter: '',
+    languages: [],
+    countries: [],
     tag: '',
     limit: 24,
     hideBroken: true,
@@ -68,7 +70,7 @@ async function loadMode(mode: Mode) {
     try {
         state.stations = mode === 'favorites' ? state.favorites.slice(state.offset, state.offset + state.limit) : mode === 'top' ? await topStations(state.limit, state.hideBroken, state.offset) : mode === 'recent' ? await recentStations(state.limit, state.hideBroken, state.offset) : await searchStations({
             name: state.query,
-            country: state.country,
+            countryCode: state.countryCode,
             language: state.langFilter,
             tag: state.tag,
             limit: state.limit,
@@ -105,17 +107,28 @@ export function render() {
 
 export function searchFromInputs() {
     state.query = document.querySelector<HTMLInputElement>('#query')?.value || '';
-    state.country = document.querySelector<HTMLInputElement>('#country')?.value || '';
-    state.langFilter = document.querySelector<HTMLInputElement>('#languageFilter')?.value || '';
+    state.countryCode = document.querySelector<HTMLSelectElement>('#country')?.value || '';
+    state.langFilter = document.querySelector<HTMLSelectElement>('#languageFilter')?.value || '';
     state.tag = document.querySelector<HTMLInputElement>('#tag')?.value || '';
     state.limit = Number(document.querySelector<HTMLSelectElement>('#limit')?.value || 24);
     state.hideBroken = !!document.querySelector<HTMLInputElement>('#hideBroken')?.checked;
     refresh('search');
 }
 
+export async function loadFilterOptions() {
+    try {
+        const [languages, countries] = await Promise.all([fetchLanguages(), fetchCountries()]);
+        state.languages = languages;
+        state.countries = countries;
+    } catch (e) {
+        console.error(e);
+    }
+    render();
+}
+
 export function reset() {
     state.query = '';
-    state.country = '';
+    state.countryCode = '';
     state.langFilter = '';
     state.tag = '';
     state.limit = 24;

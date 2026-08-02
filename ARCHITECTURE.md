@@ -20,7 +20,7 @@ AfterTouch-RadioBrowser/
 │   ├── app.ts                  # Global mutable state + render/refresh orchestration
 │   ├── events.ts               # All user interaction via 3 delegated listeners
 │   ├── actions.ts              # Domain actions: sanitize, favorites, language, SoundTouch send/preview
-│   ├── api.ts                  # Radio Browser API client (axios)
+│   ├── api.ts                  # Radio Browser API client (axios): search/top/recent + languages/countries lists
 │   ├── i18n.ts                 # Translations: en/de/ru/ukr (as const)
 │   ├── player.ts               # Persistent <audio> singleton
 │   ├── settings.ts             # Settings defaults + localStorage persistence
@@ -29,7 +29,7 @@ AfterTouch-RadioBrowser/
 │   └── components/             # Pure render functions returning HTML strings
 │       ├── header.ts           # Logo branding, title, language chips, settings gear
 │       ├── footer.ts           # Site footer with Radio Browser attribution
-│       ├── filters.ts          # Search inputs, limit select, mode chips
+│       ├── filters.ts          # Search inputs, language/country dropdowns, limit select, mode chips
 │       ├── station-card.ts     # Primary play-on-speaker + preview + favorite card actions
 │       ├── player-bar.ts       # Now-playing info
 │       ├── soundtouch.ts       # Host input + reachability status + hints
@@ -56,7 +56,7 @@ AfterTouch-RadioBrowser/
 | `src/app.ts` | Global `state` export + `render()`/`refresh()` core |
 | `src/events.ts` | All event delegation (click/keydown/change on `#app`) |
 | `src/state.ts` | Core domain types |
-| `src/api.ts` | Radio Browser API endpoints |
+| `src/api.ts` | Radio Browser API endpoints (search/top/recent + languages/countries lists) |
 | `src/actions.ts` | Playback, favorites, SoundTouch domain logic |
 | `src/i18n.ts` | 4-language translation dictionary |
 | `src/settings.ts` | Settings defaults + persistence |
@@ -120,6 +120,11 @@ graph TD
   locally; `loadNextResultSet()`/`loadPreviousResultSet()` reload the current mode at the new
   offset (they never cycle modes) and no-op at the edges; the prev/next buttons stay visible
   and render `disabled` at the edges (first set / short final set).
+- **Canonical filter dropdowns**: Language/Country filters are `<select>`s fed once at startup
+  by `/languages` (iso_639-filtered canonical names) and `/countries` (canonical names as
+  labels, ISO codes as values); selecting one searches immediately; language is sent with
+  `languageExact=true`, country as `countrycode` (never `country`); option labels/values are
+  HTML-escaped; on list-fetch failure the dropdowns render with only the 'All' option.
 - **Language codes**: `en`/`de`/`ru`/`ukr` (not `uk`); `getLabels()` maps `'uk'` → `'ukr'`;
   `detectLanguage()` maps `'uk'` → `'ukr'` and unsupported locales → `en`.
 - **localStorage keys**: `radio-browser-language`, `radio-browser-soundtouch-host`,
