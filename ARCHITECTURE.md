@@ -21,10 +21,10 @@ AfterTouch-RadioBrowser/
 │   ├── events.ts               # All user interaction via 3 delegated listeners
 │   ├── actions.ts              # Domain actions: sanitize, favorites, language, SoundTouch send/preview
 │   ├── api.ts                  # Radio Browser API client (axios): search/top/recent + languages/countries lists
-│   ├── i18n.ts                 # Translations: en/de/ru/ukr (as const)
+│   ├── i18n.ts                 # Translations en/de/ru/ukr (as const) + locale helpers (getLocale, localizeFilterOptions, filterLabelOverrides)
 │   ├── player.ts               # Persistent <audio> singleton
 │   ├── settings.ts             # Settings defaults + localStorage persistence
-│   ├── state.ts                # Shared types (Station, Settings, State, Mode)
+│   ├── state.ts                # Shared types (Station, Settings, State, Mode, FilterOption)
 │   ├── styles.css              # All styling
 │   └── components/             # Pure render functions returning HTML strings
 │       ├── header.ts           # Logo branding, title, language chips, settings gear
@@ -57,10 +57,10 @@ AfterTouch-RadioBrowser/
 | `src/main.ts` | Application entry point (bootstrap) |
 | `src/app.ts` | Global `state` export + `render()`/`refresh()` core |
 | `src/events.ts` | All event delegation (click/keydown/change on `#app`) |
-| `src/state.ts` | Core domain types |
+| `src/state.ts` | Core domain types (FilterOption carries the canonical API `code` for label localization) |
 | `src/api.ts` | Radio Browser API endpoints (search/top/recent + languages/countries lists) |
 | `src/actions.ts` | Playback, favorites, SoundTouch domain logic |
-| `src/i18n.ts` | 4-language translation dictionary |
+| `src/i18n.ts` | 4-language translation dictionary + locale helpers (`getLocale`, `localizeFilterOptions`, `filterLabelOverrides`) |
 | `src/settings.ts` | Settings defaults + persistence |
 | `vite.config.ts` | Build/test configuration |
 
@@ -90,6 +90,7 @@ graph TD
     API --> AXIOS[axios → Radio Browser API]
     SET --> ST
     ST --> I18N
+    I18N -.-> |type-only| ST
     COMP --> ST
     COMP --> I18N
     COMP --> ACT
@@ -123,9 +124,15 @@ graph TD
   locally; `loadNextResultSet()`/`loadPreviousResultSet()` reload the current mode at the new
   offset (they never cycle modes) and no-op at the edges; the prev/next buttons stay visible
   and render `disabled` at the edges (first set / short final set).
-- **Canonical filter dropdowns**: Language/Country filters are `<select>`s fed once at startup
-  by `/languages` (iso_639-filtered canonical names) and `/countries` (canonical names as
-  labels, ISO codes as values); options are sorted alphabetically by label; selecting one
+- **Localized filter dropdowns**: Language/Country filters are `<select>`s fed once at startup
+  by `/languages` (entries without a valid `iso_639` are dropped) and `/countries`; each option
+  carries a `value` (canonical name / ISO code), a fetch-time English `label`, and the canonical
+  API `code` (`iso_639` / `iso_3166_1`). At render time `renderFilters` passes the option lists
+  through `localizeFilterOptions` (in `i18n.ts`): labels are resolved for the active UI language
+  via per-language `filterLabelOverrides` → `Intl.DisplayNames` in the mapped locale
+  (`getLocale` maps `ukr` → `uk`; `fallback: 'none'` so unmappable codes keep their existing
+  label) → the option's existing label, then sorted by the localized label with the locale's
+  collation; the input array is never mutated and API values stay canonical. Selecting an option
   searches immediately; language is sent with `languageExact=true`, country as `countrycode`
   (never `country`); option labels/values are HTML-escaped; on list-fetch failure the dropdowns
   render with only the 'All' option.

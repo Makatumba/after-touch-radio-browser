@@ -1,4 +1,50 @@
+import type {FilterOption} from './state';
+
 export type Language = 'en' | 'de' | 'ru' | 'ukr';
+
+/** Maps the internal language codes to the BCP 47 locales used by Intl APIs. */
+export function getLocale(language: Language): string {
+    return language === 'ukr' ? 'uk' : language;
+}
+
+/**
+ * Shared per-language label overrides for filter dropdown options, keyed by the
+ * canonical API code (iso_639 for languages, iso_3166_1 for countries). Takes
+ * precedence over Intl.DisplayNames. Tests reset all four entries in beforeEach.
+ */
+export const filterLabelOverrides: Record<Language, Record<string, string>> = {
+    en: {},
+    de: {},
+    ru: {},
+    ukr: {},
+};
+
+/**
+ * Returns a NEW array (input untouched) whose labels are resolved for the
+ * active UI language: per-language override → Intl.DisplayNames in the mapped
+ * locale → the option's existing label. Sorted by the localized label using
+ * the mapped locale's collation. API values stay canonical.
+ */
+export function localizeFilterOptions(options: FilterOption[], language: Language, kind: 'language' | 'region'): FilterOption[] {
+    const locale = getLocale(language);
+    const overrides = filterLabelOverrides[language];
+    let display: Intl.DisplayNames | null = null;
+    try {
+        if (typeof Intl.DisplayNames === 'function') {
+            // fallback: 'none' — unmappable codes (e.g. 'XX') yield undefined so
+            // the existing label survives instead of an "Unknown Region" name.
+            display = new Intl.DisplayNames([locale], {type: kind, fallback: 'none'});
+        }
+    } catch {
+        display = null; // Intl.DisplayNames unavailable/unsupported locale → English fallback
+    }
+    return options
+        .map((o) => ({
+            ...o,
+            label: overrides[o.code] ?? (display ? display.of(o.code) : undefined) ?? o.label
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label, locale));
+}
 
 export function detectLanguage(locale: string): Language {
     const primary = locale.toLowerCase().split('-')[0];
