@@ -9,7 +9,7 @@ software that keeps these speakers alive: [AfterTouch — Bose SoundTouch Toolki
 
 Features shipped in this release and planned for the next are specified in
 [FEATURES.md](FEATURES.md) — wave-1 features are implemented; wave-2 features (live device
-state, lock-screen controls, PWA) remain planned.
+state, lock-screen controls) remain planned.
 
 ## SoundTouch remote control
 
@@ -71,8 +71,11 @@ speaker.
   reachability check. Live state via WebSocket (port 8080) is planned for the next wave.
 - Chrome (and other Chromium browsers) may ask permission to *look for and connect to devices on
   your local network* — allow it for the app.
-- Remote control works from a browser on the same network. PWA installability (home screen,
-  standalone window) is planned for the next wave.
+- The app is an installable PWA (web app manifest + icons, standalone window) with **no
+  service worker**: the app is online-only, so there is no offline support and no update
+  lifecycle — new releases reach you on the next visit. Install via the browser's own
+  affordances: the address-bar Install icon in Chrome/Edge (desktop), the browser menu
+  (Android), or the Share menu → "Add to Home Screen" (iOS).
 
 ## Quick start
 
