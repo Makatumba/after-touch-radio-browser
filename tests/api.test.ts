@@ -73,7 +73,7 @@ describe('searchStations — canonical filter params', () => {
 });
 
 describe('fetchLanguages / fetchCountries — dropdown option lists', () => {
-    it('fetchLanguages drops entries without a valid iso_639 code and sorts alphabetically by label', async () => {
+    it('fetchLanguages drops entries without a valid iso_639 code and carries the iso_639 code on each option', async () => {
         get.mockResolvedValue({
             data: [
                 { name: 'german', iso_639: 'de', stationcount: 50 },
@@ -89,12 +89,12 @@ describe('fetchLanguages / fetchCountries — dropdown option lists', () => {
             })
         );
         expect(result).toEqual([
-            { value: 'english', label: 'english' },
-            { value: 'german', label: 'german' },
+            { value: 'english', label: 'english', code: 'en' },
+            { value: 'german', label: 'german', code: 'de' },
         ]);
     });
 
-    it('fetchCountries maps ISO 3166-1 alpha-2 codes as option values and sorts alphabetically by label', async () => {
+    it('fetchCountries maps ISO 3166-1 alpha-2 codes as option values and carries the iso_3166_1 code on each option', async () => {
         get.mockResolvedValue({
             data: [
                 { name: 'Ukraine', iso_3166_1: 'UA', stationcount: 10 },
@@ -109,8 +109,8 @@ describe('fetchLanguages / fetchCountries — dropdown option lists', () => {
             })
         );
         expect(result).toEqual([
-            { value: 'DE', label: 'Germany' },
-            { value: 'UA', label: 'Ukraine' },
+            { value: 'DE', label: 'Germany', code: 'DE' },
+            { value: 'UA', label: 'Ukraine', code: 'UA' },
         ]);
     });
 });
