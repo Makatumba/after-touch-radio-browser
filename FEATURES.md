@@ -47,15 +47,15 @@ API call. A mode change, a new search, a filter change, or reset always restarts
 set (offset 0); the ↻ refresh button reloads the first set too.
 
 The Language and Country filters are dropdowns fed once at app start by the Radio Browser API
-(`/json/languages` and `/json/countries`, sorted by station count) instead of free-text inputs.
-Language options are restricted to entries with a valid `iso_639` code (drops the API's junk
-names like "engilsh" / "english uk"); values are the canonical lowercase names and are sent
-with `languageExact=true`, so "english" no longer drags in "american english" via substring
-matching. Country options display canonical names but send the ISO 3166-1 alpha-2 code via the
-`countrycode` param (exact match, immune to the API's case-sensitive `country` name matching).
-If the list fetch fails, the dropdowns still render with only the "All" option and the app
-keeps working. Selecting a language or country triggers the search immediately (same as the
-limit select). See [API-NOTES.md](API-NOTES.md) for the full API contract.
+(`/json/languages` and `/json/countries`) instead of free-text inputs; the options are displayed
+alphabetically by label. Language options are restricted to entries with a valid `iso_639` code
+(drops the API's junk names like "engilsh" / "english uk"); values are the canonical lowercase
+names and are sent with `languageExact=true`, so "english" no longer drags in "american english"
+via substring matching. Country options display canonical names but send the ISO 3166-1 alpha-2
+code via the `countrycode` param (exact match, immune to the API's case-sensitive `country` name
+matching). If the list fetch fails, the dropdowns still render with only the "All" option and
+the app keeps working. Selecting a language or country triggers the search immediately (same as
+the limit select). See [API-NOTES.md](API-NOTES.md) for the full API contract.
 
 ### FR-2 One-time device setup
 

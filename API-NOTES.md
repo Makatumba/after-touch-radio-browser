@@ -49,7 +49,8 @@ that actually work. "Verified" means the claim was checked with real requests ag
 
 - `GET /json/languages` — canonical lowercase language names, `iso_639` code, `stationcount`.
 - `GET /json/countries` — canonical English country names, `iso_3166_1` code, `stationcount`.
-- Sort with `?hidebroken=true&order=stationcount&reverse=true` (most-populated first).
+- Sort with `?hidebroken=true&order=stationcount&reverse=true` (most-populated first; the app
+  re-sorts the dropdown options alphabetically by label for display, with "All" always first).
 - The path filters are NOT symmetric:
   - `/json/languages/<text>` — case-sensitive substring on the NAME
     (`/json/languages/ukrain` → "ukrainian" + "ukrainisch").
@@ -93,3 +94,5 @@ the app uses dropdowns instead of free text.
 - Language filter: send `language=<canonical lowercase name>` with `languageExact=true`.
 - Country filter: send `countrycode=<ISO 3166-1 alpha-2 code>`.
 - Both are omitted when "All" is selected. `name` and `tag` remain free-text substring filters.
+- Dropdown options are sorted alphabetically by label client-side; the "All" option is always
+  first.
