@@ -219,3 +219,28 @@ describe('icon assets', () => {
         }
     });
 });
+
+describe('app-like polish (src/styles.css)', () => {
+    function readCss(): string {
+        expect(fs.existsSync(CSS), 'missing src/styles.css').toBe(true);
+        return fs.readFileSync(CSS, 'utf8');
+    }
+
+    it('contains overscroll-behavior', () => {
+        expect(readCss()).toContain('overscroll-behavior');
+    });
+
+    it('uses env(safe-area-inset-*) paddings', () => {
+        expect(readCss()).toContain('env(safe-area-inset');
+    });
+
+    it('has a rule styling input and select with accent-color: var(--primary)', () => {
+        expect(readCss()).toMatch(
+            /input[^}]*select[^{]*\{[^}]*accent-color:\s*var\(--primary\)/
+        );
+    });
+
+    it('has a rule on .btn with user-select: none', () => {
+        expect(readCss()).toMatch(/\.btn[^{]*\{[^}]*user-select:\s*none/);
+    });
+});
