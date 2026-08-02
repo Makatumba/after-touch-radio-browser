@@ -1,0 +1,185 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { state, render, refresh, searchFromInputs, reset, loadFilterOptions } from '../src/app';
+import { setupEvents } from '../src/events';
+import { getLabels } from '../src/i18n';
+import { topStations, recentStations, searchStations, fetchLanguages, fetchCountries } from '../src/api';
+import { defaultSettings } from '../src/settings';
+import { getAudioElement } from '../src/player';
+
+// All API access goes through the mocked module so no test touches the
+// network. searchStations/topStations/recentStations keep the existing app
+// flow working; fetchLanguages/fetchCountries feed the dropdown data.
+vi.mock('../src/api', () => ({
+    topStations: vi.fn(),
+    recentStations: vi.fn(),
+    searchStations: vi.fn(),
+    fetchLanguages: vi.fn(),
+    fetchCountries: vi.fn(),
+}));
+
+const LS_LANGUAGE = 'radio-browser-language';
+const LS_SOUNDTOUCH = 'radio-browser-soundtouch-host';
+const LS_FAVORITES = 'radio-browser-favorites';
+const LS_SETTINGS = 'radio-browser-settings';
+
+beforeEach(() => {
+    document.body.innerHTML = '<div id="app"></div>';
+    state.language = 'en';
+    state.mode = 'top';
+    state.limit = 24;
+    state.hideBroken = true;
+    state.query = '';
+    state.tag = '';
+    state.countryCode = '';
+    state.langFilter = '';
+    state.languages = [];
+    state.countries = [];
+    state.stations = [];
+    state.favorites = [];
+    // REQUIRED: without an address App() renders the setup view and the
+    // filter panel (with the dropdowns) never appears.
+    state.soundtouchAddress = '192.168.1.42';
+    state.soundtouchStatus = 'available';
+    state.skippedSetup = false;
+    state.settings = { ...defaultSettings };
+    state.offset = 0;
+    for (const key of [LS_LANGUAGE, LS_SOUNDTOUCH, LS_FAVORITES, LS_SETTINGS]) {
+        localStorage.removeItem(key);
+    }
+    getAudioElement().removeAttribute('src');
+    vi.resetAllMocks();
+});
+
+afterEach(() => {
+    vi.unstubAllGlobals();
+});
+
+describe('canonical filter dropdowns', () => {
+    it('renders the language and country filters as selects, name/tag stay inputs', () => {
+        render();
+        const country = document.querySelector('#country');
+        expect(country).not.toBeNull();
+        expect(country!.tagName).toBe('SELECT');
+        const languageFilter = document.querySelector('#languageFilter');
+        expect(languageFilter).not.toBeNull();
+        expect(languageFilter!.tagName).toBe('SELECT');
+        expect(document.querySelector('#query')!.tagName).toBe('INPUT');
+        expect(document.querySelector('#tag')!.tagName).toBe('INPUT');
+    });
+
+    it('renders country options from state with the selected code marked', () => {
+        state.countries = [
+            { value: 'DE', label: 'Germany' },
+            { value: 'UA', label: 'Ukraine' },
+        ];
+        state.countryCode = 'DE';
+        render();
+        const t = getLabels(state);
+        const country = document.querySelector<HTMLSelectElement>('#country')!;
+        const options = Array.from(country.options);
+        expect(options.map((o) => o.text)).toEqual([t.allCountries, 'Germany', 'Ukraine']);
+        expect(options.find((o) => o.value === 'DE')!.selected).toBe(true);
+        expect(options.find((o) => o.value === 'UA')!.selected).toBe(false);
+    });
+
+    it('renders language options from state with the selected value marked', () => {
+        state.languages = [{ value: 'english', label: 'english' }];
+        state.langFilter = 'english';
+        render();
+        const t = getLabels(state);
+        const languageFilter = document.querySelector<HTMLSelectElement>('#languageFilter')!;
+        const options = Array.from(languageFilter.options);
+        expect(options.map((o) => o.text)).toEqual([t.allLanguages, 'english']);
+        expect(options.find((o) => o.value === 'english')!.selected).toBe(true);
+    });
+
+    it('renders only the All option when the option lists are empty (fetch failure fallback)', () => {
+        render();
+        const t = getLabels(state);
+        const country = document.querySelector<HTMLSelectElement>('#country')!;
+        expect(country.options.length).toBe(1);
+        expect(country.options[0].text).toBe(t.allCountries);
+        const languageFilter = document.querySelector<HTMLSelectElement>('#languageFilter')!;
+        expect(languageFilter.options.length).toBe(1);
+        expect(languageFilter.options[0].text).toBe(t.allLanguages);
+    });
+
+    it('selecting a country triggers an immediate search with countryCode and offset 0', async () => {
+        state.countries = [{ value: 'DE', label: 'Germany' }];
+        vi.mocked(searchStations).mockResolvedValue([]);
+        render();
+        setupEvents();
+        const select = document.querySelector<HTMLSelectElement>('#country')!;
+        select.value = 'DE';
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+        await vi.waitFor(() => expect(state.countryCode).toBe('DE'), { timeout: 500 });
+        await vi.waitFor(
+            () => expect(searchStations).toHaveBeenCalledWith(expect.objectContaining({ countryCode: 'DE', offset: 0 })),
+            { timeout: 500 }
+        );
+        expect(state.mode).toBe('search');
+    });
+
+    it('selecting a language triggers an immediate search with language and offset 0', async () => {
+        state.languages = [{ value: 'english', label: 'english' }];
+        vi.mocked(searchStations).mockResolvedValue([]);
+        render();
+        setupEvents();
+        const select = document.querySelector<HTMLSelectElement>('#languageFilter')!;
+        select.value = 'english';
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+        await vi.waitFor(() => expect(state.langFilter).toBe('english'), { timeout: 500 });
+        await vi.waitFor(
+            () => expect(searchStations).toHaveBeenCalledWith(expect.objectContaining({ language: 'english', offset: 0 })),
+            { timeout: 500 }
+        );
+        expect(state.mode).toBe('search');
+    });
+
+    it('loadFilterOptions fills the dropdown data and survives fetch failures', async () => {
+        vi.mocked(fetchLanguages).mockResolvedValue([{ value: 'english', label: 'english' }]);
+        vi.mocked(fetchCountries).mockResolvedValue([{ value: 'DE', label: 'Germany' }]);
+        await loadFilterOptions();
+        expect(state.languages).toEqual([{ value: 'english', label: 'english' }]);
+        expect(state.countries).toEqual([{ value: 'DE', label: 'Germany' }]);
+
+        // On failure the lists stay empty and the app still renders.
+        state.languages = [];
+        state.countries = [];
+        vi.mocked(fetchLanguages).mockRejectedValue(new Error('offline'));
+        vi.mocked(fetchCountries).mockRejectedValue(new Error('offline'));
+        await loadFilterOptions();
+        expect(state.languages).toEqual([]);
+        expect(state.countries).toEqual([]);
+        render();
+        expect(document.querySelector('#country')).not.toBeNull();
+        expect(document.querySelector('#languageFilter')).not.toBeNull();
+    });
+
+    it('reset() clears the country code and language filter', () => {
+        vi.mocked(topStations).mockResolvedValue([]);
+        state.countryCode = 'DE';
+        state.langFilter = 'english';
+        reset();
+        expect(state.countryCode).toBe('');
+        expect(state.langFilter).toBe('');
+    });
+
+    it('Enter on the country select does not trigger a search', async () => {
+        render();
+        setupEvents();
+        const select = document.querySelector<HTMLSelectElement>('#country')!;
+        select.focus();
+        select.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(searchStations).not.toHaveBeenCalled();
+    });
+
+    it('escapes option values and labels when rendering the dropdowns', () => {
+        state.countries = [{ value: 'A&B', label: 'AT&T <Rock>' }];
+        render();
+        const country = document.querySelector<HTMLSelectElement>('#country')!;
+        expect(country.innerHTML).toContain('value="A&amp;B"');
+        expect(country.innerHTML).toContain('AT&amp;T &lt;Rock&gt;');
+    });
+});
