@@ -13,6 +13,8 @@ vi.mock('../src/api', () => ({
     topStations: vi.fn(),
     recentStations: vi.fn(),
     searchStations: vi.fn(),
+    fetchLanguages: vi.fn(),
+    fetchCountries: vi.fn(),
 }));
 
 const LS_LANGUAGE = 'radio-browser-language';
@@ -40,8 +42,10 @@ beforeEach(() => {
     state.limit = LIMIT;
     state.hideBroken = true;
     state.query = '';
-    state.country = '';
+    state.countryCode = '';
     state.langFilter = '';
+    state.languages = [];
+    state.countries = [];
     state.tag = '';
     state.stations = [];
     state.favorites = [];
@@ -126,7 +130,7 @@ describe('list navigation — prev/next load station sets', () => {
 
     it('loadNextResultSet in search mode keeps filters and passes offset', async () => {
         state.query = 'jazz';
-        state.country = 'Germany';
+        state.countryCode = 'DE';
         state.langFilter = 'english';
         state.tag = 'smooth';
         vi.mocked(searchStations)
@@ -141,7 +145,7 @@ describe('list navigation — prev/next load station sets', () => {
         expect(searchStations).toHaveBeenLastCalledWith(
             expect.objectContaining({
                 name: 'jazz',
-                country: 'Germany',
+                countryCode: 'DE',
                 language: 'english',
                 tag: 'smooth',
                 limit: LIMIT,
