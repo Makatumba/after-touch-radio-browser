@@ -47,15 +47,25 @@ API call. A mode change, a new search, a filter change, or reset always restarts
 set (offset 0); the ↻ refresh button reloads the first set too.
 
 The Language and Country filters are dropdowns fed once at app start by the Radio Browser API
-(`/json/languages` and `/json/countries`) instead of free-text inputs; the options are displayed
-alphabetically by label. Language options are restricted to entries with a valid `iso_639` code
-(drops the API's junk names like "engilsh" / "english uk"); values are the canonical lowercase
-names and are sent with `languageExact=true`, so "english" no longer drags in "american english"
-via substring matching. Country options display canonical names but send the ISO 3166-1 alpha-2
-code via the `countrycode` param (exact match, immune to the API's case-sensitive `country` name
-matching). If the list fetch fails, the dropdowns still render with only the "All" option and
-the app keeps working. Selecting a language or country triggers the search immediately (same as
-the limit select). See [API-NOTES.md](API-NOTES.md) for the full API contract.
+(`/json/languages` and `/json/countries`) instead of free-text inputs. Option labels are
+localized to the active UI language: each option carries its ISO code (`iso_639` for languages,
+`iso_3166_1` for countries) and `Intl.DisplayNames` renders the localized name (e.g. German UI:
+`DE` → "Deutschland", `en` → "Englisch"; Ukrainian UI: `DE` → "Німеччина"), with a small
+per-language override map in `src/i18n.ts` (`filterLabelOverrides`) that wins over
+`Intl.DisplayNames`, and the canonical English label as fallback when a code cannot be mapped or
+`Intl.DisplayNames` is unavailable. The options are sorted alphabetically by the localized label
+using the active language's collation. Switching the UI language re-renders the dropdowns in the
+new locale immediately — no refetch. Language options are restricted to entries with a valid
+`iso_639` code (drops the API's junk names like "engilsh" / "english uk"); values are the
+canonical lowercase names and are sent with `languageExact=true`, so "english" no longer drags
+in "american english" via substring matching. Country options display localized names but send
+the ISO 3166-1 alpha-2 code via the `countrycode` param (exact match, immune to the API's
+case-sensitive `country` name matching). In the English UI the labels appear in canonical title
+case ("English", "United Kingdom") rather than the API's lowercase/quirky names; the override
+map can restore any API name. If the list fetch fails, the dropdowns still render with only the
+"All" option and the app keeps working. Selecting a language or country triggers the search
+immediately (same as the limit select). See [API-NOTES.md](API-NOTES.md) for the full API
+contract.
 
 ### FR-2 One-time device setup
 
@@ -142,10 +152,10 @@ subpath hosting; a downscaled favicon copy is an implementation detail.
   favorites page through the local list without an API call; a mode change, new search, filter
   change, or reset restarts at the first set.
 - **Filter dropdowns**: Language and Country are dropdowns (not free-text); language options
-  carry valid `iso_639` codes and are sent with `languageExact=true`; country options display
-  canonical names but send the ISO code via `countrycode`; selecting one searches immediately;
-  on list-fetch failure the dropdowns render with only the "All" option and browsing keeps
-  working.
+  carry valid `iso_639` codes and are sent with `languageExact=true`; country options send the
+  ISO code via `countrycode`; labels are localized to the active UI language and sorted by the
+  localized label; selecting one searches immediately; on list-fetch failure the dropdowns
+  render with only the "All" option and browsing keeps working.
 - **Preview**: off by default; when on, a Preview action plays in-browser without disturbing
   device state; disabling it stops preview audio.
 - **i18n**: language is auto-detected on first run (`'uk'` → `'ukr'`, unsupported → English);
@@ -172,6 +182,8 @@ subpath hosting; a downscaled favicon copy is an implementation detail.
   shown.
 - The Language/Country list fetch fails at startup — the dropdowns render with only the "All"
   option; search, modes, and pagination keep working.
+- `Intl.DisplayNames` unavailable or an unmappable ISO code (e.g. junk language entries) — the
+  canonical English label is shown and the dropdowns still sort in the active locale.
 - Missing translations — English fallback (existing behavior).
 - Missing/broken logo image — text branding still renders (graceful degradation).
 
