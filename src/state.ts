@@ -23,11 +23,18 @@ export interface Settings {
     enablePreview: boolean;
 }
 
+export interface FilterOption {
+    value: string;
+    label: string;
+}
+
 export interface State {
     language: Language;
     query: string;
-    country: string;
+    countryCode: string;
     langFilter: string;
+    languages: FilterOption[];
+    countries: FilterOption[];
     tag: string;
     limit: number;
     hideBroken: boolean;
