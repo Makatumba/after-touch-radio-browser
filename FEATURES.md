@@ -46,6 +46,17 @@ previous set, clamped at the first. Favorites page through the local favorites a
 API call. A mode change, a new search, a filter change, or reset always restarts at the first
 set (offset 0); the ↻ refresh button reloads the first set too.
 
+The Language and Country filters are dropdowns fed once at app start by the Radio Browser API
+(`/json/languages` and `/json/countries`, sorted by station count) instead of free-text inputs.
+Language options are restricted to entries with a valid `iso_639` code (drops the API's junk
+names like "engilsh" / "english uk"); values are the canonical lowercase names and are sent
+with `languageExact=true`, so "english" no longer drags in "american english" via substring
+matching. Country options display canonical names but send the ISO 3166-1 alpha-2 code via the
+`countrycode` param (exact match, immune to the API's case-sensitive `country` name matching).
+If the list fetch fails, the dropdowns still render with only the "All" option and the app
+keeps working. Selecting a language or country triggers the search immediately (same as the
+limit select). See [API-NOTES.md](API-NOTES.md) for the full API contract.
+
 ### FR-2 One-time device setup
 
 Shown as a **full-screen setup view** when no speaker is configured: plain-language instructions
@@ -130,6 +141,11 @@ subpath hosting; a downscaled favicon copy is an implementation detail.
   disabled on the first set and Next on a short/empty final set, both staying visible;
   favorites page through the local list without an API call; a mode change, new search, filter
   change, or reset restarts at the first set.
+- **Filter dropdowns**: Language and Country are dropdowns (not free-text); language options
+  carry valid `iso_639` codes and are sent with `languageExact=true`; country options display
+  canonical names but send the ISO code via `countrycode`; selecting one searches immediately;
+  on list-fetch failure the dropdowns render with only the "All" option and browsing keeps
+  working.
 - **Preview**: off by default; when on, a Preview action plays in-browser without disturbing
   device state; disabling it stops preview audio.
 - **i18n**: language is auto-detected on first run (`'uk'` → `'ukr'`, unsupported → English);
@@ -154,6 +170,8 @@ subpath hosting; a downscaled favicon copy is an implementation detail.
   page is empty (the API exposes no total count, so a short set is the only signal).
 - The ↻ refresh button always reloads the first set (offset 0), even while a later page is
   shown.
+- The Language/Country list fetch fails at startup — the dropdowns render with only the "All"
+  option; search, modes, and pagination keep working.
 - Missing translations — English fallback (existing behavior).
 - Missing/broken logo image — text branding still renders (graceful degradation).
 
@@ -161,22 +179,7 @@ subpath hosting; a downscaled favicon copy is an implementation detail.
 
 Not yet implemented. These features build the live remote on top of the shipped wave-1 base:
 the WebSocket remote core, media-session / lock-screen controls, the PWA, and confirmation of
-play actions from live device state. The FR-1 fix below is a backport hardening of a shipped
-feature, listed here until it is implemented.
-
-### FR-1 fix: canonical language & country filter dropdowns
-
-The Language and Country filters become dropdowns fed by the Radio Browser API
-(`/json/languages` and `/json/countries`, sorted by station count) instead of free-text inputs.
-Language options are restricted to entries with a valid `iso_639` code (drops the API's junk
-names like "engilsh" / "english uk"); values are the canonical lowercase names and are sent
-with `languageExact=true`, so "english" no longer drags in "american english" via substring
-matching. Country options display canonical names but send the ISO 3166-1 alpha-2 code via the
-`countrycode` param (exact match, immune to the API's case-sensitive `country` name matching).
-Both lists load once at app start; if that fetch fails the dropdowns still render with only the
-"All" option and the app keeps working. Selecting a language or country triggers the search
-immediately (same as the limit select). See [API-NOTES.md](API-NOTES.md) for the full API
-contract.
+play actions from live device state.
 
 ### FR-3 Device remote (core)
 
