@@ -21,11 +21,16 @@ body {
     min-height: 100dvh;
     font-family: var(--font-body);
     background: var(--bg);
-    color: var(--text)
+    color: var(--text);
+    overscroll-behavior-y: contain
 }
 
 button, input, select, audio {
     font: inherit
+}
+
+input, select {
+    accent-color: var(--primary)
 }
 
 button {
@@ -38,7 +43,7 @@ button {
 .app-shell {
     width: min(calc(100% - 2rem), 1200px);
     margin: 0 auto;
-    padding: 1rem 0 4rem
+    padding: calc(1rem + env(safe-area-inset-top)) env(safe-area-inset-right) calc(4rem + env(safe-area-inset-bottom)) env(safe-area-inset-left)
 }
 
 .topbar, .layout, .panel, .controls, .results-panel, .player, .lang-switcher-inline {
@@ -113,7 +118,7 @@ button {
 
 .controls {
     position: sticky;
-    top: 1rem;
+    top: calc(1rem + env(safe-area-inset-top));
     align-self: start;
     padding: 1rem
 }
@@ -153,6 +158,10 @@ button {
     display: inline-flex;
     align-items: center;
     justify-content: center
+}
+
+.btn, .chip, .pill-btn, .gear-btn, .modal-close {
+    user-select: none
 }
 
 .btn-primary {
@@ -230,7 +239,7 @@ button {
 
 .player {
     position: sticky;
-    bottom: 1rem;
+    bottom: calc(1rem + env(safe-area-inset-bottom));
     margin-top: 1.5rem;
     padding: 1rem;
     z-index: 1
@@ -442,7 +451,6 @@ button {
 .setting-row input[type="checkbox"] {
     width: 1.2rem;
     height: 1.2rem;
-    accent-color: var(--primary);
     flex-shrink: 0
 }
 
