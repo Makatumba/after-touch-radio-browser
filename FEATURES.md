@@ -2,8 +2,9 @@
 
 This document is the behavior spec for the v-next release: what the app SHOULD do once the
 planned features land. It is the contract for the implementation pipeline (behavior spec → impl
-plan → tests → implementation → QA). Everything here is **planned, not yet implemented**; the
-current state is described in [README.md](README.md) and [ARCHITECTURE.md](ARCHITECTURE.md).
+plan → tests → implementation → QA). Wave-1 features (see below) are **implemented**; wave-2
+features remain **planned, not yet implemented**. The current state is described in
+[README.md](README.md) and [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Release scope (wave 1)
 
@@ -52,8 +53,8 @@ Browser API.
 Shown as a **full-screen setup view** when no speaker is configured: plain-language instructions
 ("Enter your speaker's address — it's in your router's device list"), input, Save. Address
 sanitized (scheme and trailing slash stripped) before use, stored in the existing
-`radio-browser-soundtouch-host` key. Reachability verified after save: "✓ reachable" /
-"✗ unreachable", with plain-language errors. A "Browse stations anyway" link lets the user
+`radio-browser-soundtouch-host` key. Reachability verified after save: "✓ Reachable" /
+"✗ Unreachable", with plain-language errors. A "Browse stations anyway" link lets the user
 skip setup — browsing still works, but play-on-speaker stays disabled until an address is
 saved. Once saved, setup is needed only once; the address stays editable from a compact bar
 (existing input + Save + status) on the main screen.
@@ -139,7 +140,7 @@ hosting; a downscaled favicon copy is an implementation detail.
 ## Acceptance criteria
 
 - **Setup**: when no address is saved, a full-screen setup view shows; a valid IP saves,
-  reachability is verified ("✓ reachable" / "✗ unreachable"), and it is remembered across
+  reachability is verified ("✓ Reachable" / "✗ Unreachable"), and it is remembered across
   restarts; "Browse stations anyway" skips setup and browsing still works; malformed host input
   is sanitized before use.
 - **Play station**: "Play on speaker" sends the station to the device and shows a plain-language

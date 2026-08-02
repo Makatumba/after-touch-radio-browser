@@ -72,7 +72,6 @@ graph TD
     APP --> ST[state.ts]
     APP --> PL[player.ts]
     APP --> API[api.ts]
-    APP --> ACT[actions.ts]
     APP --> SET[settings.ts]
     APP --> COMP[components/*]
     APP --> SETUP[components/setup.ts]
