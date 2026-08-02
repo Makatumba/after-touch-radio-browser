@@ -72,7 +72,7 @@ speaker.
 - Chrome (and other Chromium browsers) may ask permission to *look for and connect to devices on
   your local network* — allow it for the app.
 - Remote control works from a browser on the same network. PWA installability (home screen,
-  offline shell) is planned for the next wave.
+  standalone window) is planned for the next wave.
 
 ## Quick start
 

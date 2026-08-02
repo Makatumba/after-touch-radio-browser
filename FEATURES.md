@@ -206,95 +206,44 @@ loss: "Connection lost — retrying", keep last-known state, auto-reconnect with
 While connected, publish now-playing metadata plus play/pause/next/prev actions (→ device
 commands). Graceful no-op where unsupported.
 
-### FR-8 PWA — installable, offline-ready
+### FR-8 PWA — installable standalone app
 
-Installable (manifest + service worker), standalone, mobile-first touch UI. The app shell loads
-without internet, favorites and the last loaded station list stay usable offline, and device
-control keeps requiring LAN. Scope of this wave: installability, offline shell + last-list
-cache, in-app install UX, and a user-controlled update prompt. Push notifications, background
-sync, badging, share target, and offline-first search caching are non-goals for this wave (see
-Non-goals).
+Installable from the hosted URL, standalone (own window), mobile-first touch UI. This wave ships
+installability (web app manifest + icons + launch behavior) and app-like polish only — **no
+service worker**. The app is inherently online (station search needs the Radio Browser API,
+device control needs the LAN, preview needs streaming), so offline caching, offline UI, and an
+update lifecycle would add complexity without user value: when the network is unavailable the
+existing "Service unavailable" status behavior applies unchanged. Installation is discovered
+through native browser affordances only (Chrome/Edge desktop address-bar Install icon, Android
+browser menu or browser-triggered prompt, iOS Share menu); the app ships no install banners,
+hints, or prompts. Push notifications, background sync, badging, share target, and any offline
+capability are non-goals (see Non-goals).
 
 #### FR-8.1 Web app manifest & installability
 
-- A web app manifest is linked from `index.html` with: `name` ("AfterTouch Radio Browser"),
-  `short_name` (≤ 12 characters), `start_url` and `id` relative to the hosting subpath,
-  `display: "standalone"`, `scope` covering the app subpath, `theme_color` matching the app
-  chrome, `background_color` matching the app background, `lang`, and icons derived from
-  `public/logo.png` at 192×192 and 512×512 including a `purpose: "any maskable"` variant.
-- `index.html` adds: `<link rel="manifest">`, `theme-color` meta (the current light theme's
-  chrome color; a dark variant only if a dark theme is added this wave), and
-  `apple-touch-icon` for iOS home-screen installs.
+- A web app manifest served from `public/manifest.webmanifest` (Vite copies `public/` to the
+  build/docs root, same convention as `public/logo.png`) is linked from `index.html` with:
+  `name` ("AfterTouch Radio Browser"),
+  `short_name` ("AfterTouch", ≤ 12 characters), `id`, `start_url`, and `scope` all relative
+  (`./`) so installation works under the GitHub Pages subpath, `display: "standalone"`,
+  `theme_color` `#f7f6f2` (the app chrome/first-paint background from `styles.css`),
+  `background_color` `#f7f6f2`, `lang`, and icons derived from `public/logo.png` at 192×192 and
+  512×512 including a `purpose: "any maskable"` variant.
+- `index.html` adds: `<link rel="manifest" href="manifest.webmanifest">`, a `theme-color` meta
+  matching the manifest `theme_color`, and a relative `<link rel="apple-touch-icon">` (180×180)
+  for iOS home-screen installs.
 - The installed app launches in its own standalone window (no URL bar), shows the correct icon
   (including Android's maskable crop), and shows no white flash at launch (`background_color`
   matches the real first-paint background).
-- Installability works under the GitHub Pages subpath hosting: relative asset paths
-  (`base: ''`), relative `start_url`, and a service worker scoped to the app subpath.
+- No service worker: installability is manifest-based in current Chromium and Safari, so the
+  app remains a plain SPA otherwise. New releases reach users on the next visit (content-hashed
+  assets + normal HTTP caching) — there is no stale-worker lifecycle to manage.
 - The app remains a single-screen SPA — no routes or deep links to design.
 
-#### FR-8.2 Service worker & caching
+#### FR-8.2 App-like polish
 
-- One service worker registered at the app scope after the first render; it never blocks first
-  paint and never controls the very first page load (the normal network path stays the default
-  on first visit).
-- Precached app shell: HTML, CSS, JS bundles, icons, logo.
-- Caching strategy per request class:
-  - Versioned static assets (content-hashed JS/CSS) → cache-first (safe by construction).
-  - Navigations (index.html) → network-first with cached-shell fallback, so a new release is
-    never stuck behind a stale cache.
-  - Radio Browser API reads (search/topvote/lastclick/languages/countries) → network-first with
-    cache fallback: the last successful response per request is cached and served when offline
-    or on failure. This is what keeps "the last loaded station list" visible offline.
-  - SoundTouch device calls (ports 8000/8090, `no-cors`, LAN HTTP) → never intercepted, never
-    cached; device control always goes to the network.
-  - POSTs, auth, redirects, and non-2xx responses → never cached.
-- Cache names are versioned (e.g. `radio-browser-shell-v1`) and old caches are purged on
-  activate; runtime caches are capped (entries/TTL) so storage stays bounded.
-- No separate `offline.html` route: the SPA shell itself renders the offline state.
-
-#### FR-8.3 Offline behavior
-
-- With no internet: the app shell renders, the Favorites tab works fully (local list), the last
-  loaded station list shows from cache, and the Language/Country dropdowns render with only the
-  "All" option (existing failure path).
-- When the last list is shown from cache, a subtle plain-language indicator communicates that
-  the list may be stale ("offline — showing the last loaded list").
-- New searches / mode changes that need the network show a plain-language offline message in
-  the status line ("You're offline — connect to the internet to search") instead of the generic
-  "Service unavailable"; the app never crashes and never shows the browser error page.
-- Play-on-speaker behavior is unchanged: it requires the LAN and shows the existing
-  device-offline banner when unreachable; preview playback fails gracefully (audio error) with
-  no crash.
-- Online/offline transitions re-render status without stale race conditions (existing
-  stale-render guard pattern).
-
-#### FR-8.4 Install UX
-
-- `beforeinstallprompt` is captured and deferred; the install affordance appears only in
-  browser display mode, only after the event fired, and never on the very first visit without
-  engagement (engagement = at least one interaction and ~30 s of use, per Chrome's
-  installability heuristic).
-- The in-app **"Install app"** button lives out of the way of the primary user journey (e.g.
-  header or navigation area), is dismissible, and its dismissal is remembered so it does not
-  nag. It is hidden in standalone mode (`@media (display-mode: browser)`), hidden after
-  `appinstalled`, and hidden when the browser cannot prompt.
-- Activating it shows the browser's own install dialog via the deferred prompt.
-- On iOS Safari (no `beforeinstallprompt`): a short, dismissible "Add to Home Screen" hint with
-  plain-language instructions shows in browser mode only; it does not repeat obsessively.
-- All install strings exist in all four languages.
-
-#### FR-8.5 Update UX
-
-- When a new service worker installs while an old one controls the page, a plain-language
-  "Update available — reload" prompt appears.
-- Reload happens only on explicit user action (posts `SKIP_WAITING`, then reloads); no silent
-  `skipWaiting()`/`clients.claim()` that would yank a mid-action session.
-- First visits (no controlling worker) never see the prompt.
-
-#### FR-8.6 App-like polish
-
-- Launch feel: `theme-color` matches app chrome (current light theme; a dark variant only if a
-  dark theme is added this wave); `background_color` matches the first-paint background;
+- Launch feel: `theme-color` matches the app chrome (current light theme; a dark variant only
+  if a dark theme is added this wave); `background_color` matches the first-paint background;
   `<title>` stays meaningful (it becomes the standalone window title).
 - Touch feel: interactive chrome uses `user-select: none`, `accent-color` aligns form controls
   with the brand, tap feedback is instant, scroll bounce is contained where app-like
@@ -304,57 +253,35 @@ Non-goals).
 
 #### User flows
 
-1. **Install (Chrome/Edge/Android)** — visit → browse (engagement) → "Install app" appears →
-   click → browser install dialog → icon on launcher → launches standalone.
-2. **Install (iOS Safari)** — visit → "Add to Home Screen" hint → share menu → Add → icon on
-   home screen → launches standalone.
-3. **Offline browse** — launch with no internet → shell renders, Favorites work, last loaded
-   list shows with the offline/stale indicator, new search shows the offline message.
-4. **Update** — old version open → new version deployed → "Update available — reload" →
-   user reloads → new version.
-5. **Daily use (unchanged)** — open → tap a station → it plays on the speaker.
+1. **Install (Chrome/Edge/Android)** — visit → browser-native install affordance (desktop:
+   address-bar Install icon; Android: browser menu or browser-triggered prompt) → install →
+   icon on launcher → launches standalone. The app provides no in-app install UI.
+2. **Install (iOS Safari)** — visit → Share menu → "Add to Home Screen" → icon on home screen →
+   launches standalone. The app provides no in-app hint.
+3. **Daily use (unchanged)** — open → tap a station → it plays on the speaker.
+4. **No internet** — existing "Service unavailable" status line; nothing else changes.
 
 #### Acceptance criteria
 
-- Manifest is valid and complete; the hosted URL is installable in Chrome (manifest complete,
-  HTTPS, engagement met — per the DevTools installability audit); the installed app opens
+- The manifest is valid and complete (name, short_name ≤ 12, relative `id`/`start_url`/`scope`,
+  `display: "standalone"`, theme/background colors, icons 192 + 512 incl. `maskable`); the
+  hosted URL is installable in Chrome (DevTools installability audit); the installed app opens
   standalone, shows the correct icon (maskable-safe), and launches without a white flash.
-- Offline (DevTools network disabled): shell renders, Favorites tab is fully functional, the
-  last loaded list is visible with the stale indicator, a new search shows the offline message,
-  dropdowns degrade to "All", and the app never crashes or shows a browser error page.
-- Play-on-speaker works on the LAN with no internet; device calls are never cached; the
-  existing device-offline banner still appears when the device is unreachable.
-- Install button: only in browser mode, only after `beforeinstallprompt`, opens the browser
-  dialog, hides after install/dismissal, and is absent in standalone mode. iOS hint shows only
-  in Safari browser mode and is dismissible.
-- Update prompt appears when a new service worker is waiting; the app reloads only on user
-  action; no silent takeover.
-- All new strings are translated in en/de/ru/ukr with the English fallback.
+- No service worker is registered, and the app ships no install banners, hints, offline UI, or
+  update UI — installation relies on native browser affordances only.
+- No new translation keys are introduced by this feature.
 - `npm test`, `npx tsc --noEmit --skipLibCheck`, and `npm run build` pass; the deploy
   regenerates `docs/` and the regenerated output is committed.
 
 #### Edge cases
 
-- First ever visit offline (empty cache): the shell cannot load — accepted and documented (the
-  app must be visited online at least once; nothing can be served from an empty cache).
-- First ever visit online: the service worker registers but must not block or break the first
-  load (no controlling worker yet).
-- GitHub Pages/HTTP caching of `index.html` vs. a fresh service worker: navigation is
-  network-first so a stale shell never sticks; the SW script is fetched without trusting the
-  HTTP cache.
-- Network flips mid-session (online ↔ offline): status re-renders without stale results
-  (existing stale-render guard).
-- API fetch fails offline: cached last response is served; without a cache, the offline
-  message; dropdown lists degrade to "All" only.
-- Storage pressure / browser eviction: runtime caches are capped; iOS may evict caches and
-  IndexedDB after ~7 days of inactivity — offline data may disappear then; the app degrades to
-  first-visit-offline behavior.
-- Multiple tabs: last-write-wins, accepted limitation.
-- Old SW + new HTML mismatch: prevented by network-first navigation; the update prompt handles
-  the remaining window.
-- `beforeinstallprompt` never fires (unsupported browser/device): the install button stays
-  hidden; nothing else breaks.
-- Device unreachable while internet works: existing banner + disabled play actions.
+- First visit offline: the app behaves exactly as today (no cached shell exists — accepted; the
+  app is online-only by design).
+- Android maskable crop: the maskable icon honors the safe zone (defensive padding).
+- iOS: installs via the Share menu; `apple-touch-icon` is used for the home-screen icon; there
+  is no `beforeinstallprompt` — irrelevant, the app ships no install UI.
+- GitHub Pages subpath: all manifest URLs are relative and resolve under the subpath.
+- Browser without install support: the app simply works as a normal website (unchanged).
 
 ### FR-4/FR-5 extension: now-playing confirmation
 
@@ -393,8 +320,9 @@ Once FR-3 lands, play-on-speaker and preview confirmations come from live device
 - Bass/source switching (v1 is transport + volume only).
 - Logo variants (SVG/ICO, animation) — a single PNG; the small favicon copy is an implementation
   detail.
-- PWA extras beyond the FR-8 wave's scope: push notifications, background sync, badging, share
-  target, offline-first search caching.
+- PWA extras beyond the FR-8 wave's scope: a service worker, offline support / offline UI,
+  update lifecycle, push notifications, background sync, badging, share target, and in-app
+  install banners or hints (browser-native install affordances only).
 
 ## Platform constraints (researched)
 
@@ -407,14 +335,12 @@ Once FR-3 lands, play-on-speaker and preview confirmations come from live device
   speaker must be migrated to AfterTouch (any install path) with the Radio Browser source
   active for stations to play. Devices will never speak HTTPS/WSS.
 - PWA hosting: GitHub Pages serves the app from the `docs/` folder under the repo subpath
-  (`<user>.github.io/after-touch-radio-browser/`). A service worker's scope is limited to its
-  own directory, so the worker lives at the app subpath root and covers exactly the app; the
-  manifest `start_url`/`id`/icons must stay relative. HTTPS is satisfied by GitHub Pages and is
-  required for service workers and installability.
+  (`<user>.github.io/after-touch-radio-browser/`). All manifest URLs (`id`, `start_url`,
+  `scope`, icon `src`) must stay relative to resolve under the subpath. HTTPS is satisfied by
+  GitHub Pages and is required for installability.
 - iOS Safari: no `beforeinstallprompt` and no automatic install prompt — users install via the
-  Share menu ("Add to Home Screen"), so an in-app hint is required; `apple-touch-icon` is used
-  for the home-screen icon. iOS may evict service-worker caches and IndexedDB after roughly 7
-  days of inactivity.
+  Share menu ("Add to Home Screen"); `apple-touch-icon` is used for the home-screen icon. The
+  app ships no install UI, so this only affects discoverability, not behavior.
 - Chrome installability criteria: manifest `name`, `icons` 192 + 512 (incl. maskable-safe),
   `start_url`, `display` of standalone/fullscreen/minimal-ui, HTTPS, and an engagement heuristic
   (≥ 1 click and ≥ 30 s) — `beforeinstallprompt` fires only when these are met.
