@@ -26,6 +26,7 @@ export interface Settings {
 export interface FilterOption {
     value: string;
     label: string;
+    code: string;
 }
 
 export interface State {

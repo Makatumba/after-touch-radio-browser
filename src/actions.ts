@@ -1,5 +1,5 @@
 import type {Station, State} from './state';
-import {getLabels} from './i18n';
+import {getLabels, getLocale} from './i18n';
 import type {Language} from './i18n';
 import {playStream, stopStream} from './player';
 
@@ -46,7 +46,7 @@ export function isFavorite(uuid: string, state: State): boolean {
 export function setLanguage(lang: Language, state: State) {
     state.language = lang;
     localStorage.setItem('radio-browser-language', lang);
-    document.documentElement.lang = lang === 'ukr' ? 'uk' : lang;
+    document.documentElement.lang = getLocale(lang);
 }
 
 export async function pingSoundtouch(host: string): Promise<boolean> {
