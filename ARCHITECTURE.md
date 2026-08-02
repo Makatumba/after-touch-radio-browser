@@ -40,10 +40,11 @@ AfterTouch-RadioBrowser/
 │   ├── app.test.ts             # Vitest suite (jsdom)
 │   ├── pagination.test.ts      # List-pagination tests (jsdom)
 │   ├── filters.test.ts         # Canonical language/country dropdown tests (jsdom)
+│   ├── pwa-assets.test.ts      # FR-8 PWA manifest/icon/installability + polish tests (fs-based)
 │   └── api.test.ts             # Radio Browser API wire-contract tests (axios mocked)
 ├── docs/                       # GitHub Pages hosting output (tracked, deploy-generated)
-├── public/                     # Static assets copied as-is (logo.png: favicon + header brand)
-├── index.html                  # Vite entry HTML (favicon link, relative href)
+├── public/                     # Static assets copied as-is (logo.png: favicon + header brand; manifest.webmanifest + icon-192/512.png + apple-touch-icon.png: PWA installability)
+├── index.html                  # Vite entry HTML (favicon/manifest/apple-touch-icon links + theme-color meta, all relative hrefs)
 ├── vite.config.ts              # Build + test config (jsdom, base '')
 ├── tsconfig.json               # Strict TS config
 ├── package.json                # Scripts: start/test/build/deploy
@@ -146,4 +147,10 @@ graph TD
   `text/plain;charset=UTF-8`).
 - **Hosting**: `docs/` is committed deploy output for GitHub Pages; `dist/` and `.DS_Store`
   are gitignored. `public/` is copied to the dist/docs root by Vite; the favicon uses a
-  relative `href="logo.png"` so it resolves under the GitHub Pages subpath.
+  relative `href="logo.png"` so it resolves under the GitHub Pages subpath. The manifest
+  (`manifest.webmanifest`) and all icon URLs are relative for the same subpath;
+  `theme_color`/`background_color` = `#f7f6f2` (`--bg`) are duplicated in the manifest, the
+  index.html `theme-color` meta, and CSS — update all three together on theme change. No
+  service worker by design. PWA icons are derived from `logo.png`: `icon-192.png`/`icon-512.png`
+  are padded with the background color (safe for maskable), `apple-touch-icon.png` is a plain
+  180x180 opaque downscale (iOS applies its own rounding).
