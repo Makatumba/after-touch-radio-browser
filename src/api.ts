@@ -47,10 +47,15 @@ interface CountryEntry {
 
 export async function fetchLanguages(): Promise<FilterOption[]> {
     const {data} = await api.get<LanguageEntry[]>('/languages', {params: {hidebroken: true, order: 'stationcount', reverse: true}});
-    return data.filter(l => l.iso_639 !== null).map(l => ({value: l.name, label: l.name}));
+    return data
+        .filter(l => l.iso_639 !== null)
+        .map(l => ({value: l.name, label: l.name}))
+        .sort((a, b) => a.label.localeCompare(b.label));
 }
 
 export async function fetchCountries(): Promise<FilterOption[]> {
     const {data} = await api.get<CountryEntry[]>('/countries', {params: {hidebroken: true, order: 'stationcount', reverse: true}});
-    return data.map(c => ({value: c.iso_3166_1, label: c.name}));
+    return data
+        .map(c => ({value: c.iso_3166_1, label: c.name}))
+        .sort((a, b) => a.label.localeCompare(b.label));
 }

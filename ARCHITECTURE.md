@@ -125,9 +125,10 @@ graph TD
   and render `disabled` at the edges (first set / short final set).
 - **Canonical filter dropdowns**: Language/Country filters are `<select>`s fed once at startup
   by `/languages` (iso_639-filtered canonical names) and `/countries` (canonical names as
-  labels, ISO codes as values); selecting one searches immediately; language is sent with
-  `languageExact=true`, country as `countrycode` (never `country`); option labels/values are
-  HTML-escaped; on list-fetch failure the dropdowns render with only the 'All' option.
+  labels, ISO codes as values); options are sorted alphabetically by label; selecting one
+  searches immediately; language is sent with `languageExact=true`, country as `countrycode`
+  (never `country`); option labels/values are HTML-escaped; on list-fetch failure the dropdowns
+  render with only the 'All' option.
 - **Language codes**: `en`/`de`/`ru`/`ukr` (not `uk`); `getLabels()` maps `'uk'` → `'ukr'`;
   `detectLanguage()` maps `'uk'` → `'ukr'` and unsupported locales → `en`.
 - **localStorage keys**: `radio-browser-language`, `radio-browser-soundtouch-host`,
