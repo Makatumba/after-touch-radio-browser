@@ -182,8 +182,9 @@ subpath hosting; a downscaled favicon copy is an implementation detail.
   shown.
 - The Language/Country list fetch fails at startup — the dropdowns render with only the "All"
   option; search, modes, and pagination keep working.
-- `Intl.DisplayNames` unavailable or an unmappable ISO code (e.g. junk language entries) — the
-  canonical English label is shown and the dropdowns still sort in the active locale.
+- `Intl.DisplayNames` unavailable or an unmappable ISO code (e.g. an unknown region code like
+  "XX" — junk language entries are already filtered out at fetch time) — the canonical English
+  label is shown and the dropdowns still sort in the active locale.
 - Missing translations — English fallback (existing behavior).
 - Missing/broken logo image — text branding still renders (graceful degradation).
 
