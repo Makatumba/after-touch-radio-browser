@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { state, refresh, render, loadNextResultSet, loadPreviousResultSet } from '../src/app';
+import { state, refresh, render, loadNextResultSet, loadPreviousResultSet, reset, searchFromInputs } from '../src/app';
 import { setupEvents } from '../src/events';
 import { topStations, recentStations, searchStations } from '../src/api';
 import { defaultSettings } from '../src/settings';
@@ -180,6 +180,48 @@ describe('list navigation — prev/next load station sets', () => {
         expect(state.mode).toBe('recent');
         expect(state.offset).toBe(0);
         expect(recentStations).toHaveBeenCalledWith(LIMIT, true, 0);
+    });
+
+    it('reset() restarts at the first set of the top list', async () => {
+        vi.mocked(topStations)
+            .mockResolvedValueOnce(PAGE1)
+            .mockResolvedValueOnce(PAGE2)
+            .mockResolvedValueOnce(PAGE1);
+
+        await refresh('top');
+        await loadNextResultSet(); // offset 24
+
+        reset();
+        expect(state.mode).toBe('top');
+        expect(state.offset).toBe(0);
+
+        await vi.waitFor(() => expect(topStations).toHaveBeenLastCalledWith(LIMIT, true, 0), { timeout: 500 });
+        expect(state.stations).toEqual(PAGE1);
+    });
+
+    it('a new search from the inputs restarts at the first set', async () => {
+        vi.mocked(searchStations)
+            .mockResolvedValueOnce(PAGE1)
+            .mockResolvedValueOnce(PAGE2)
+            .mockResolvedValueOnce(PAGE1);
+
+        await refresh('search');
+        await loadNextResultSet(); // offset 24
+
+        render();
+        const query = document.querySelector<HTMLInputElement>('#query')!;
+        expect(query).not.toBeNull();
+        query.value = 'jazz';
+
+        searchFromInputs();
+
+        await vi.waitFor(
+            () => expect(searchStations).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'jazz', offset: 0 })),
+            { timeout: 500 }
+        );
+        expect(state.mode).toBe('search');
+        expect(state.offset).toBe(0);
+        expect(state.stations).toEqual(PAGE1);
     });
 
     it('favorites pages through the local list without any API call', async () => {
