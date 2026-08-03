@@ -6,6 +6,22 @@ import { defaultSettings } from '../src/settings';
 import { getAudioElement } from '../src/player';
 import type { Station } from '../src/state';
 
+// The five sort keys land with the sortable-results feature (FR-1 extension).
+type SortKey = 'name_asc' | 'name_desc' | 'clickcount' | 'clicktrend' | 'votes';
+// state.sort is added with the same feature. Until src/state.ts gains the
+// property, access it through this typed view so the tests stay type-clean.
+const sortView = state as unknown as { sort: SortKey };
+
+// SORT_API_PARAMS (sort key → API order/reverse mapping) is added with the
+// same feature; the cast keeps this file type-clean while the export does not
+// exist yet. It is imported from the app module (not src/api, which this file
+// mocks with a fixed factory).
+async function loadSortParams() {
+    return (await import('../src/app')) as unknown as {
+        SORT_API_PARAMS: Record<SortKey, { order: string; reverse?: boolean }>;
+    };
+}
+
 // The prev/next buttons must page through station sets (offset-based), NOT
 // cycle through modes. All API calls go through the mocked module so no test
 // touches the network.
@@ -58,6 +74,7 @@ beforeEach(() => {
     // The offset of the currently shown set (0 = first set). Added with the
     // list-pagination feature; reset here so tests stay isolated.
     state.offset = 0;
+    sortView.sort = 'clickcount';
     for (const key of [LS_LANGUAGE, LS_SOUNDTOUCH, LS_FAVORITES, LS_SETTINGS]) {
         localStorage.removeItem(key);
     }
@@ -297,5 +314,139 @@ describe('list navigation — prev/next load station sets', () => {
         expect(state.mode).toBe('top');
         expect(state.offset).toBe(LIMIT);
         expect(state.stations).toEqual(PAGE2);
+    });
+});
+
+describe('sortable search results (FR-1 extension)', () => {
+    it.each(['name_asc', 'name_desc', 'clickcount', 'clicktrend', 'votes'] as const)(
+        'search mode sends the mapped order/reverse for sort %s',
+        async (sortKey) => {
+            const { SORT_API_PARAMS } = await loadSortParams();
+            sortView.sort = sortKey;
+            vi.mocked(searchStations).mockResolvedValueOnce(PAGE1);
+            await refresh('search');
+            expect(searchStations).toHaveBeenLastCalledWith(
+                expect.objectContaining({ ...SORT_API_PARAMS[sortKey], offset: 0 })
+            );
+            // name_asc maps to order=name without reverse — it must not reach
+            // the API call at all (reverse=false is omitted on the wire).
+            if (sortKey === 'name_asc') {
+                expect(vi.mocked(searchStations).mock.calls.at(-1)![0]).not.toHaveProperty('reverse');
+            }
+        }
+    );
+
+    it('changing the sort in search mode re-runs the search at offset 0 and stays in search mode', async () => {
+        vi.mocked(searchStations).mockResolvedValueOnce(PAGE1);
+        state.mode = 'search';
+        render();
+        setupEvents();
+        const sort = document.querySelector<HTMLSelectElement>('#sort')!;
+        sort.value = 'name_desc';
+        sort.dispatchEvent(new Event('change', { bubbles: true }));
+        await vi.waitFor(
+            () =>
+                expect(searchStations).toHaveBeenLastCalledWith(
+                    expect.objectContaining({ order: 'name', reverse: true, offset: 0 })
+                ),
+            { timeout: 500 }
+        );
+        expect(state.mode).toBe('search');
+        expect(state.offset).toBe(0);
+        expect(sortView.sort).toBe('name_desc');
+    });
+
+    it('changing the sort in favorites mode re-sorts locally without any API call', async () => {
+        const VOTED = Array.from({ length: 30 }, (_, i) => ({
+            stationuuid: `v-${i}`,
+            name: `Vote ${i}`,
+            votes: i,
+        }));
+        state.favorites = [...VOTED];
+        state.mode = 'favorites';
+        render();
+        setupEvents();
+        const sort = document.querySelector<HTMLSelectElement>('#sort')!;
+        sort.value = 'votes';
+        sort.dispatchEvent(new Event('change', { bubbles: true }));
+        await vi.waitFor(() => expect(state.stations[0]?.stationuuid).toBe('v-29'), { timeout: 500 });
+        expect(state.mode).toBe('favorites');
+        expect(state.offset).toBe(0);
+        expect(sortView.sort).toBe('votes');
+        expect(state.stations.map(s => s.stationuuid)).toEqual(
+            [...VOTED].sort((a, b) => b.votes! - a.votes!).slice(0, LIMIT).map(s => s.stationuuid)
+        );
+        // The stored favorites array keeps insertion order.
+        expect(state.favorites).toEqual(VOTED);
+        expect(topStations).not.toHaveBeenCalled();
+        expect(recentStations).not.toHaveBeenCalled();
+        expect(searchStations).not.toHaveBeenCalled();
+    });
+
+    it.each(['top', 'recent'] as const)(
+        'changing the sort in %s mode starts a search and switches to search mode',
+        async (mode) => {
+            vi.mocked(searchStations).mockResolvedValueOnce(PAGE1);
+            state.mode = mode;
+            render();
+            setupEvents();
+            const sort = document.querySelector<HTMLSelectElement>('#sort')!;
+            sort.value = 'name_asc';
+            sort.dispatchEvent(new Event('change', { bubbles: true }));
+            await vi.waitFor(() => expect(searchStations).toHaveBeenCalled(), { timeout: 500 });
+            expect(searchStations).toHaveBeenLastCalledWith(
+                expect.objectContaining({ order: 'name', offset: 0 })
+            );
+            expect(state.mode).toBe('search');
+            expect(state.offset).toBe(0);
+            expect(sortView.sort).toBe('name_asc');
+        }
+    );
+
+    it('appends the localized sort label to the status line in search mode', async () => {
+        vi.mocked(searchStations).mockResolvedValueOnce(PAGE1);
+        await refresh('search');
+        expect(state.status).toBe('24 loaded · Popular (1 day)');
+        expect(document.querySelector('.toolbar small')!.textContent).toBe('24 loaded · Popular (1 day)');
+    });
+
+    it('shows the localized label of the active sort in the status line', async () => {
+        vi.mocked(searchStations).mockResolvedValueOnce(PAGE1);
+        sortView.sort = 'name_asc';
+        await refresh('search');
+        expect(state.status).toBe('24 loaded · Name (A–Z)');
+    });
+
+    it('keeps the bare N loaded status in top mode', async () => {
+        vi.mocked(topStations).mockResolvedValueOnce(PAGE1);
+        await refresh('top');
+        expect(state.status).toBe('24 loaded');
+    });
+
+    it('appends the sort label to the status line in favorites mode', async () => {
+        state.favorites = FAVS;
+        state.mode = 'favorites';
+        await refresh('favorites');
+        expect(state.status).toBe('24 loaded · Popular (1 day)');
+    });
+
+    it('reset restores the default sort', async () => {
+        vi.mocked(topStations).mockResolvedValueOnce(PAGE1);
+        sortView.sort = 'name_asc';
+        reset();
+        expect(sortView.sort).toBe('clickcount');
+    });
+
+    it('keeps the sort choice session-only (no localStorage writes)', async () => {
+        vi.mocked(searchStations).mockResolvedValueOnce(PAGE1);
+        state.mode = 'search';
+        render();
+        setupEvents();
+        const keysBefore = Object.keys(localStorage);
+        const sort = document.querySelector<HTMLSelectElement>('#sort')!;
+        sort.value = 'votes';
+        sort.dispatchEvent(new Event('change', { bubbles: true }));
+        await vi.waitFor(() => expect(searchStations).toHaveBeenCalled(), { timeout: 500 });
+        expect(Object.keys(localStorage)).toEqual(keysBefore);
     });
 });
