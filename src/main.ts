@@ -9,9 +9,12 @@ refresh('top').catch(console.error);
 loadFilterOptions();
 
 if (state.soundtouchAddress) {
+    const savedAddress = state.soundtouchAddress;
     state.soundtouchStatus = 'checking';
-    pingSoundtouch(state.soundtouchAddress).then(ok => {
-        state.soundtouchStatus = ok ? 'available' : 'unreachable';
-        render();
+    pingSoundtouch(savedAddress).then(ok => {
+        if (state.soundtouchAddress === savedAddress) {
+            state.soundtouchStatus = ok ? 'available' : 'unreachable';
+            render();
+        }
     });
 }
