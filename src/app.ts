@@ -71,7 +71,36 @@ function App() {
     const bannerHtml = state.soundtouchStatus === 'unreachable' ? renderOfflineBanner(state, t) : '';
     const prevDisabled = state.offset === 0 ? ' disabled' : '';
     const nextDisabled = state.stations.length < state.limit ? ' disabled' : '';
-    return `<div class="app-shell"><a class="skip-link" href="#main">Skip to content</a>${renderHeader(state, t)}<main id="main">${bannerHtml}${renderSoundtouch(state, t)}<section class="layout">${renderFilters(state, t)}<section class="panel results-panel"><div class="toolbar"><div><h2>${state.mode === 'favorites' ? t.favorites : state.mode === 'recent' ? t.recent : state.mode === 'top' ? t.top : t.searchResults}</h2><small>${state.status}</small></div><button class="pill-btn" id="refresh">↻</button></div><div class="station-list">${state.stations.length ? state.stations.map(s => renderStationCard(s, state, t)).join('') : `<div class="empty-state"><strong>${t.noResults}</strong></div>`}</div><div class="results-footer"><button class="btn btn-secondary" id="prevResults"${prevDisabled}>${t.previousSet}</button><button class="btn btn-secondary" id="nextResults"${nextDisabled}>${t.nextSet}</button></div></section></section>${playerHtml}</main>${renderFooter(state, t)}${settingsHtml}</div>`;
+    return `<div class="app-shell">
+    <a class="skip-link" href="#main">Skip to content</a>
+    ${renderHeader(state, t)}
+    <main id="main">
+        ${bannerHtml}
+        ${renderSoundtouch(state, t)}
+        <section class="layout">
+            ${renderFilters(state, t)}
+            <section class="panel results-panel">
+                <div class="toolbar">
+                    <div>
+                        <h2>${state.mode === 'favorites' ? t.favorites : state.mode === 'recent' ? t.recent : state.mode === 'top' ? t.top : t.searchResults}</h2>
+                        <small>${state.status}</small>
+                    </div>
+                    <button class="pill-btn" id="refresh">↻</button>
+                </div>
+                <div class="station-list">
+                    ${state.stations.length ? state.stations.map(s => renderStationCard(s, state, t)).join('') : `<div class="empty-state"><strong>${t.noResults}</strong></div>`}
+                </div>
+                <div class="results-footer">
+                    <button class="btn btn-secondary" id="prevResults"${prevDisabled}>${t.previousSet}</button>
+                    <button class="btn btn-secondary" id="nextResults"${nextDisabled}>${t.nextSet}</button>
+                </div>
+            </section>
+        </section>
+        ${playerHtml}
+    </main>
+    ${renderFooter(state, t)}
+    ${settingsHtml}
+</div>`;
 }
 
 async function loadMode(mode: Mode) {
