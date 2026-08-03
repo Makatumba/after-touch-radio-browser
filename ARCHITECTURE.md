@@ -56,10 +56,10 @@ AfterTouch-RadioBrowser/
 | File | Purpose |
 |------|---------|
 | `src/main.ts` | Application entry point (bootstrap) |
-| `src/app.ts` | Global `state` export + `render()`/`refresh()` core |
+| `src/app.ts` | Global `state` export + `render()`/`refresh()` core; owns the sort→API `order`/`reverse` mapping (`SORT_API_PARAMS`) |
 | `src/events.ts` | All event delegation (click/keydown/change on `#app`) |
 | `src/state.ts` | Core domain types (FilterOption carries the canonical API `code` for label localization) |
-| `src/api.ts` | Radio Browser API endpoints (search/top/recent + languages/countries lists) |
+| `src/api.ts` | Radio Browser API endpoints (search/top/recent + languages/countries lists; `searchStations` sends the mapped `order`/`reverse`) |
 | `src/actions.ts` | Playback, favorites, SoundTouch domain logic |
 | `src/i18n.ts` | 4-language translation dictionary + locale helpers (`getLocale`, `localizeFilterOptions`, `filterLabelOverrides`) |
 | `src/settings.ts` | Settings defaults + persistence |
@@ -80,6 +80,7 @@ graph TD
     APP --> COMP[components/*]
     APP --> SETUP[components/setup.ts]
     APP --> BANNER[components/banner.ts]
+    APP --> ACT
     EVT --> APP
     EVT --> ACT
     EVT --> SET
@@ -125,6 +126,19 @@ graph TD
   locally; `loadNextResultSet()`/`loadPreviousResultSet()` reload the current mode at the new
   offset (they never cycle modes) and no-op at the edges; the prev/next buttons stay visible
   and render `disabled` at the edges (first set / short final set).
+- **Sorting**: search results and the favorites list are sortable via the "Sort by" select in
+  the filters panel. `state.sort` (`name_asc`/`name_desc`/`clickcount`/`clicktrend`/`votes`,
+  default `clickcount`) selects the order; `SORT_API_PARAMS` in `app.ts` maps it to the API's
+  `order`/`reverse` (`name` with no `reverse` for A–Z / `reverse=true` for Z–A;
+  `clickcount`/`clicktrend`/`votes` with `reverse=true`), passed to `searchStations`, while
+  favorites sort client-side via `compareFavorites` in `actions.ts` by the same key (names via
+  `localeCompare` in the active UI language's locale, missing names as `''`; numeric fields
+  descending with missing values as `0` — `clicktrend` is optional on `Station`, older saved
+  favorites may lack it). The select always shows the current order; in Search and Favorites
+  modes the results toolbar appends the sort label to the status line. Changing the sort
+  re-runs the search (offset 0) in Search mode, re-sorts favorites in place (no API call) in
+  Favorites mode, and starts a search from Top/Recent like the other filter changes. Reset
+  restores the default; the choice is session-only (not persisted).
 - **Localized filter dropdowns**: Language/Country filters are `<select>`s fed once at startup
   by `/languages` (entries without a valid `iso_639` are dropped) and `/countries`; each option
   carries a `value` (canonical name / ISO code), a fetch-time English `label`, and the canonical
