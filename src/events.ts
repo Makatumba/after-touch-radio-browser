@@ -1,5 +1,5 @@
 import type {Language} from './i18n';
-import type {Mode, Station} from './state';
+import type {Mode, SortKey, Station} from './state';
 import {state} from './app';
 import {render, refresh, searchFromInputs, reset, loadNextResultSet, loadPreviousResultSet} from './app';
 import {playStation, stopPlayback, toggleFavorite, sendToSoundtouch, setLanguage, pingSoundtouch, sanitizeHost} from './actions';
@@ -97,6 +97,15 @@ export function setupEvents(): void {
         const target = e.target as HTMLElement;
         if (['limit', 'hideBroken', 'country', 'languageFilter'].includes(target.id)) {
             searchFromInputs();
+            return;
+        }
+        if (target.id === 'sort') {
+            state.sort = (target as HTMLSelectElement).value as SortKey;
+            if (state.mode === 'favorites') {
+                refresh('favorites');
+            } else {
+                searchFromInputs();
+            }
             return;
         }
         if (target.id === 'settingEnablePreview') {

@@ -11,13 +11,17 @@ export async function searchStations(params: {
     limit: number;
     hideBroken: boolean;
     offset?: number;
+    order?: string;
+    reverse?: boolean;
 }): Promise<Station[]> {
+    const order = params.order ?? 'clickcount';
+    const reverse = params.order === undefined ? true : params.reverse === true;
     const {data} = await api.get('/stations/search', {
         params: {
             limit: params.limit,
             hidebroken: params.hideBroken,
-            order: 'clickcount',
-            reverse: true, ...(params.offset != null ? {offset: params.offset} : {}), ...(params.name ? {name: params.name} : {}), ...(params.countryCode ? {countrycode: params.countryCode} : {}), ...(params.language ? {language: params.language, languageExact: true} : {}), ...(params.tag ? {tag: params.tag} : {})
+            order,
+            ...(reverse ? {reverse: true} : {}), ...(params.offset != null ? {offset: params.offset} : {}), ...(params.name ? {name: params.name} : {}), ...(params.countryCode ? {countrycode: params.countryCode} : {}), ...(params.language ? {language: params.language, languageExact: true} : {}), ...(params.tag ? {tag: params.tag} : {})
         }
     });
     return data;

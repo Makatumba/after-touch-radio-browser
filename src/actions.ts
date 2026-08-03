@@ -1,7 +1,13 @@
-import type {Station, State} from './state';
+import type {SortKey, Station, State} from './state';
 import {getLabels, getLocale} from './i18n';
 import type {Language} from './i18n';
 import {playStream, stopStream} from './player';
+
+export function compareFavorites(a: Station, b: Station, sort: SortKey, locale: string): number {
+    if (sort === 'name_asc') return (a.name || '').localeCompare(b.name || '', locale);
+    if (sort === 'name_desc') return -(a.name || '').localeCompare(b.name || '', locale);
+    return (b[sort] ?? 0) - (a[sort] ?? 0);
+}
 
 export function sanitizeHost(raw: string): string {
     let host = raw.trim();
