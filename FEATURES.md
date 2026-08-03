@@ -81,9 +81,17 @@ in "american english" via substring matching. Country options display localized 
 the ISO 3166-1 alpha-2 code via the `countrycode` param (exact match, immune to the API's
 case-sensitive `country` name matching). In the English UI the labels appear in canonical title
 case ("English", "United Kingdom") rather than the API's lowercase/quirky names; the override
-map can restore any API name. If the list fetch fails, the dropdowns still render with only the
-"All" option and the app keeps working. Selecting a language or country triggers the search
-immediately (same as the limit select). See [API-NOTES.md](API-NOTES.md) for the full API
+map can restore any API name. The last successful fetch of each option list is cached
+client-side under its own localStorage key (`radio-browser-languages-cache` and
+`radio-browser-countries-cache`), storing the raw fetch-time `{value, label, code}` entries —
+never the localized render form, so a cached list re-localizes for any UI language. The two
+lists are fetched independently, so a failure of one never discards the other. If a list's fetch
+fails or returns an empty array, the cached list is used instead; when no valid cache exists
+either, the dropdowns still render with only the "All" option and the app keeps working. Every
+successful non-empty fetch overwrites its cache (last-known-good, no expiry); a malformed cache
+is ignored and rebuilt on the next success; caching is best-effort (a full or unavailable
+localStorage never breaks the current session). Selecting a language or country triggers the
+search immediately (same as the limit select). See [API-NOTES.md](API-NOTES.md) for the full API
 contract.
 
 ### FR-2 One-time device setup
@@ -234,8 +242,10 @@ capability are non-goals (see Non-goals).
 - **Filter dropdowns**: Language and Country are dropdowns (not free-text); language options
   carry valid `iso_639` codes and are sent with `languageExact=true`; country options send the
   ISO code via `countrycode`; labels are localized to the active UI language and sorted by the
-  localized label; selecting one searches immediately; on list-fetch failure the dropdowns
-  render with only the "All" option and browsing keeps working.
+  localized label; selecting one searches immediately; each list's last successful non-empty
+  fetch is cached raw under its own localStorage key; a failed or empty fetch falls back to the
+  cached list (per list, independently); with no valid cache the dropdowns render with only the
+  "All" option and browsing keeps working; a later successful fetch overwrites the cache.
 - **Sorting**: the "Sort by" dropdown shows the current order with all five options localized
   in all four languages; search API calls carry the mapped `order`/`reverse` for the selected
   sort; changing the sort re-runs the search (offset 0) in Search mode, re-sorts the favorites
@@ -278,8 +288,12 @@ capability are non-goals (see Non-goals).
   every other filter change.
 - The ↻ refresh button always reloads the first set (offset 0), even while a later page is
   shown.
-- The Language/Country list fetch fails at startup — the dropdowns render with only the "All"
+- The Language/Country list fetch fails at startup (or returns an empty array) — the dropdowns
+  fall back to the last cached option list; with no valid cache they render with only the "All"
   option; search, modes, and pagination keep working.
+- A stored cache is malformed (bad JSON, not an array, or entries without string
+  `value`/`label`/`code`) or localStorage is unavailable/full — the cache is ignored and rebuilt
+  on the next successful fetch; the current session's dropdowns are unaffected.
 - `Intl.DisplayNames` unavailable or an unmappable ISO code (e.g. an unknown region code like
   "XX" — junk language entries are already filtered out at fetch time) — the canonical English
   label is shown and the dropdowns still sort in the active locale.

@@ -20,7 +20,7 @@
 - **Component templates**: Multi-line template literals in component functions (`src/components/*.ts`, `App()` in `src/app.ts`) — one element per line, 4-space indent mirroring the DOM nesting; keep `${...}` interpolations on their tag's line and inline text runs that must stay adjacent (e.g. `<strong>…</strong><small>…</small>` in the player bar) unbroken. Single-element snippets (`playBtn`, `previewBtn`, `hint`, `msg`, `serviceLink`) and short single-tag returns (banner, footer) stay on one line. Newlines become part of the HTML but collapse as inter-element whitespace (flex/grid items, block boundaries) — no visual or test impact.
 - **Language codes**: `en`, `de`, `ru`, `ukr` (not `uk`). `getLabels()` maps `'uk'` → `'ukr'`.
 - **Translations**: `as const` object in `i18n.ts`. Add new keys to all 4 languages when extending.
-- **localStorage keys**: `radio-browser-language`, `radio-browser-soundtouch-host`, `radio-browser-favorites`, `radio-browser-settings`
+- **localStorage keys**: `radio-browser-language`, `radio-browser-soundtouch-host`, `radio-browser-favorites`, `radio-browser-settings`, `radio-browser-languages-cache`, `radio-browser-countries-cache`
 - **Settings** (1 toggle, stored as JSON): `enablePreview` (default off). Defaults in `src/settings.ts`.
 - **SoundTouch**: Reachability probes the device Web API — `GET http://<host>:8090/info` as a `no-cors` request (opaque response: it only proves the port answers; 5s timeout per attempt). Station send is `POST http://<host>:8090/select` (`no-cors`, `text/plain;charset=UTF-8` body). An explicit port in the saved host is honored (no `:8090` appended).
 - **Git artifacts**: `docs/` is tracked (GitHub Pages hosting output — commit it after deploys); `dist/` and `.DS_Store` are gitignored.
