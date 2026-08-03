@@ -70,6 +70,58 @@ describe('searchStations — canonical filter params', () => {
         const options = get.mock.calls[0][1] as { params: Record<string, unknown> };
         expect(options.params).not.toHaveProperty('country');
     });
+
+    it('defaults to order=clickcount reverse=true when no order/reverse are passed', async () => {
+        get.mockResolvedValue({ data: [] });
+        await searchStations({
+            name: '',
+            countryCode: '',
+            tag: '',
+            limit: 24,
+            hideBroken: true,
+            offset: 0,
+        });
+        const options = get.mock.calls[0][1] as { params: Record<string, unknown> };
+        expect(options.params).toMatchObject({ order: 'clickcount', reverse: true });
+    });
+
+    it('sends an explicit order=name reverse=true pass-through as-is', async () => {
+        get.mockResolvedValue({ data: [] });
+        // order/reverse land with the sortable-results feature; passing a
+        // variable (not a fresh literal) keeps this type-clean until the
+        // searchStations params type gains the fields.
+        const params = {
+            name: '',
+            countryCode: '',
+            tag: '',
+            limit: 24,
+            hideBroken: true,
+            offset: 0,
+            order: 'name',
+            reverse: true,
+        };
+        await searchStations(params);
+        const options = get.mock.calls[0][1] as { params: Record<string, unknown> };
+        expect(options.params).toMatchObject({ order: 'name', reverse: true });
+    });
+
+    it('omits reverse from the wire when reverse=false', async () => {
+        get.mockResolvedValue({ data: [] });
+        const params = {
+            name: '',
+            countryCode: '',
+            tag: '',
+            limit: 24,
+            hideBroken: true,
+            offset: 0,
+            order: 'name',
+            reverse: false,
+        };
+        await searchStations(params);
+        const options = get.mock.calls[0][1] as { params: Record<string, unknown> };
+        expect(options.params).toMatchObject({ order: 'name' });
+        expect(options.params).not.toHaveProperty('reverse');
+    });
 });
 
 describe('fetchLanguages / fetchCountries — dropdown option lists', () => {
