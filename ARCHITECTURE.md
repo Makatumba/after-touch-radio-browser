@@ -24,6 +24,7 @@ AfterTouch-RadioBrowser/
 │   ├── i18n.ts                 # Translations en/de/ru/ukr (as const) + locale helpers (getLocale, localizeFilterOptions, filterLabelOverrides)
 │   ├── player.ts               # Persistent <audio> singleton
 │   ├── settings.ts             # Settings defaults + localStorage persistence
+│   ├── filter-cache.ts         # Filter option list localStorage cache (raw {value,label,code} lists)
 │   ├── state.ts                # Shared types (Station, Settings, State, Mode, FilterOption)
 │   ├── styles.css              # All styling
 │   └── components/             # Pure render functions returning HTML strings
@@ -64,6 +65,7 @@ AfterTouch-RadioBrowser/
 | `src/actions.ts` | Playback, favorites, SoundTouch domain logic |
 | `src/i18n.ts` | 4-language translation dictionary + locale helpers (`getLocale`, `localizeFilterOptions`, `filterLabelOverrides`) |
 | `src/settings.ts` | Settings defaults + persistence |
+| `src/filter-cache.ts` | Filter option list localStorage persistence (raw `{value, label, code}` lists with validation) |
 | `vite.config.ts` | Build/test configuration |
 
 ## Module Dependencies
@@ -78,6 +80,7 @@ graph TD
     APP --> PL[player.ts]
     APP --> API[api.ts]
     APP --> SET[settings.ts]
+    APP --> FCACHE[filter-cache.ts]
     APP --> COMP[components/*]
     APP --> SETUP[components/setup.ts]
     APP --> BANNER[components/banner.ts]
@@ -92,6 +95,7 @@ graph TD
     API --> ST
     API --> AXIOS[axios → Radio Browser API]
     SET --> ST
+    FCACHE --> ST
     ST --> I18N
     I18N -.-> |type-only| ST
     COMP --> ST
@@ -103,7 +107,7 @@ graph TD
 
 - **Main**: `src/main.ts` — renders app, calls `refresh('top')`, pings saved SoundTouch host
 - **Tests**: `tests/app.test.ts`, `tests/pagination.test.ts`, `tests/filters.test.ts`,
-  `tests/soundtouch.test.ts`, `tests/api.test.ts` — Vitest, jsdom environment
+  `tests/filter-cache.test.ts`, `tests/soundtouch.test.ts`, `tests/api.test.ts` — Vitest, jsdom environment
 - **Deploy**: `npm run deploy` — build → `dist/` → `docs/` (GitHub Pages)
 
 ## Conventions

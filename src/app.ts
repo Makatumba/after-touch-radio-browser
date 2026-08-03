@@ -1,9 +1,11 @@
 import type {Language} from './i18n';
 import {detectLanguage, getLabels, getLocale, SORT_LABEL_KEYS, translations} from './i18n';
-import type {Mode, Settings, SortKey, State, Station} from './state';
+import type {Mode, Settings, SortKey, State, Station, FilterOption} from './state';
 import {getAudioElement} from './player';
 import {topStations, recentStations, searchStations, fetchLanguages, fetchCountries} from './api';
 import {loadSettings} from './settings';
+import {loadFilterCache, saveFilterCache} from './filter-cache';
+import type {FilterCacheKind} from './filter-cache';
 import {compareFavorites} from './actions';
 import {renderHeader} from './components/header';
 import {renderSoundtouch} from './components/soundtouch';
@@ -157,14 +159,32 @@ export function searchFromInputs() {
     refresh('search');
 }
 
-export async function loadFilterOptions() {
+/**
+ * Fetches one filter option list, persisting each successful non-empty result
+ * raw to its cache key and falling back to the cached list on a failed or
+ * empty fetch. Never rejects — that invariant lets the two lists load
+ * independently (a failure of one never discards the other).
+ */
+async function loadFilterList(kind: FilterCacheKind, fetcher: () => Promise<FilterOption[]>): Promise<FilterOption[]> {
     try {
-        const [languages, countries] = await Promise.all([fetchLanguages(), fetchCountries()]);
-        state.languages = languages;
-        state.countries = countries;
+        const options = await fetcher();
+        if (options.length > 0) {
+            saveFilterCache(kind, options);
+            return options; // network stays authoritative
+        }
     } catch (e) {
-        console.error(e);
+        console.error(e); // keep existing logging behavior
     }
+    return loadFilterCache(kind) ?? []; // failed or empty fetch → cached fallback
+}
+
+export async function loadFilterOptions() {
+    const [languages, countries] = await Promise.all([
+        loadFilterList('languages', fetchLanguages),
+        loadFilterList('countries', fetchCountries),
+    ]);
+    state.languages = languages;
+    state.countries = countries;
     render();
 }
 
