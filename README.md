@@ -130,7 +130,10 @@ A full codebase map — structure, key files, module dependency graph, and conve
   chips; `getLabels()` maps `'uk'` → `'ukr'`, and `<html lang>` is set to `uk` for Ukrainian.
 - **localStorage keys** — `radio-browser-language`, `radio-browser-soundtouch-host`,
   `radio-browser-favorites`, `radio-browser-settings` (settings stored as JSON; a single
-  `enablePreview` toggle, default off; defaults in `src/settings.ts`).
+  `enablePreview` toggle, default off; defaults in `src/settings.ts`), and
+  `radio-browser-languages-cache` / `radio-browser-countries-cache` (raw JSON fallback copies of
+  the last successful Language/Country dropdown option lists, used when the Radio Browser API
+  fetch fails or returns empty).
 - **SoundTouch ports** — 8090: the device Web API for the reachability check (GET `/info`) and
   play commands (POST `/select`, `no-cors`, `text/plain;charset=UTF-8`, body is a
   `<ContentItem source="RADIO_BROWSER" type="stationurl" location="/stations/byuuid/{uuid}"/>`

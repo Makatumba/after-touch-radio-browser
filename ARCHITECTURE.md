@@ -150,12 +150,19 @@ graph TD
   label) → the option's existing label, then sorted by the localized label with the locale's
   collation; the input array is never mutated and API values stay canonical. Selecting an option
   searches immediately; language is sent with `languageExact=true`, country as `countrycode`
-  (never `country`); option labels/values are HTML-escaped; on list-fetch failure the dropdowns
-  render with only the 'All' option.
+  (never `country`); option labels/values are HTML-escaped. Each list's last successful
+  non-empty fetch is cached raw under its own localStorage key
+  (`radio-browser-languages-cache` / `radio-browser-countries-cache`, storing the fetch-time
+  `{value, label, code}` entries so any UI language re-localizes them); on a failed or empty
+  fetch the dropdowns fall back to that cached list, and with no valid cache they render with
+  only the 'All' option. Caching is best-effort: malformed entries or a full localStorage are
+  ignored, never fatal.
 - **Language codes**: `en`/`de`/`ru`/`ukr` (not `uk`); `getLabels()` maps `'uk'` → `'ukr'`;
   `detectLanguage()` maps `'uk'` → `'ukr'` and unsupported locales → `en`.
 - **localStorage keys**: `radio-browser-language`, `radio-browser-soundtouch-host`,
-  `radio-browser-favorites`, `radio-browser-settings`.
+  `radio-browser-favorites`, `radio-browser-settings`,
+  `radio-browser-languages-cache` / `radio-browser-countries-cache` (raw JSON fallback lists of
+  the last successful Language/Country dropdown options).
 - **Settings**: single `enablePreview` toggle (default off); legacy settings keys are ignored on
   load.
 - **SoundTouch ports**: 8090 = the device Web API for reachability (GET `/info` as a `no-cors`
