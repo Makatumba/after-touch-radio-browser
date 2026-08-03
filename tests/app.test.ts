@@ -225,7 +225,9 @@ describe('setup view (FR-2)', () => {
     });
 
     it('saves the sanitized address and verifies reachability', async () => {
-        const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+        // The no-cors probe resolves with an opaque response — that alone
+        // proves the device Web API on port 8090 answers.
+        const fetchMock = vi.fn().mockResolvedValue({} as Response);
         vi.stubGlobal('fetch', fetchMock);
 
         state.soundtouchAddress = '';
@@ -246,6 +248,11 @@ describe('setup view (FR-2)', () => {
             () => expect(document.body.textContent).toContain(`✓ ${getLabels(state).reachable}`),
             { timeout: 500 }
         );
+        // Probe-only check: exactly one no-cors GET on the device Web API.
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+        expect(url).toBe('http://192.168.1.42:8090/info');
+        expect(init.mode).toBe('no-cors');
     });
 
     it('marks the device unreachable and shows the banner when the check fails', async () => {
@@ -262,6 +269,8 @@ describe('setup view (FR-2)', () => {
         document.querySelector<HTMLButtonElement>('#saveSoundtouch')!.click();
 
         await vi.waitFor(() => expect(state.soundtouchStatus).toBe('unreachable'), { timeout: 500 });
+        // The single probe rejects, so the check makes exactly one attempt.
+        expect(fetchMock).toHaveBeenCalledTimes(1);
         expect(document.querySelector('.setup-view')).toBeNull();
         await vi.waitFor(() => expect(document.querySelector('.offline-banner')).not.toBeNull(), { timeout: 500 });
         expect(document.querySelector('.offline-banner')!.textContent).toContain(getLabels(state).offlineBanner);
@@ -269,13 +278,15 @@ describe('setup view (FR-2)', () => {
 
     it('ignores a stale ping result after the address changes', async () => {
         let rejectA!: (reason: Error) => void;
+        // A's probe hangs (never resolves on its own) until the test rejects it.
         const pendingA = new Promise<Response>((_, reject) => {
             rejectA = reject;
         });
         const fetchMock = vi
             .fn()
             .mockImplementationOnce(() => pendingA)
-            .mockResolvedValue({ ok: true } as Response);
+            .mockImplementationOnce(() => Promise.resolve({} as Response))
+            .mockRejectedValue(new Error('offline'));
         vi.stubGlobal('fetch', fetchMock);
 
         state.soundtouchAddress = '';
@@ -288,7 +299,7 @@ describe('setup view (FR-2)', () => {
         input.value = 'http://192.168.1.42/';
         document.querySelector<HTMLButtonElement>('#saveSoundtouch')!.click();
 
-        // Save host B — its ping resolves immediately to available.
+        // Save host B — its probe resolves immediately.
         input = document.querySelector<HTMLInputElement>('#soundtouch')!;
         input.value = '192.168.1.99';
         document.querySelector<HTMLButtonElement>('#saveSoundtouch')!.click();
