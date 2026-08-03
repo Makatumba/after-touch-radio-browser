@@ -25,6 +25,15 @@ const STATION: Station = {
     lastcheckok: true,
 };
 
+// The five sort keys land with the sortable-results feature (FR-1 extension).
+type SortKey = 'name_asc' | 'name_desc' | 'clickcount' | 'clicktrend' | 'votes';
+// Station.clicktrend lands with the same feature; include it so favorites with
+// and without numeric fields are both covered before src/state.ts gains it.
+type SortableStation = Partial<Station> & { clicktrend?: number };
+// state.sort is added with the same feature. Until src/state.ts gains the
+// property, access it through this typed view so the tests stay type-clean.
+const sortView = state as unknown as { sort: SortKey };
+
 beforeEach(() => {
     document.body.innerHTML = '<div id="app"></div>';
     state.language = 'en';
@@ -39,6 +48,7 @@ beforeEach(() => {
     state.stations = [];
     state.favorites = [];
     state.mode = 'top';
+    sortView.sort = 'clickcount';
     for (const key of [LS_LANGUAGE, LS_SOUNDTOUCH, LS_FAVORITES, LS_SETTINGS]) {
         localStorage.removeItem(key);
     }
@@ -635,5 +645,119 @@ describe('logo and branding (FR-12)', () => {
         expect(html).toMatch(/<link[^>]*rel="icon"[^>]*>/);
         expect(html).toContain('href="logo.png"');
         expect(html).not.toMatch(/href="\/logo\.png"/);
+    });
+});
+
+describe('sortable search results & favorites (FR-1 extension)', () => {
+    it('renders the sort select in the filters panel with the five options in display order', () => {
+        render();
+        const select = document.querySelector<HTMLSelectElement>('#sort');
+        expect(select).not.toBeNull();
+        expect(select!.tagName).toBe('SELECT');
+        expect([...select!.options].map(o => o.value)).toEqual([
+            'name_asc',
+            'name_desc',
+            'clickcount',
+            'clicktrend',
+            'votes',
+        ]);
+        // Sits in the filters panel after the limit select.
+        const controls = [...document.querySelectorAll<HTMLSelectElement>('.controls select')].map(s => s.id);
+        expect(controls.indexOf('limit')).toBeGreaterThanOrEqual(0);
+        expect(controls.indexOf('limit')).toBeLessThan(controls.indexOf('sort'));
+    });
+
+    it('labels the sort select with t.sortBy', () => {
+        render();
+        const select = document.querySelector<HTMLSelectElement>('#sort');
+        expect(select).not.toBeNull();
+        expect(select!.parentElement!.textContent).toContain(getLabels(state).sortBy);
+    });
+
+    it('marks the current state.sort as the selected option', () => {
+        render();
+        let selected = [...document.querySelector<HTMLSelectElement>('#sort')!.options].filter(o => o.selected);
+        expect(selected.length).toBe(1);
+        expect(selected[0].value).toBe('clickcount');
+
+        sortView.sort = 'votes';
+        render();
+        selected = [...document.querySelector<HTMLSelectElement>('#sort')!.options].filter(o => o.selected);
+        expect(selected.length).toBe(1);
+        expect(selected[0].value).toBe('votes');
+    });
+
+    it('localizes the five sort option labels in all languages', () => {
+        for (const lang of ['de', 'ru', 'ukr'] as const) {
+            state.language = lang;
+            render();
+            const select = document.querySelector<HTMLSelectElement>('#sort')!;
+            const labels = getLabels({ language: lang });
+            expect([...select.options].map(o => o.textContent)).toEqual([
+                labels.sortNameAsc,
+                labels.sortNameDesc,
+                labels.sortPopular,
+                labels.sortTrending,
+                labels.sortTopVotes,
+            ]);
+            expect(select.parentElement!.textContent).toContain(labels.sortBy);
+        }
+    });
+
+    describe('compareFavorites (client-side favorites sorting)', () => {
+        async function loadCompareFavorites() {
+            // compareFavorites is added with the sortable-favorites feature; the
+            // cast keeps this file type-clean while the export does not exist yet.
+            return (await import('../src/actions')) as unknown as {
+                compareFavorites: (a: SortableStation, b: SortableStation, sort: SortKey, locale: string) => number;
+            };
+        }
+
+        it('name_asc uses localeCompare with the active locale', async () => {
+            const { compareFavorites } = await loadCompareFavorites();
+            expect(compareFavorites({ name: 'Äpfel' }, { name: 'Apfel' }, 'name_asc', 'de')).toBe(
+                'Äpfel'.localeCompare('Apfel', 'de')
+            );
+            expect(compareFavorites({ name: 'Apfel' }, { name: 'Äpfel' }, 'name_asc', 'de')).toBe(
+                'Apfel'.localeCompare('Äpfel', 'de')
+            );
+        });
+
+        it('name_desc negates the localeCompare result', async () => {
+            const { compareFavorites } = await loadCompareFavorites();
+            expect(compareFavorites({ name: 'Äpfel' }, { name: 'Apfel' }, 'name_desc', 'de')).toBe(
+                -'Äpfel'.localeCompare('Apfel', 'de')
+            );
+            expect(compareFavorites({ name: 'Apfel' }, { name: 'Äpfel' }, 'name_desc', 'de')).toBe(
+                -'Apfel'.localeCompare('Äpfel', 'de')
+            );
+        });
+
+        it('treats a missing name as an empty string', async () => {
+            const { compareFavorites } = await loadCompareFavorites();
+            expect(compareFavorites({}, { name: 'Zeta' }, 'name_asc', 'en')).toBe(''.localeCompare('Zeta', 'en'));
+            expect(compareFavorites({ name: 'Zeta' }, {}, 'name_asc', 'en')).toBe('Zeta'.localeCompare('', 'en'));
+            expect(compareFavorites({}, {}, 'name_asc', 'en')).toBe(0);
+        });
+
+        it.each<[('clickcount' | 'clicktrend' | 'votes'), SortableStation, SortableStation]>([
+            ['clickcount', { clickcount: 10 }, { clickcount: 3 }],
+            ['clicktrend', { clicktrend: 10 }, { clicktrend: 3 }],
+            ['votes', { votes: 10 }, { votes: 3 }],
+        ])('%s compares descending with missing values as 0', async (key, big, small) => {
+            const { compareFavorites } = await loadCompareFavorites();
+            expect(compareFavorites(big, small, key, 'en')).toBe(-7);
+            expect(compareFavorites(small, big, key, 'en')).toBe(7);
+            expect(compareFavorites(big, {}, key, 'en')).toBe(-10);
+            expect(compareFavorites({}, big, key, 'en')).toBe(10);
+        });
+
+        it('returns 0 for equal keys so the sort stays stable', async () => {
+            const { compareFavorites } = await loadCompareFavorites();
+            expect(compareFavorites({ clickcount: 7 }, { clickcount: 7 }, 'clickcount', 'en')).toBe(0);
+            expect(compareFavorites({ clicktrend: 7 }, { clicktrend: 7 }, 'clicktrend', 'en')).toBe(0);
+            expect(compareFavorites({ votes: 7 }, { votes: 7 }, 'votes', 'en')).toBe(0);
+            expect(compareFavorites({ name: 'same' }, { name: 'same' }, 'name_asc', 'en')).toBe(0);
+        });
     });
 });
