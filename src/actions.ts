@@ -3,6 +3,8 @@ import {getLabels, getLocale} from './i18n';
 import type {Language} from './i18n';
 import {playStream, stopStream} from './player';
 
+const PING_TIMEOUT_MS = 5000;
+
 export function compareFavorites(a: Station, b: Station, sort: SortKey, locale: string): number {
     if (sort === 'name_asc') return (a.name || '').localeCompare(b.name || '', locale);
     if (sort === 'name_desc') return -(a.name || '').localeCompare(b.name || '', locale);
@@ -17,6 +19,12 @@ export function sanitizeHost(raw: string): string {
     host = host.replace(/\/+$/, '');
     if (/[^A-Za-z0-9._:\-]/.test(host)) return '';
     return host;
+}
+
+export function soundtouchBaseUrl(raw: string): string {
+    const clean = sanitizeHost(raw);
+    if (!clean) return '';
+    return `http://${clean}${/:\d+$/.test(clean) ? '' : ':8090'}`;
 }
 
 export function playStation(station: Station, state: State) {
@@ -56,13 +64,18 @@ export function setLanguage(lang: Language, state: State) {
 }
 
 export async function pingSoundtouch(host: string): Promise<boolean> {
-    const clean = sanitizeHost(host);
-    if (!clean) return false;
+    const base = soundtouchBaseUrl(host);
+    if (!base) return false;
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), PING_TIMEOUT_MS);
     try {
-        await fetch(`http://${clean}:8000/`, {method: 'HEAD', mode: 'no-cors'});
+        await fetch(`${base}/info`, { method: 'GET', mode: 'no-cors', signal: controller.signal });
         return true;
     } catch {
         return false;
+    } finally {
+        clearTimeout(timer);
     }
 }
 
@@ -71,7 +84,7 @@ export async function sendToSoundtouch(station: Station, state: State) {
     if (!host) return;
     const t = getLabels(state);
     try {
-        await fetch(`http://${host}:8090/select`, {
+        await fetch(`${soundtouchBaseUrl(host)}/select`, {
             method: 'POST',
             mode: 'no-cors',
             headers: {'Content-Type': 'text/plain;charset=UTF-8'},
