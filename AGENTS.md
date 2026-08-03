@@ -22,7 +22,7 @@
 - **Translations**: `as const` object in `i18n.ts`. Add new keys to all 4 languages when extending.
 - **localStorage keys**: `radio-browser-language`, `radio-browser-soundtouch-host`, `radio-browser-favorites`, `radio-browser-settings`
 - **Settings** (1 toggle, stored as JSON): `enablePreview` (default off). Defaults in `src/settings.ts`.
-- **SoundTouch**: Port 8000 for reachability (HEAD, `no-cors`), port 8090 for station send (POST, `no-cors`, `text/plain;charset=UTF-8` body).
+- **SoundTouch**: Reachability probes the device Web API — `GET http://<host>:8090/info` as a `no-cors` request (opaque response: it only proves the port answers; 5s timeout per attempt). Station send is `POST http://<host>:8090/select` (`no-cors`, `text/plain;charset=UTF-8` body). An explicit port in the saved host is honored (no `:8090` appended).
 - **Git artifacts**: `docs/` is tracked (GitHub Pages hosting output — commit it after deploys); `dist/` and `.DS_Store` are gitignored.
 
 ## Testing notes

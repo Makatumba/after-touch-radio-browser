@@ -40,6 +40,7 @@ AfterTouch-RadioBrowser/
 │   ├── app.test.ts             # Vitest suite (jsdom)
 │   ├── pagination.test.ts      # List-pagination tests (jsdom)
 │   ├── filters.test.ts         # Canonical language/country dropdown tests (jsdom)
+│   ├── soundtouch.test.ts      # SoundTouch reachability + device-info tests (jsdom)
 │   ├── pwa-assets.test.ts      # FR-8 PWA manifest/icon/installability + polish tests (fs-based)
 │   └── api.test.ts             # Radio Browser API wire-contract tests (axios mocked)
 ├── docs/                       # GitHub Pages hosting output (tracked, deploy-generated)
@@ -102,7 +103,7 @@ graph TD
 
 - **Main**: `src/main.ts` — renders app, calls `refresh('top')`, pings saved SoundTouch host
 - **Tests**: `tests/app.test.ts`, `tests/pagination.test.ts`, `tests/filters.test.ts`,
-  `tests/api.test.ts` — Vitest, jsdom environment
+  `tests/soundtouch.test.ts`, `tests/api.test.ts` — Vitest, jsdom environment
 - **Deploy**: `npm run deploy` — build → `dist/` → `docs/` (GitHub Pages)
 
 ## Conventions
@@ -157,8 +158,11 @@ graph TD
   `radio-browser-favorites`, `radio-browser-settings`.
 - **Settings**: single `enablePreview` toggle (default off); legacy settings keys are ignored on
   load.
-- **SoundTouch ports**: 8000 = reachability (HEAD, `no-cors`); 8090 = station send (POST,
-  `text/plain;charset=UTF-8`).
+- **SoundTouch ports**: 8090 = the device Web API for reachability (GET `/info` as a `no-cors`
+  probe, 5s timeout) and station send (POST `/select`, `text/plain;charset=UTF-8`). An explicit
+  port in the saved host is honored (no `:8090` appended). The probe's opaque response only
+  proves the port answers; device metadata (name/type/ID) is out of reach from the browser and
+  is planned via the port-8080 WebSocket.
 - **Hosting**: `docs/` is committed deploy output for GitHub Pages; `dist/` and `.DS_Store`
   are gitignored. `public/` is copied to the dist/docs root by Vite; the favicon uses a
   relative `href="logo.png"` so it resolves under the GitHub Pages subpath. The manifest
