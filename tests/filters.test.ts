@@ -6,6 +6,7 @@ import { setLanguage } from '../src/actions';
 import { topStations, recentStations, searchStations, fetchLanguages, fetchCountries } from '../src/api';
 import { defaultSettings } from '../src/settings';
 import { getAudioElement } from '../src/player';
+import type { FilterOption } from '../src/state';
 
 // All API access goes through the mocked module so no test touches the
 // network. searchStations/topStations/recentStations keep the existing app
@@ -22,6 +23,8 @@ const LS_LANGUAGE = 'radio-browser-language';
 const LS_SOUNDTOUCH = 'radio-browser-soundtouch-host';
 const LS_FAVORITES = 'radio-browser-favorites';
 const LS_SETTINGS = 'radio-browser-settings';
+const LS_LANGUAGES_CACHE = 'radio-browser-languages-cache';
+const LS_COUNTRIES_CACHE = 'radio-browser-countries-cache';
 
 beforeEach(() => {
     document.body.innerHTML = '<div id="app"></div>';
@@ -44,7 +47,7 @@ beforeEach(() => {
     state.skippedSetup = false;
     state.settings = { ...defaultSettings };
     state.offset = 0;
-    for (const key of [LS_LANGUAGE, LS_SOUNDTOUCH, LS_FAVORITES, LS_SETTINGS]) {
+    for (const key of [LS_LANGUAGE, LS_SOUNDTOUCH, LS_FAVORITES, LS_SETTINGS, LS_LANGUAGES_CACHE, LS_COUNTRIES_CACHE]) {
         localStorage.removeItem(key);
     }
     // filterLabelOverrides is shared mutable module state — reset all four
@@ -59,6 +62,7 @@ beforeEach(() => {
 
 afterEach(() => {
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
 });
 
 describe('canonical filter dropdowns', () => {
@@ -150,6 +154,12 @@ describe('canonical filter dropdowns', () => {
         await loadFilterOptions();
         expect(state.languages).toEqual([{ value: 'english', label: 'english', code: 'en' }]);
         expect(state.countries).toEqual([{ value: 'DE', label: 'Germany', code: 'DE' }]);
+
+        // The success phase above writes both caches once the feature lands;
+        // clear them so the failure phase still exercises the no-cache
+        // contract (empty lists, All-only dropdowns).
+        localStorage.removeItem(LS_LANGUAGES_CACHE);
+        localStorage.removeItem(LS_COUNTRIES_CACHE);
 
         // On failure the lists stay empty and the app still renders.
         state.languages = [];
@@ -302,5 +312,103 @@ describe('localized filter dropdowns', () => {
         const tDe = getLabels(state);
         const reRendered = document.querySelector<HTMLSelectElement>('#country')!;
         expect(Array.from(reRendered.options).map((o) => o.text)).toEqual([tDe.allCountries, 'Deutschland']);
+    });
+});
+
+describe('filter option cache', () => {
+    const LANGUAGE_LIST: FilterOption[] = [{ value: 'english', label: 'english', code: 'en' }];
+    const COUNTRY_LIST: FilterOption[] = [{ value: 'DE', label: 'Germany', code: 'DE' }];
+
+    it('persists raw fetch results under both cache keys', async () => {
+        vi.mocked(fetchLanguages).mockResolvedValue(LANGUAGE_LIST);
+        vi.mocked(fetchCountries).mockResolvedValue(COUNTRY_LIST);
+        await loadFilterOptions();
+        expect(JSON.parse(localStorage.getItem(LS_LANGUAGES_CACHE)!)).toEqual(LANGUAGE_LIST);
+        expect(JSON.parse(localStorage.getItem(LS_COUNTRIES_CACHE)!)).toEqual(COUNTRY_LIST);
+    });
+
+    it('persists the raw English labels even when the UI language is not English', async () => {
+        // The stored entries must be the fetch-time values (never the
+        // localized render form) so a cached list re-localizes per UI language.
+        state.language = 'de';
+        vi.mocked(fetchLanguages).mockResolvedValue(LANGUAGE_LIST);
+        vi.mocked(fetchCountries).mockResolvedValue(COUNTRY_LIST);
+        await loadFilterOptions();
+        expect(JSON.parse(localStorage.getItem(LS_LANGUAGES_CACHE)!)).toEqual(LANGUAGE_LIST);
+        expect(JSON.parse(localStorage.getItem(LS_COUNTRIES_CACHE)!)).toEqual(COUNTRY_LIST);
+    });
+
+    it('falls back to the cached lists when both fetches fail', async () => {
+        localStorage.setItem(LS_LANGUAGES_CACHE, JSON.stringify(LANGUAGE_LIST));
+        localStorage.setItem(LS_COUNTRIES_CACHE, JSON.stringify(COUNTRY_LIST));
+        vi.mocked(fetchLanguages).mockRejectedValue(new Error('offline'));
+        vi.mocked(fetchCountries).mockRejectedValue(new Error('offline'));
+        await loadFilterOptions();
+        expect(state.languages).toEqual(LANGUAGE_LIST);
+        expect(state.countries).toEqual(COUNTRY_LIST);
+        // loadFilterOptions renders at the end — the dropdowns must show the
+        // cached options (en-locale DisplayNames title-cases code 'en').
+        const country = document.querySelector<HTMLSelectElement>('#country')!;
+        expect(Array.from(country.options).map((o) => o.text)).toContain('Germany');
+        const languageFilter = document.querySelector<HTMLSelectElement>('#languageFilter')!;
+        expect(Array.from(languageFilter.options).map((o) => o.text)).toContain('English');
+    });
+
+    it('falls back to the cached languages list when the fetch returns an empty array', async () => {
+        localStorage.setItem(LS_LANGUAGES_CACHE, JSON.stringify(LANGUAGE_LIST));
+        vi.mocked(fetchLanguages).mockResolvedValue([]);
+        vi.mocked(fetchCountries).mockResolvedValue(COUNTRY_LIST);
+        await loadFilterOptions();
+        expect(state.languages).toEqual(LANGUAGE_LIST);
+        // The cache is neither removed nor overwritten by the empty result.
+        expect(localStorage.getItem(LS_LANGUAGES_CACHE)).toBe(JSON.stringify(LANGUAGE_LIST));
+    });
+
+    it('keeps the languages empty when the fetch returns [] and no cache exists', async () => {
+        vi.mocked(fetchLanguages).mockResolvedValue([]);
+        vi.mocked(fetchCountries).mockResolvedValue(COUNTRY_LIST);
+        await loadFilterOptions();
+        expect(state.languages).toEqual([]);
+        expect(localStorage.getItem(LS_LANGUAGES_CACHE)).toBeNull();
+    });
+
+    it('keeps the languages fallback independent of a failing countries fetch', async () => {
+        localStorage.setItem(LS_LANGUAGES_CACHE, JSON.stringify(LANGUAGE_LIST));
+        vi.mocked(fetchLanguages).mockRejectedValue(new Error('offline'));
+        vi.mocked(fetchCountries).mockResolvedValue(COUNTRY_LIST);
+        await loadFilterOptions();
+        expect(state.languages).toEqual(LANGUAGE_LIST);
+        expect(state.countries).toEqual(COUNTRY_LIST);
+        expect(JSON.parse(localStorage.getItem(LS_COUNTRIES_CACHE)!)).toEqual(COUNTRY_LIST);
+    });
+
+    it('keeps the countries fallback independent of a failing languages fetch', async () => {
+        localStorage.setItem(LS_COUNTRIES_CACHE, JSON.stringify(COUNTRY_LIST));
+        vi.mocked(fetchLanguages).mockResolvedValue(LANGUAGE_LIST);
+        vi.mocked(fetchCountries).mockRejectedValue(new Error('offline'));
+        await loadFilterOptions();
+        expect(state.languages).toEqual(LANGUAGE_LIST);
+        expect(state.countries).toEqual(COUNTRY_LIST);
+        expect(JSON.parse(localStorage.getItem(LS_LANGUAGES_CACHE)!)).toEqual(LANGUAGE_LIST);
+    });
+
+    it('overwrites the cache on a later successful fetch', async () => {
+        const stale: FilterOption[] = [{ value: 'german', label: 'german', code: 'de' }];
+        localStorage.setItem(LS_LANGUAGES_CACHE, JSON.stringify(stale));
+        vi.mocked(fetchLanguages).mockResolvedValue(LANGUAGE_LIST);
+        vi.mocked(fetchCountries).mockResolvedValue(COUNTRY_LIST);
+        await loadFilterOptions();
+        expect(JSON.parse(localStorage.getItem(LS_LANGUAGES_CACHE)!)).toEqual(LANGUAGE_LIST);
+    });
+
+    it('keeps the fetch authoritative when localStorage is full', async () => {
+        vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+            throw new DOMException('QuotaExceededError');
+        });
+        vi.mocked(fetchLanguages).mockResolvedValue(LANGUAGE_LIST);
+        vi.mocked(fetchCountries).mockResolvedValue(COUNTRY_LIST);
+        await loadFilterOptions();
+        expect(state.languages).toEqual(LANGUAGE_LIST);
+        expect(state.countries).toEqual(COUNTRY_LIST);
     });
 });
