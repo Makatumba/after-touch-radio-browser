@@ -1,9 +1,10 @@
 import type {Language} from './i18n';
-import {detectLanguage, getLabels, translations} from './i18n';
-import type {Mode, Settings, State, Station} from './state';
+import {detectLanguage, getLabels, getLocale, SORT_LABEL_KEYS, translations} from './i18n';
+import type {Mode, Settings, SortKey, State, Station} from './state';
 import {getAudioElement} from './player';
 import {topStations, recentStations, searchStations, fetchLanguages, fetchCountries} from './api';
 import {loadSettings} from './settings';
+import {compareFavorites} from './actions';
 import {renderHeader} from './components/header';
 import {renderSoundtouch} from './components/soundtouch';
 import {renderSetup} from './components/setup';
@@ -36,6 +37,7 @@ export const state: State = {
     tag: '',
     limit: 24,
     hideBroken: true,
+    sort: 'clickcount',
     mode: 'top',
     stations: [],
     offset: 0,
@@ -50,6 +52,15 @@ export const state: State = {
     skippedSetup: false,
     deviceMessage: '',
     settings: loadSettings()
+};
+
+/** Maps the five sort options onto the API's `order`/`reverse` parameters (see API-NOTES.md). */
+export const SORT_API_PARAMS: Record<SortKey, { order: string; reverse?: boolean }> = {
+    name_asc: { order: 'name' },
+    name_desc: { order: 'name', reverse: true },
+    clickcount: { order: 'clickcount', reverse: true },
+    clicktrend: { order: 'clicktrend', reverse: true },
+    votes: { order: 'votes', reverse: true },
 };
 
 function App() {
@@ -68,16 +79,17 @@ async function loadMode(mode: Mode) {
     state.mode = mode;
     state.status = t.loading;
     try {
-        state.stations = mode === 'favorites' ? state.favorites.slice(state.offset, state.offset + state.limit) : mode === 'top' ? await topStations(state.limit, state.hideBroken, state.offset) : mode === 'recent' ? await recentStations(state.limit, state.hideBroken, state.offset) : await searchStations({
+        state.stations = mode === 'favorites' ? [...state.favorites].sort((x, y) => compareFavorites(x, y, state.sort, getLocale(state.language))).slice(state.offset, state.offset + state.limit) : mode === 'top' ? await topStations(state.limit, state.hideBroken, state.offset) : mode === 'recent' ? await recentStations(state.limit, state.hideBroken, state.offset) : await searchStations({
             name: state.query,
             countryCode: state.countryCode,
             language: state.langFilter,
             tag: state.tag,
             limit: state.limit,
             hideBroken: state.hideBroken,
-            offset: state.offset
+            offset: state.offset,
+            ...SORT_API_PARAMS[state.sort]
         });
-        state.status = `${state.stations.length} loaded`;
+        state.status = `${state.stations.length} loaded` + (mode === 'search' || mode === 'favorites' ? ` · ${t[SORT_LABEL_KEYS[state.sort]]}` : '');
         state.currentIndex = state.stations.length ? 0 : -1;
     } catch (e) {
         console.error(e);
@@ -112,6 +124,7 @@ export function searchFromInputs() {
     state.tag = document.querySelector<HTMLInputElement>('#tag')?.value || '';
     state.limit = Number(document.querySelector<HTMLSelectElement>('#limit')?.value || 24);
     state.hideBroken = !!document.querySelector<HTMLInputElement>('#hideBroken')?.checked;
+    state.sort = (document.querySelector<HTMLSelectElement>('#sort')?.value as SortKey) || 'clickcount';
     refresh('search');
 }
 
@@ -133,6 +146,7 @@ export function reset() {
     state.tag = '';
     state.limit = 24;
     state.hideBroken = true;
+    state.sort = 'clickcount';
     refresh('top');
 }
 

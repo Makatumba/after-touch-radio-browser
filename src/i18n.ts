@@ -1,4 +1,4 @@
-import type {FilterOption} from './state';
+import type {FilterOption, SortKey} from './state';
 
 export type Language = 'en' | 'de' | 'ru' | 'ukr';
 
@@ -67,6 +67,12 @@ export const translations = {
         tag: 'Tag / genre',
         limit: 'Result limit',
         hideBroken: 'Hide broken stations',
+        sortBy: 'Sort by',
+        sortNameAsc: 'Name (A–Z)',
+        sortNameDesc: 'Name (Z–A)',
+        sortPopular: 'Popular (1 day)',
+        sortTrending: 'Trending (2 days)',
+        sortTopVotes: 'Top all time',
         save: 'Save',
         favorites: 'Favorites',
         top: 'Top voted',
@@ -125,6 +131,12 @@ export const translations = {
         tag: 'Tag / Genre',
         limit: 'Ergebnislimit',
         hideBroken: 'Defekte Sender ausblenden',
+        sortBy: 'Sortieren nach',
+        sortNameAsc: 'Name (A–Z)',
+        sortNameDesc: 'Name (Z–A)',
+        sortPopular: 'Beliebt (1 Tag)',
+        sortTrending: 'Trend (2 Tage)',
+        sortTopVotes: 'Beste aller Zeiten',
         save: 'Speichern',
         favorites: 'Favoriten',
         top: 'Top bewertet',
@@ -183,6 +195,12 @@ export const translations = {
         tag: 'Тег / жанр',
         limit: 'Лимит результатов',
         hideBroken: 'Скрыть нерабочие станции',
+        sortBy: 'Сортировать по',
+        sortNameAsc: 'Название (А–Я)',
+        sortNameDesc: 'Название (Я–А)',
+        sortPopular: 'Популярные (1 день)',
+        sortTrending: 'В тренде (2 дня)',
+        sortTopVotes: 'Лучшие за всё время',
         save: 'Сохранить',
         favorites: 'Избранное',
         top: 'Лучшие',
@@ -241,6 +259,12 @@ export const translations = {
         tag: 'Тег / жанр',
         limit: 'Ліміт результатів',
         hideBroken: 'Приховати непрацюючі станції',
+        sortBy: 'Сортувати за',
+        sortNameAsc: 'Назва (А–Я)',
+        sortNameDesc: 'Назва (Я–А)',
+        sortPopular: 'Популярні (1 день)',
+        sortTrending: 'У тренді (2 дні)',
+        sortTopVotes: 'Найкращі за весь час',
         save: 'Зберегти',
         favorites: 'Вибране',
         top: 'Найкращі',
@@ -287,6 +311,15 @@ export const translations = {
         settingEnablePreview: 'Увімкнути попередній перегляд у браузері'
     }
 } as const;
+
+/** Maps the five sort options to their localized label key (same key in all four languages). */
+export const SORT_LABEL_KEYS: Record<SortKey, keyof typeof translations.en> = {
+    name_asc: 'sortNameAsc',
+    name_desc: 'sortNameDesc',
+    clickcount: 'sortPopular',
+    clicktrend: 'sortTrending',
+    votes: 'sortTopVotes',
+};
 
 export function getLabels(state: { language: Language }): Record<string, string> {
     const langKey = state.language === ('uk' as Language) ? 'ukr' : state.language;
