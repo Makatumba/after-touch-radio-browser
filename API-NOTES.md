@@ -21,7 +21,7 @@ that actually work. "Verified" means the claim was checked with real requests ag
 | `language` | station `language` (comma-separated English names) | case-sensitive substring over the whole field |
 | `languageExact` | station `language` | per-token exact: query must equal one comma-separated token |
 | `tag` | station `tags` | case-sensitive substring |
-| `order` / `reverse` | — | sorting (`order=clickcount&reverse=true` is what the app uses) |
+| `order` / `reverse` | — | server-side sorting (see [Sorting](#sorting-order--reverse) below for the full criteria list and the app's mapping) |
 | `offset` / `limit` | — | paging |
 | `hidebroken` | — | drops stations with failed checks |
 
@@ -44,6 +44,30 @@ that actually work. "Verified" means the claim was checked with real requests ag
   values.
 - `countryExact=true` matches the whole country field exactly.
 - `countrycode` is exact by definition — no flag needed.
+
+## Sorting (`order` / `reverse`)
+
+The search endpoint sorts server-side **before** `offset`/`limit` paging. `order` accepts
+(default `name`): `name`, `url`, `homepage`, `favicon`, `tags`, `country`, `state`,
+`language`, `votes`, `codec`, `bitrate`, `lastcheckok`, `lastchecktime`, `clicktimestamp`,
+`clickcount`, `clicktrend`, `changetimestamp`, `random`. `reverse=true` flips the direction.
+The dedicated `/stations/topvote` and `/stations/lastclick` endpoints are fixed-order — they
+accept no `order` parameter.
+
+The app maps five sort options onto the API (verified live against the 0.7.44 mirror):
+
+| App option | `order` | `reverse` | Meaning (verified) |
+|---|---|---|---|
+| Name (A–Z) | `name` | — | alphabetical by station name |
+| Name (Z–A) | `name` | `true` | reverse alphabetical |
+| Popular (1 day) | `clickcount` | `true` | most clicks within the last 24 h — the app default |
+| Trending (2 days) | `clicktrend` | `true` | biggest change in clickcount over the last 2 days |
+| Top all time | `votes` | `true` | most votes ever (votes never reset) |
+
+Notes: there is no "clicks in the last 2 days" field — `clicktrend` is the 2-day **change**, so
+the "Trending (2 days)" option ranks by momentum; `clicktrend` and `clickcount` coincide for
+stations whose click rate is steady. The same five options are applied client-side to the
+favorites list (no API call), using the same field names on the saved station objects.
 
 ## List endpoints (dropdown data)
 
