@@ -67,8 +67,9 @@ speaker.
 
 ### Notes
 
-- The app connects to the speaker directly: HTTP port 8090 for play commands, port 8000 for the
-  reachability check. Live state via WebSocket (port 8080) is planned for the next wave.
+- The app connects to the speaker directly: HTTP port 8090 — the device's Web API — for both the
+  reachability check (GET /info) and play commands (POST /select). Live state via WebSocket
+  (port 8080) is planned for the next wave.
 - Chrome (and other Chromium browsers) may ask permission to *look for and connect to devices on
   your local network* — allow it for the app.
 - The app is an installable PWA (web app manifest + icons, standalone window) with **no
@@ -130,11 +131,15 @@ A full codebase map — structure, key files, module dependency graph, and conve
 - **localStorage keys** — `radio-browser-language`, `radio-browser-soundtouch-host`,
   `radio-browser-favorites`, `radio-browser-settings` (settings stored as JSON; a single
   `enablePreview` toggle, default off; defaults in `src/settings.ts`).
-- **SoundTouch ports** — 8000: reachability check (HEAD, `no-cors`); 8090: play commands (POST,
-  `no-cors`, `text/plain;charset=UTF-8`, body is a
+- **SoundTouch ports** — 8090: the device Web API for the reachability check (GET `/info`) and
+  play commands (POST `/select`, `no-cors`, `text/plain;charset=UTF-8`, body is a
   `<ContentItem source="RADIO_BROWSER" type="stationurl" location="/stations/byuuid/{uuid}"/>`
-  document). WebSocket live state (port 8080, "gabbo" protocol) is planned for the next wave.
-  The host input is sanitized before use (scheme, path, and unsafe characters stripped).
+  document). The check is a `no-cors` GET `/info` probe: stock Bose firmware answers with a
+  fixed CORS allowlist that never matches the app's origin, so the response is opaque and
+  "✓ Reachable" simply means the Web API answers on 8090. Each attempt aborts after 5s. An
+  explicit port in the saved host is honored (no `:8090` appended). WebSocket live state
+  (port 8080, "gabbo" protocol) is planned for the next wave. The host input is sanitized
+  before use (scheme, path, and unsafe characters stripped).
 - **Status line** — shows "Loading stations…" during a fetch, "N loaded" on success, or
   "Service unavailable" on error. In Search and Favorites modes it appends the active sort
   label ("N loaded · Popular (1 day)").

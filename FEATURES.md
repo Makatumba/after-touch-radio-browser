@@ -97,6 +97,18 @@ skip setup — browsing still works, but play-on-speaker stays disabled until an
 saved. Once saved, setup is needed only once; the address stays editable from a compact bar
 (input + Save + status) on the main screen.
 
+#### Reachability check
+
+After save (and at startup for a saved address), the app verifies the speaker by probing the
+device Web API on port 8090 — the port play commands actually use — not the admin UI on port
+8000. It sends a `no-cors` `GET /info` probe: stock Bose firmware answers with a fixed CORS
+allowlist that never matches the app's origin, so the response is opaque and the app only
+learns whether the port answers. If it does, the device is "✓ Reachable"; if not (network
+error, timeout, connection refused), "✗ Unreachable". Each attempt aborts after 5s, so a hung
+device never leaves the status on "checking". An explicit port in the saved address is
+honored (no `:8090` appended). Device metadata (name/type/ID) is not readable from the
+browser — that data is planned via the port-8080 WebSocket (see FR-3).
+
 ### FR-4 Play station on speaker
 
 Primary action on every station card — **"Play on speaker"** — sends the station to the device;
@@ -207,6 +219,10 @@ capability are non-goals (see Non-goals).
   reachability is verified ("✓ Reachable" / "✗ Unreachable"), and it is remembered across
   restarts; "Browse stations anyway" skips setup and browsing still works; malformed host input
   is sanitized before use.
+- **Reachability check**: probing a saved address never leaves the status stuck on "checking"
+  (5s timeout per attempt); an explicit port in the saved address is honored; a wrong IP that
+  happens to serve something on 8090 is treated as reachable (the opaque probe cannot
+  distinguish devices).
 - **Play station**: "Play on speaker" sends the station to the device and shows a plain-language
   confirmation; the action is disabled with a clear message when the device is offline or
   unconfigured; a failed send shows an error and marks the device unreachable; the separate
