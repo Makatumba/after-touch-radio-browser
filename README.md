@@ -116,8 +116,9 @@ A full codebase map — structure, key files, module dependency graph, and conve
   detaches it before replacing the DOM and re-inserts it into `.player` afterwards (required for
   uninterrupted playback).
 - **Data** — axios with base URL `https://de1.api.radio-browser.info/json`; endpoints
-  `/stations/search` (name/country/language/tag, limit, hidebroken, clickcount order),
-  `/stations/topvote`, and `/stations/lastclick`.
+  `/stations/search` (name/country/language/tag, limit, hidebroken, sortable by name,
+  popularity of the last day, 2-day trending, or all-time votes), `/stations/topvote`, and
+  `/stations/lastclick`.
 - **i18n** — translations are a `const` object in `src/i18n.ts` with all four languages;
   `getLabels()` falls back to English.
 
@@ -135,7 +136,8 @@ A full codebase map — structure, key files, module dependency graph, and conve
   document). WebSocket live state (port 8080, "gabbo" protocol) is planned for the next wave.
   The host input is sanitized before use (scheme, path, and unsafe characters stripped).
 - **Status line** — shows "Loading stations…" during a fetch, "N loaded" on success, or
-  "Service unavailable" on error.
+  "Service unavailable" on error. In Search and Favorites modes it appends the active sort
+  label ("N loaded · Popular (1 day)").
 - **Hosting** — GitHub Pages serves the app from the committed `docs/` folder; `dist/` and
   `.DS_Store` are gitignored.
 
