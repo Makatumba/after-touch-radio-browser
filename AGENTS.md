@@ -17,6 +17,7 @@
 - **Audio widget**: Single persistent `<audio>` element from `player.ts`. `render()` in `app.ts` detaches it before `innerHTML`, then re-inserts into `.player`. Breaking this pattern kills audio playback.
 
 ## Key conventions
+- **Component templates**: Multi-line template literals in component functions (`src/components/*.ts`, `App()` in `src/app.ts`) — one element per line, 4-space indent mirroring the DOM nesting; keep `${...}` interpolations on their tag's line and inline text runs that must stay adjacent (e.g. `<strong>…</strong><small>…</small>` in the player bar) unbroken. Single-element snippets (`playBtn`, `previewBtn`, `hint`, `msg`, `serviceLink`) and short single-tag returns (banner, footer) stay on one line. Newlines become part of the HTML but collapse as inter-element whitespace (flex/grid items, block boundaries) — no visual or test impact.
 - **Language codes**: `en`, `de`, `ru`, `ukr` (not `uk`). `getLabels()` maps `'uk'` → `'ukr'`.
 - **Translations**: `as const` object in `i18n.ts`. Add new keys to all 4 languages when extending.
 - **localStorage keys**: `radio-browser-language`, `radio-browser-soundtouch-host`, `radio-browser-favorites`, `radio-browser-settings`
