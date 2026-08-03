@@ -47,6 +47,24 @@ previous set, clamped at the first. Favorites page through the local favorites a
 API call. A mode change, a new search, a filter change, or reset always restarts at the first
 set (offset 0); the ↻ refresh button reloads the first set too.
 
+Search results and the Favorites list are sortable via a **"Sort by"** dropdown in the
+filters panel offering five orders — Name (A–Z), Name (Z–A), Popular (1 day), Trending
+(2 days), and Top all time. For search, the selection maps to the API's `order`/`reverse`
+parameters (`name` with/without `reverse`; `clickcount`/`clicktrend`/`votes` with
+`reverse=true`); for the locally paged favorites list it maps to a client-side comparator
+over the same fields. The default is **Popular (1 day)** (`order=clickcount&reverse=true`),
+which is exactly the order the app used before sorting was selectable. The dropdown always
+shows the current order, and in Search and Favorites modes the results toolbar appends the
+active sort label to the status line (e.g. "24 loaded · Popular (1 day)"). Changing the sort
+re-runs the search (offset 0) in Search mode and re-sorts the local favorites in place
+(offset 0, no API call) in Favorites mode; in Top and Recent modes it behaves like the other
+filters — it starts a search with the current filters and the new sort. Favorites sort
+client-side before paging: names compare with the active UI language's collation (missing
+names as empty strings), `clickcount`/`clicktrend`/`votes` compare descending with missing
+values as 0 (older saved favorites may lack `clicktrend`). The stored favorites array keeps
+insertion order. The sort choice is session-only (not persisted) and Reset restores the
+default. See [API-NOTES.md](API-NOTES.md) for the verified `order`/`reverse` mapping.
+
 The Language and Country filters are dropdowns fed once at app start by the Radio Browser API
 (`/json/languages` and `/json/countries`) instead of free-text inputs. Option labels are
 localized to the active UI language: each option carries its ISO code (`iso_639` for languages,
@@ -202,6 +220,13 @@ capability are non-goals (see Non-goals).
   ISO code via `countrycode`; labels are localized to the active UI language and sorted by the
   localized label; selecting one searches immediately; on list-fetch failure the dropdowns
   render with only the "All" option and browsing keeps working.
+- **Sorting**: the "Sort by" dropdown shows the current order with all five options localized
+  in all four languages; search API calls carry the mapped `order`/`reverse` for the selected
+  sort; changing the sort re-runs the search (offset 0) in Search mode, re-sorts the favorites
+  in place without an API call in Favorites mode, and starts a search from Top/Recent (like
+  the other filters); favorites sort handles missing numeric fields (as 0) and missing names
+  (as empty strings); the stored favorites array keeps insertion order; the choice survives
+  mode switches but not a page reload; Reset restores Popular (1 day).
 - **Preview**: off by default; when on, a Preview action plays in-browser without disturbing
   device state; disabling it stops preview audio.
 - **i18n**: language is auto-detected on first run (`'uk'` → `'ukr'`, unsupported → English);
@@ -231,6 +256,10 @@ capability are non-goals (see Non-goals).
   state.
 - A final set with exactly `limit` stations — Next stays enabled once more and the following
   page is empty (the API exposes no total count, so a short set is the only signal).
+- A favorites station saved before sorting existed (no `clicktrend`/`clickcount`/`votes`
+  fields) — treated as 0 in numeric sorts; a missing name sorts as an empty string.
+- Changing the sort while a later page is shown — restarts at the first set (offset 0), like
+  every other filter change.
 - The ↻ refresh button always reloads the first set (offset 0), even while a later page is
   shown.
 - The Language/Country list fetch fails at startup — the dropdowns render with only the "All"
@@ -252,44 +281,7 @@ capability are non-goals (see Non-goals).
 
 Not yet implemented. These features build the live remote on top of the shipped wave-1 base:
 the WebSocket remote core, media-session / lock-screen controls, and confirmation of play
-actions from live device state. The FR-1 extension below is a planned enhancement of a
-shipped feature, listed here until it is implemented.
-
-### FR-1 extension: sortable search results & favorites
-
-Search results and the Favorites list become sortable via a **"Sort by"** dropdown in the
-filters panel offering five orders — Name (A–Z), Name (Z–A), Popular (1 day), Trending
-(2 days), and Top all time. For search, the selection maps to the API's `order`/`reverse`
-parameters (`name` with/without `reverse`; `clickcount`/`clicktrend`/`votes` with
-`reverse=true`); for the locally paged favorites list it maps to a client-side comparator
-over the same fields. The default is **Popular (1 day)** (`order=clickcount&reverse=true`),
-which is exactly the order the app used before sorting was selectable. The dropdown always
-shows the current order, and in Search and Favorites modes the results toolbar appends the
-active sort label to the status line (e.g. "24 loaded · Popular (1 day)"). Changing the sort
-re-runs the search (offset 0) in Search mode and re-sorts the local favorites in place
-(offset 0, no API call) in Favorites mode; in Top and Recent modes it behaves like the other
-filters — it starts a search with the current filters and the new sort. Favorites sort
-client-side before paging: names compare with the active UI language's collation (missing
-names as empty strings), `clickcount`/`clicktrend`/`votes` compare descending with missing
-values as 0 (older saved favorites may lack `clicktrend`). The stored favorites array keeps
-insertion order. The sort choice is session-only (not persisted) and Reset restores the
-default. See [API-NOTES.md](API-NOTES.md) for the verified `order`/`reverse` mapping.
-
-Acceptance criteria:
-- The "Sort by" dropdown shows the current order with all five options localized in all four
-  languages; search API calls carry the mapped `order`/`reverse` for the selected sort.
-- Changing the sort re-runs the search (offset 0) in Search mode, re-sorts the favorites in
-  place without an API call in Favorites mode, and starts a search from Top/Recent (like the
-  other filters).
-- Favorites sort handles missing numeric fields (as 0) and missing names (as empty strings);
-  the stored favorites array keeps insertion order; the choice survives mode switches but not
-  a page reload, and Reset restores Popular (1 day).
-
-Edge cases:
-- A favorites station saved before sorting existed (no `clicktrend`/`clickcount`/`votes`
-  fields) — treated as 0 in numeric sorts; a missing name sorts as an empty string.
-- Changing the sort while a later page is shown — restarts at the first set (offset 0), like
-  every other filter change.
+actions from live device state.
 
 ### FR-3 Device remote (core)
 
