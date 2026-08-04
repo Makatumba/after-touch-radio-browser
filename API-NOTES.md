@@ -170,9 +170,67 @@ matters (`GET /info` for the reachability probe) is also `no-cors` and opaque.
 
 - The `deviceID` attribute (the speaker's MAC) appears on `<updates>` and on the event
   elements; the app uses it for the device-info widget.
-- `nowPlayingUpdated` carries the full now-playing payload: track/artist/album, `source`
-  (e.g. `RADIO_BROWSER`), and `playStatus` (`PLAY_STATE`/`PAUSE_STATE`/`BUFFERING_STATE`/
-  `STOP_STATE`).
+- `nowPlayingUpdated` carries the full now-playing payload (track/artist/album, `source`
+  e.g. `RADIO_BROWSER`, `playStatus` `PLAY_STATE`/`PAUSE_STATE`/`BUFFERING_STATE`/
+  `STOP_STATE`, plus the verbose fields below), for example:
+
+  ```xml
+  <?xml version="1.0" encoding="UTF-8" ?>
+  <updates deviceID="689E19B8BB8A">
+      <nowPlayingUpdated deviceID="689E19B8BB8A">
+          <nowPlaying deviceID="689E19B8BB8A" source="RADIO_BROWSER">
+              <track>Station name</track>
+              <artist>Artist name</artist>
+              <album>Album name</album>
+              <playStatus>PLAY_STATE</playStatus>
+          </nowPlaying>
+      </nowPlayingUpdated>
+  </updates>
+  ```
+
+#### Full now-playing payload (verbose state, FR-3 extension)
+
+The full payload the device sends — in pushed `nowPlayingUpdated` events and in snapshot
+RESPONSE bodies alike — carries more fields than the app used before. Field names below
+come from the Bose Web API documentation and the gesellix reference implementation; the
+live-verification checklist at the end of this section pins them against a real speaker.
+
+```xml
+<nowPlaying deviceID="689E19B8BB8A" source="RADIO_BROWSER" sourceAccount="...">
+    <track>Track title</track>
+    <artist>Artist name</artist>
+    <album>Album name</album>
+    <stationName>Station name</stationName>
+    <art artImageStatus="IMAGE_PRESENT">http://<host>/v1/.../art.png</art>
+    <ContentItem source="RADIO_BROWSER" type="STATION" location="/v1/play/..." sourceAccount="...">
+        <itemName>Station name</itemName>
+        <containerArt>http://<host>/v1/.../art.png</containerArt>
+    </ContentItem>
+    <time total="0">0</time>
+    <skipEnabled/>
+    <skipPreviousEnabled/>
+    <favoriteEnabled/>
+    <seekSupported value="false"/>
+    <shuffleSetting>SHUFFLE_OFF</shuffleSetting>
+    <repeatSetting>REPEAT_OFF</repeatSetting>
+    <streamType>RADIO</streamType>
+    <trackID>...</trackID>
+    <position>0</position>
+    <description>Station description</description>
+    <stationLocation>Berlin, Germany</stationLocation>
+    <playStatus>PLAY_STATE</playStatus>
+</nowPlaying>
+```
+
+The app reads the whole payload; the Remote panel uses the title fallback (`track` →
+`stationName` → `ContentItem.itemName`), the artist fallback (`artist` → `description`),
+and the artwork (`art`, falling back to `ContentItem.containerArt`). The skip flags are
+presence-based per the reference: `skipEnabled` present → Next enabled, absent → disabled
+(`skipPreviousEnabled` likewise for Prev); the checklist confirms the real speaker's
+semantics. The remaining fields are stored for future features. Every element is optional
+— a field that is absent stays absent, and a malformed or unknown payload is never fatal
+(existing defensive parsing).
+
 - `volumeUpdated` carries the volume payload:
 
   ```xml
@@ -241,18 +299,52 @@ mapping applies 1:1:
 </msg>
 ```
 
-- `GET now_playing` → `<body><nowPlaying …>` — track/artist/album, `source`, and
-  `playStatus` (same field mapping as `nowPlayingUpdated`).
+- `GET now_playing` → `<body><nowPlaying …>` — the full now-playing payload above
+  (same field mapping as `nowPlayingUpdated`).
 - `GET volume` → `<body><volume …>` — `targetvolume`/`actualvolume`/`muteenabled`
   (same field mapping as `volumeUpdated`).
-- `GET info` → `<body><info …>` — device metadata: the `deviceID` attribute plus
-  `<name>` and `<type>` (e.g. "SoundTouch 10"). This is the app's only source for the
-  device name/type rows in the info widget. Shape per the Bose Web API docs and the
-  gesellix reference; the exact `<info>` element names should be confirmed against the
-  live speaker while testing the feature branch.
+- `GET info` → `<body><info …>` — the full device metadata below. This is the app's only
+  source for the device-info widget rows.
 - Responses carry no client-side correlation beyond the socket itself: a message from
   a superseded connection is ignored, and unknown or malformed RESPONSE bodies are
   never fatal (the app treats them like any unknown `<updates>` message).
+
+#### Device info payload (full info widget, FR-3 extension)
+
+Field names come from the Bose Web API documentation and the gesellix reference
+implementation (`pkg/models/device.go`); the live-verification checklist pins the exact
+element names against a real speaker:
+
+```xml
+<info deviceID="689E19B8BB8A">
+    <name>Bose SoundTouch B9B8BC</name>
+    <type>SoundTouch 10</type>
+    <moduleType>soundtouch</moduleType>
+    <variant>...</variant>
+    <variantMode>...</variantMode>
+    <countryCode>DE</countryCode>
+    <regionCode>EU</regionCode>
+    <networkInfo type="WIRED">
+        <macAddress>68:9E:19:B8:BB:8A</macAddress>
+        <ipAddress>192.168.1.42</ipAddress>
+    </networkInfo>
+    <components>
+        <component>
+            <componentCategory>...</componentCategory>
+            <softwareVersion>...</softwareVersion>
+            <serialNumber>...</serialNumber>
+        </component>
+    </components>
+    <margeURL>...</margeURL>
+    <margeAccountUUID>...</margeAccountUUID>
+</info>
+```
+
+The app renders the curated set — `deviceID`, `name`, `type`, `moduleType`, `variant`,
+`networkInfo` MAC/IP, and the `components` serial number / firmware version — one widget
+row per field, each row only when its data exists. The remaining fields (`variantMode`,
+`countryCode`, `regionCode`, `margeURL`, `margeAccountUUID`) are parsed for completeness
+and stored, not displayed.
 
 ### Commands — HTTP API (port 8090)
 
@@ -285,12 +377,26 @@ The app sends them fire-and-forget and reconciles from WebSocket events (no echo
 ### Live-verification checklist (while testing the feature branch)
 
 - [x] The WebSocket connects with the "gabbo" subprotocol and `nowPlayingUpdated` /
-      `volumeUpdated` arrive in the documented shapes.
+      `volumeUpdated` arrive in the minimal shapes shown above (the verbose fields remain
+      pending the checklist below).
 - [x] `PLAY`/`PAUSE`/`NEXT_TRACK`/`PREV_TRACK` execute on the speaker (verified 2026-08-04
       against a SoundTouch 10: `KEY_`-prefixed values are rejected with HTTP 400
       `CLIENT_XML_ERROR` 1019, unprefixed press+release returns `<status>/key</status>`).
 - [ ] `POST /volume` with body `<volume>N</volume>` changes the volume, and the `muteenabled`
       body toggles mute.
 - [ ] The `GET now_playing` / `GET volume` / `GET info` snapshot requests over the WebSocket
-      answer with `msgType="RESPONSE"` envelopes carrying the documented payload shapes
-      (including the exact `<info>` name/type element names).
+      answer with `msgType="RESPONSE"` envelopes carrying the documented payload shapes,
+      including the exact `<info>` element names (`name`, `type`, `moduleType`, `variant`,
+      `networkInfo` with `macAddress`/`ipAddress`, `components` with `serialNumber` /
+      `softwareVersion`) and the full now-playing field names (`stationName`, `art` with
+      `artImageStatus`, `ContentItem` with `itemName`/`containerArt`, `sourceAccount`,
+      `time`, `skipEnabled`, `skipPreviousEnabled`, `favoriteEnabled`, `seekSupported`,
+      `shuffleSetting`, `repeatSetting`, `streamType`, `trackID`, `position`,
+      `description`, `stationLocation`).
+- [ ] The pushed `nowPlayingUpdated` events carry the same verbose fields as the snapshot
+      RESPONSE bodies (title fallback and skip-flag gating work from both paths).
+- [ ] `skipEnabled` / `skipPreviousEnabled` semantics on a source where the speaker
+      disables skipping: empty presence elements (absent → disabled) vs. any text value the
+      firmware actually sends, and Next/Prev render accordingly.
+- [ ] The `art` URL resolves (or degrades silently when unreachable or
+      CORS/mixed-content-blocked on the HTTPS-hosted app).
