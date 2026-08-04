@@ -183,6 +183,20 @@ export function requestSnapshot(): void {
     sendSnapshot(socket, currentHost);
 }
 
+/** Startup sequence for a saved address: mark the check, connect the socket,
+ * probe reachability, and re-request the state snapshot when the check succeeds. */
+export function checkSoundtouchOnStartup(savedAddress: string): void {
+    state.soundtouchStatus = 'checking';
+    connectSoundtouchWs(savedAddress);
+    pingSoundtouch(savedAddress).then(ok => {
+        if (state.soundtouchAddress === savedAddress) {
+            state.soundtouchStatus = ok ? 'available' : 'unreachable';
+            render();
+            if (ok) requestSnapshot();
+        }
+    });
+}
+
 function handleMessage(raw: string): void {
     let doc: Document;
     try {
