@@ -52,6 +52,26 @@ async function loadSoundtouchComponents() {
 // state.soundtouchDevice and the live-remote fields land with the FR-3
 // implementation wave; until src/state.ts gains them, access them through this
 // typed view so the file stays type-clean at every commit in the sequence.
+// The FR-3 verbose extension retypes soundtouchDevice to the full DeviceInfo.
+interface DeviceInfo {
+    id: string;
+    name?: string;
+    type?: string;
+    moduleType?: string;
+    variant?: string;
+    variantMode?: string;
+    countryCode?: string;
+    regionCode?: string;
+    networkType?: string;
+    macAddress?: string;
+    ipAddress?: string;
+    componentCategory?: string;
+    serialNumber?: string;
+    softwareVersion?: string;
+    margeUrl?: string;
+    margeAccountUuid?: string;
+}
+
 const wsState = state as unknown as {
     wsStatus: string;
     deviceNowPlaying: string;
@@ -61,7 +81,7 @@ const wsState = state as unknown as {
     devicePlayStatus: string;
     deviceVolume: number;
     deviceMute: boolean;
-    soundtouchDevice: { id: string; name?: string; type?: string } | null;
+    soundtouchDevice: DeviceInfo | null;
 };
 
 // i18n gains the device-info keys with the FR-3 implementation wave; until
@@ -376,11 +396,78 @@ describe('device info widget (FR-3, WebSocket-fed)', () => {
         expect(document.querySelector('.soundtouch-info')).not.toBeNull();
     });
 
-    it('adds non-empty deviceName/deviceType/deviceId labels in all four languages', () => {
+    it('adds non-empty device-info labels in all four languages', () => {
+        const keys = ['deviceName', 'deviceType', 'deviceId', 'deviceModuleType', 'deviceVariant', 'deviceSerial', 'deviceIp', 'deviceFirmware'];
         for (const lang of ['en', 'de', 'ru', 'ukr'] as const) {
-            expect(tView[lang].deviceName?.trim()).toBeTruthy();
-            expect(tView[lang].deviceType?.trim()).toBeTruthy();
-            expect(tView[lang].deviceId?.trim()).toBeTruthy();
+            for (const key of keys) {
+                expect(tView[lang][key]?.trim()).toBeTruthy();
+            }
+        }
+    });
+});
+
+describe('device info widget — curated verbose rows (FR-3 extension)', () => {
+    it('renders the eight curated rows when the full DeviceInfo is known', async () => {
+        const { renderDeviceInfo } = await loadSoundtouchComponents();
+        wsState.soundtouchDevice = {
+            id: '689E19B8BB8A',
+            name: 'Bose SoundTouch B9B8BC',
+            type: 'SoundTouch 10',
+            moduleType: 'soundtouch',
+            variant: 'Variant XYZ',
+            variantMode: 'normal',
+            countryCode: 'DE',
+            regionCode: 'EU',
+            networkType: 'WIRED',
+            macAddress: '68:9E:19:B8:BB:8A',
+            ipAddress: '192.168.1.42',
+            componentCategory: 'SoundTouch',
+            serialNumber: 'SN-1234',
+            softwareVersion: '3.8.8.2',
+            margeUrl: 'https://marge.example.com',
+            margeAccountUuid: 'uuid-1',
+        };
+        const t = getLabels(state);
+        const html = renderDeviceInfo(state, t);
+
+        // the curated set: id, name, type, moduleType, variant, serial, ip, firmware
+        expect(html.match(/soundtouch-info-row/g)).toHaveLength(8);
+        expect(html).toContain(t.deviceId);
+        expect(html).toContain('689E19B8BB8A');
+        expect(html).toContain(t.deviceName);
+        expect(html).toContain('Bose SoundTouch B9B8BC');
+        expect(html).toContain(t.deviceType);
+        expect(html).toContain('SoundTouch 10');
+        expect(html).toContain(t.deviceModuleType);
+        expect(html).toContain('soundtouch');
+        expect(html).toContain(t.deviceVariant);
+        expect(html).toContain('Variant XYZ');
+        expect(html).toContain(t.deviceSerial);
+        expect(html).toContain('SN-1234');
+        expect(html).toContain(t.deviceIp);
+        expect(html).toContain('192.168.1.42');
+        expect(html).toContain(t.deviceFirmware);
+        expect(html).toContain('3.8.8.2');
+        // parsed-but-not-curated fields (variantMode, country, network, marge)
+        // render no extra rows — exactly eight remain
+        expect(html.match(/soundtouch-info-row/g)).toHaveLength(8);
+    });
+
+    it('renders exactly the present curated rows for a partial DeviceInfo', async () => {
+        const { renderDeviceInfo } = await loadSoundtouchComponents();
+        wsState.soundtouchDevice = { id: '689E19B8BB8A', moduleType: 'soundtouch', ipAddress: '192.168.1.42' };
+        const t = getLabels(state);
+        const html = renderDeviceInfo(state, t);
+
+        expect(html.match(/soundtouch-info-row/g)).toHaveLength(3);
+        expect(html).toContain(t.deviceId);
+        expect(html).toContain('689E19B8BB8A');
+        expect(html).toContain(t.deviceModuleType);
+        expect(html).toContain('soundtouch');
+        expect(html).toContain(t.deviceIp);
+        expect(html).toContain('192.168.1.42');
+        for (const label of [t.deviceName, t.deviceType, t.deviceVariant, t.deviceSerial, t.deviceFirmware]) {
+            expect(html).not.toContain(label);
         }
     });
 });
