@@ -1,4 +1,4 @@
-import {state, render} from './app';
+import {render, state} from './app';
 import {pingSoundtouch, sanitizeHost, soundtouchWsUrl} from './actions';
 
 const BACKOFF_START_MS = 1000;
@@ -32,6 +32,7 @@ function clearDeviceState(): void {
     state.devicePlayStatus = '';
     state.deviceVolume = 0;
     state.deviceMute = false;
+    state.deviceNowPlayingDetail = null;
     state.soundtouchDevice = null;
 }
 
@@ -245,7 +246,12 @@ function handleUpdates(root: Element): void {
     if (changed) render();
 }
 
-/** Shared defensive now-playing field mapping; true when the element exists. */
+/**
+ * Shared defensive now-playing field mapping; true when the element exists.
+ * Stores the raw verbose payload (FR-3 extension) as-is — missing elements
+ * stay empty and fallback chaining (title/artist/art) belongs to the
+ * components, never here.
+ */
 function applyNowPlaying(np: Element | null): boolean {
     if (!np) return false;
     state.deviceNowPlaying = np.querySelector('track')?.textContent?.trim() ?? '';
@@ -254,6 +260,89 @@ function applyNowPlaying(np: Element | null): boolean {
     state.deviceSource = np.getAttribute('source') ?? '';
     const playStatus = np.querySelector('playStatus')?.textContent?.trim() ?? '';
     state.devicePlayStatus = PLAY_STATUSES.includes(playStatus) ? playStatus : '';
+    const art = np.querySelector('art');
+    const contentItem = np.querySelector('ContentItem');
+    const time = np.querySelector('time');
+    const timeTotalRaw = time?.getAttribute('total');
+    const timeTotal = timeTotalRaw === undefined || timeTotalRaw === null || Number.isNaN(Number(timeTotalRaw)) ? null : Number(timeTotalRaw);
+    state.deviceNowPlayingDetail = {
+        stationName: np.querySelector('stationName')?.textContent?.trim() ?? '',
+        art: art?.textContent?.trim() ?? '',
+        artImageStatus: art?.getAttribute('artImageStatus') ?? '',
+        contentItem: contentItem ? {
+            source: contentItem.getAttribute('source') ?? '',
+            type: contentItem.getAttribute('type') ?? '',
+            location: contentItem.getAttribute('location') ?? '',
+            sourceAccount: contentItem.getAttribute('sourceAccount') ?? '',
+            itemName: contentItem.querySelector('itemName')?.textContent?.trim() ?? '',
+            containerArt: contentItem.querySelector('containerArt')?.textContent?.trim() ?? '',
+        } : null,
+        sourceAccount: np.getAttribute('sourceAccount') ?? '',
+        timeTotal,
+        timePosition: time?.textContent?.trim() ?? '',
+        // presence elements: present = enabled, absent = disabled
+        skipEnabled: !!np.querySelector('skipEnabled'),
+        skipPreviousEnabled: !!np.querySelector('skipPreviousEnabled'),
+        favoriteEnabled: !!np.querySelector('favoriteEnabled'),
+        // seekSupported carries a value attribute, not chardata
+        seekSupported: np.querySelector('seekSupported')?.getAttribute('value') === 'true',
+        shuffleSetting: np.querySelector('shuffleSetting')?.textContent?.trim() ?? '',
+        repeatSetting: np.querySelector('repeatSetting')?.textContent?.trim() ?? '',
+        streamType: np.querySelector('streamType')?.textContent?.trim() ?? '',
+        trackId: np.querySelector('trackID')?.textContent?.trim() ?? '',
+        position: np.querySelector('position')?.textContent?.trim() ?? '',
+        description: np.querySelector('description')?.textContent?.trim() ?? '',
+        stationLocation: np.querySelector('stationLocation')?.textContent?.trim() ?? '',
+    };
+    return true;
+}
+
+/**
+ * Shared defensive device-info mapping (FR-3 extension); true when the info
+ * element exists. The <info> element's own deviceID attribute wins over the
+ * RESPONSE header's; the header (or a previously known id) is the fallback,
+ * and with neither the id is an empty string.
+ */
+function applyInfo(info: Element | null, headerId: string): boolean {
+    if (!info) return false;
+    const id = info.getAttribute('deviceID') ?? headerId ?? state.soundtouchDevice?.id ?? '';
+    const name = info.querySelector('name')?.textContent?.trim() || undefined;
+    const type = info.querySelector('type')?.textContent?.trim() || undefined;
+    const moduleType = info.querySelector('moduleType')?.textContent?.trim() || undefined;
+    const variant = info.querySelector('variant')?.textContent?.trim() || undefined;
+    const variantMode = info.querySelector('variantMode')?.textContent?.trim() || undefined;
+    const countryCode = info.querySelector('countryCode')?.textContent?.trim() || undefined;
+    const regionCode = info.querySelector('regionCode')?.textContent?.trim() || undefined;
+    const networkInfo = info.querySelector('networkInfo');
+    const networkType = networkInfo?.getAttribute('type') || undefined;
+    // const macAddress = networkInfo?.querySelector('macAddress')?.textContent?.trim() || undefined;
+    const ipAddress = networkInfo?.querySelector('ipAddress')?.textContent?.trim() || undefined;
+    const component = info.querySelector('components > component');
+    const componentCategory = component?.querySelector('componentCategory')?.textContent?.trim() || undefined;
+    // const serialNumber = component?.querySelector('serialNumber')?.textContent?.trim() || undefined;
+    const softwareVersion = component?.querySelector('softwareVersion')?.textContent?.trim() || undefined;
+    const margeUrl = info.querySelector('margeURL')?.textContent?.trim() || undefined;
+    const margeAccountUuid = info.querySelector('margeAccountUUID')?.textContent?.trim() || undefined;
+    // conditional spread: rows render only for the fields that exist, and the
+    // existing `{id}` / `{id,name,type}` shapes keep passing unchanged
+    state.soundtouchDevice = {
+        id,
+        ...(name ? {name} : {}),
+        ...(type ? {type} : {}),
+        ...(moduleType ? {moduleType} : {}),
+        ...(variant ? {variant} : {}),
+        ...(variantMode ? {variantMode} : {}),
+        ...(countryCode ? {countryCode} : {}),
+        ...(regionCode ? {regionCode} : {}),
+        ...(networkType ? {networkType} : {}),
+        // ...(macAddress ? {macAddress} : {}),
+        ...(ipAddress ? {ipAddress} : {}),
+        ...(componentCategory ? {componentCategory} : {}),
+        // ...(serialNumber ? {serialNumber} : {}),
+        ...(softwareVersion ? {softwareVersion} : {}),
+        ...(margeUrl ? {margeUrl} : {}),
+        ...(margeAccountUuid ? {margeAccountUuid} : {})
+    };
     return true;
 }
 
@@ -280,7 +369,7 @@ function applyVolume(v: Element | null): boolean {
 
 function handleResponse(root: Element): void {
     const header = root.querySelector('header');
-    if (!header || header.getAttribute('msgType') !== 'RESPONSE') return;
+    if (!header || ![header.getAttribute('msgType'), root.querySelector('request')?.getAttribute('msgType')].includes('RESPONSE')) return;
     const body = root.querySelector('body');
     if (!body) return;
     const nowPlaying = body.querySelector('nowPlaying');
@@ -290,31 +379,17 @@ function handleResponse(root: Element): void {
 
     let changed = false;
 
-    const deviceId =
-        header.getAttribute('deviceID') ??
-        body.querySelector('[deviceID]')?.getAttribute('deviceID') ??
-        '';
-    if (deviceId) {
-        state.soundtouchDevice = {...(state.soundtouchDevice ?? {}), id: deviceId};
+    const headerId = header.getAttribute('deviceID') ?? '';
+    if (headerId) {
+        state.soundtouchDevice = {...(state.soundtouchDevice ?? {}), id: headerId};
         changed = true;
     }
 
     if (applyNowPlaying(nowPlaying)) changed = true;
     if (applyVolume(volume)) changed = true;
-
-    if (info) {
-        const name = info.querySelector('name')?.textContent?.trim() || undefined;
-        const type = info.querySelector('type')?.textContent?.trim() || undefined;
-        // conditional spread: name/type rows stay hidden when absent; the
-        // known id (set above from the header) is always preserved
-        state.soundtouchDevice = {
-            ...(state.soundtouchDevice ?? {}),
-            ...(name ? {name} : {}),
-            ...(type ? {type} : {}),
-            id: state.soundtouchDevice?.id ?? ''
-        };
-        changed = true;
-    }
+    // applyInfo overrides the header id with the <info> element's own
+    // deviceID attribute when both are present (the pinned precedence)
+    if (applyInfo(info, headerId)) changed = true;
 
     if (changed) render();
 }
