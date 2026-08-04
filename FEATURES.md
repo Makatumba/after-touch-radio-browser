@@ -344,8 +344,11 @@ live device state — no echo loops. Wire contracts are pinned in
   and `info` in the REST-proxy `<msg>` envelope (wire contract in API-NOTES.md), with a
   `requestID` that increments per request and resets on each connection. The snapshot is
   also re-requested on every successful (re)connection check — at startup for a saved
-  address, right after saving an address, and after a successful drop-recovery probe —
-  so a missed or unanswered first snapshot gets a fresh chance at check time. There is
+  address and right after saving an address, where the socket is still open and the
+  re-request goes out immediately (requestID continues, e.g. 4,5,6 after the open-time
+  1,2,3); after a successful drop-recovery probe the socket is still closed, so that
+  call no-ops and the reopened socket's on-open handler sends the fresh snapshot — so
+  a missed or unanswered first snapshot gets a fresh chance at check time. There is
   no periodic or manual refresh — the snapshot exists so the Remote panel is populated at
   connect (and at each check) instead of staying blank until the first pushed event.
 - Connection states: `connecting` → `connected`, `reconnecting` after a drop.
@@ -460,8 +463,11 @@ name/type rows when the `info` snapshot lands. The i18n keys
   connection.
 - A missing RESPONSE (the device ignores the snapshot, or the connection drops before it
   answers) — the panel stays blank until the first pushed event or the next successful
-  (re)connection check, which re-requests the snapshot (existing behavior otherwise: no
-  timeout or retry within a connection).
+  (re)connection check, which re-requests the snapshot: immediately for startup and
+  address save (the socket is open, so the requestID continues), while after a
+  drop-recovery probe the check-time call is a no-op and the reopened socket's on-open
+  handler sends the fresh snapshot (existing behavior otherwise: no timeout or retry
+  within a connection).
 - An `info` payload without name or type — the corresponding widget rows stay hidden
   (existing conditional rendering); the device ID still shows.
 - Explicit port in the saved address — honored for the WebSocket (no `:8080` appended).
