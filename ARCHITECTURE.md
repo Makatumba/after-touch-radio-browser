@@ -8,8 +8,11 @@ points, and conventions. Keep this document in sync with the code: regenerate it
 
 A lightweight single-page web app for searching, filtering, previewing, and playing internet
 radio stations, built with vanilla TypeScript and Vite (no framework). Station data comes from
-the Radio Browser API; a Bose SoundTouch host can receive stations directly. The UI is
-localized in 4 languages (`en`, `de`, `ru`, `ukr`).
+the Radio Browser API; a Bose SoundTouch host receives stations directly (reachability probe
++ station send). The FR-3 live remote — transport/volume commands and live state (now playing,
+play status, volume, mute) over a WebSocket — is implemented in this release (see FEATURES.md
+and the "SoundTouch remote control" convention below). The UI is localized in 4 languages
+(`en`, `de`, `ru`, `ukr`).
 
 ## Structure Overview
 
@@ -19,7 +22,8 @@ AfterTouch-RadioBrowser/
 │   ├── main.ts                 # Entry point: render, wire events, fetch, ping SoundTouch
 │   ├── app.ts                  # Global mutable state + render/refresh orchestration
 │   ├── events.ts               # All user interaction via 3 delegated listeners
-│   ├── actions.ts              # Domain actions: sanitize, favorites, language, SoundTouch send/preview
+│   ├── actions.ts              # Domain actions: sanitize, favorites, language, SoundTouch send/preview + remote commands (REMOTE_KEYS, sendKeyPress, sendVolume, sendMute, scheduleVolumeSend)
+│   ├── soundtouch-ws.ts        # WebSocket client: gabbo feed, XML parsing, reconnect with backoff
 │   ├── api.ts                  # Radio Browser API client (axios): search/top/recent + languages/countries lists
 │   ├── i18n.ts                 # Translations en/de/ru/ukr (as const) + locale helpers (getLocale, localizeFilterOptions, filterLabelOverrides)
 │   ├── player.ts               # Persistent <audio> singleton
@@ -33,7 +37,8 @@ AfterTouch-RadioBrowser/
 │       ├── filters.ts          # Search inputs, language/country dropdowns, limit select, mode chips
 │       ├── station-card.ts     # Primary play-on-speaker + preview + favorite card actions
 │       ├── player-bar.ts       # Now-playing info
-│       ├── soundtouch.ts       # Host input + reachability status + hints
+│       ├── soundtouch.ts       # Host input + reachability status + hints + WebSocket-fed device-info widget
+│       ├── remote.ts           # Live remote panel: now playing, transport, volume, mute
 │       ├── setup.ts            # Full-screen first-run setup view
 │       ├── banner.ts           # Device-offline banner
 │       └── settings.ts         # Settings modal (enablePreview toggle + reset)
@@ -41,7 +46,9 @@ AfterTouch-RadioBrowser/
 │   ├── app.test.ts             # Vitest suite (jsdom)
 │   ├── pagination.test.ts      # List-pagination tests (jsdom)
 │   ├── filters.test.ts         # Canonical language/country dropdown tests (jsdom)
+│   ├── filter-cache.test.ts    # Filter option list cache tests (jsdom)
 │   ├── soundtouch.test.ts      # SoundTouch reachability + device-info tests (jsdom)
+│   ├── soundtouch-ws.test.ts   # SoundTouch live-remote WebSocket tests (jsdom)
 │   ├── pwa-assets.test.ts      # FR-8 PWA manifest/icon/installability + polish tests (fs-based)
 │   └── api.test.ts             # Radio Browser API wire-contract tests (axios mocked)
 ├── docs/                       # GitHub Pages hosting output (tracked, deploy-generated)
@@ -62,7 +69,8 @@ AfterTouch-RadioBrowser/
 | `src/events.ts` | All event delegation (click/keydown/change on `#app`) |
 | `src/state.ts` | Core domain types (FilterOption carries the canonical API `code` for label localization) |
 | `src/api.ts` | Radio Browser API endpoints (search/top/recent + languages/countries lists; `searchStations` sends the mapped `order`/`reverse`) |
-| `src/actions.ts` | Playback, favorites, SoundTouch domain logic |
+| `src/actions.ts` | Playback, favorites, SoundTouch domain logic + remote commands (`REMOTE_KEYS`, `sendKeyPress`, `sendVolume`, `sendMute`, `scheduleVolumeSend`, `soundtouchWsUrl`) |
+| `src/soundtouch-ws.ts` | Live-state WebSocket client: gabbo feed, XML `<updates>` parsing, reconnect with backoff + `/info` probe |
 | `src/i18n.ts` | 4-language translation dictionary + locale helpers (`getLocale`, `localizeFilterOptions`, `filterLabelOverrides`) |
 | `src/settings.ts` | Settings defaults + persistence |
 | `src/filter-cache.ts` | Filter option list localStorage persistence (raw `{value, label, code}` lists with validation) |
@@ -75,6 +83,7 @@ graph TD
     MAIN[main.ts] --> APP[app.ts]
     MAIN --> EVT[events.ts]
     MAIN --> ACT[actions.ts]
+    MAIN --> WS[soundtouch-ws.ts]
     APP --> I18N[i18n.ts]
     APP --> ST[state.ts]
     APP --> PL[player.ts]
@@ -85,10 +94,14 @@ graph TD
     APP --> SETUP[components/setup.ts]
     APP --> BANNER[components/banner.ts]
     APP --> ACT
+    APP --> REMOTE[components/remote.ts]
     EVT --> APP
     EVT --> ACT
     EVT --> SET
     EVT --> ST
+    EVT --> WS
+    WS --> APP
+    WS --> ACT
     ACT --> ST
     ACT --> I18N
     ACT --> PL
@@ -101,13 +114,16 @@ graph TD
     COMP --> ST
     COMP --> I18N
     COMP --> ACT
+    REMOTE --> ST
 ```
 
 ## Entry Points
 
-- **Main**: `src/main.ts` — renders app, calls `refresh('top')`, pings saved SoundTouch host
+- **Main**: `src/main.ts` — renders app, calls `refresh('top')`, pings saved SoundTouch host and
+  opens the live-state WebSocket (`connectSoundtouchWs`)
 - **Tests**: `tests/app.test.ts`, `tests/pagination.test.ts`, `tests/filters.test.ts`,
-  `tests/filter-cache.test.ts`, `tests/soundtouch.test.ts`, `tests/api.test.ts` — Vitest, jsdom environment
+  `tests/filter-cache.test.ts`, `tests/soundtouch.test.ts`, `tests/soundtouch-ws.test.ts`,
+  `tests/pwa-assets.test.ts`, `tests/api.test.ts` — Vitest, jsdom environment
 - **Deploy**: `npm run deploy` — build → `dist/` → `docs/` (GitHub Pages)
 
 ## Conventions
@@ -170,10 +186,26 @@ graph TD
 - **Settings**: single `enablePreview` toggle (default off); legacy settings keys are ignored on
   load.
 - **SoundTouch ports**: 8090 = the device Web API for reachability (GET `/info` as a `no-cors`
-  probe, 5s timeout) and station send (POST `/select`, `text/plain;charset=UTF-8`). An explicit
-  port in the saved host is honored (no `:8090` appended). The probe's opaque response only
-  proves the port answers; device metadata (name/type/ID) is out of reach from the browser and
-  is planned via the port-8080 WebSocket.
+  probe, 5s timeout), station send (POST `/select`, `text/plain;charset=UTF-8`), and the
+  remote-control commands (POST `/key` press+release pairs with `sender="Gabbo"`,
+  POST `/volume`). 8080 = the live-state WebSocket feed (`ws://<host>:8080/`, "gabbo"
+  protocol, XML `<updates>` messages). An explicit port in the saved host is honored for both
+  (no `:8090`/`:8080` appended). The probe's opaque response only proves the port answers;
+  device metadata (name/type) is out of reach from the browser, and the WebSocket feed
+  exposes only the device ID (MAC).
+- **SoundTouch remote control**: with an address saved, the app keeps one WebSocket
+  (`src/soundtouch-ws.ts`) to `ws://<host>:8080/` ("gabbo" protocol) and mirrors device state
+  from XML `<updates>` messages (`nowPlayingUpdated` → now playing + play status,
+  `volumeUpdated` → volume + mute; unknown or signal-only events keep the last-known state).
+  Commands are `no-cors` POSTs on 8090: `/key` press+release pairs (`sender="Gabbo"`) for
+  play/pause/next/prev and `/volume` for volume/mute (volume slider sends one debounced POST
+  per drag via `scheduleVolumeSend`). **No echo loops**: live device state is written only
+  from WebSocket events, never from command POSTs or optimistic updates. On WS loss the app
+  keeps the last-known state, marks the connection `reconnecting`, and retries with capped
+  exponential backoff (1s→2s→4s→8s→16s→30s) while probing reachability via `/info`; only
+  repeated probe failures show the offline banner (FR-11) and disable the controls. The
+  remote panel (`src/components/remote.ts`) renders now playing, transport, volume, and mute,
+  and the SoundTouch widget shows the WebSocket-fed device ID/name/type.
 - **Hosting**: `docs/` is committed deploy output for GitHub Pages; `dist/` and `.DS_Store`
   are gitignored. `public/` is copied to the dist/docs root by Vite; the favicon uses a
   relative `href="logo.png"` so it resolves under the GitHub Pages subpath. The manifest

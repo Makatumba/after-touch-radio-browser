@@ -2,7 +2,8 @@ import type {Language} from './i18n';
 import type {Mode, SortKey, Station} from './state';
 import {state} from './app';
 import {render, refresh, searchFromInputs, reset, loadNextResultSet, loadPreviousResultSet} from './app';
-import {playStation, stopPlayback, toggleFavorite, sendToSoundtouch, setLanguage, pingSoundtouch, sanitizeHost} from './actions';
+import {playStation, stopPlayback, toggleFavorite, sendToSoundtouch, setLanguage, pingSoundtouch, sanitizeHost, sendKeyPress, sendMute, scheduleVolumeSend, REMOTE_KEYS} from './actions';
+import {connectSoundtouchWs, closeSoundtouchWs} from './soundtouch-ws';
 import {defaultSettings, saveSettings} from './settings';
 
 export function setupEvents(): void {
@@ -39,6 +40,18 @@ export function setupEvents(): void {
             return;
         }
 
+        const remoteBtn = target.closest('#remotePlayPause, #remoteNext, #remotePrev, #remoteMute') as HTMLElement | null;
+        if (remoteBtn) {
+            if (state.wsStatus !== 'connected') return;
+            switch (remoteBtn.id) {
+                case 'remotePlayPause': sendKeyPress(state.devicePlayStatus === 'PLAY_STATE' ? REMOTE_KEYS.pause : REMOTE_KEYS.play); break;
+                case 'remoteNext': sendKeyPress(REMOTE_KEYS.next); break;
+                case 'remotePrev': sendKeyPress(REMOTE_KEYS.prev); break;
+                case 'remoteMute': sendMute(!state.deviceMute); break;
+            }
+            return;
+        }
+
         switch (target.id) {
             case 'saveSoundtouch': {
                 const raw = document.querySelector<HTMLInputElement>('#soundtouch')?.value || '';
@@ -55,6 +68,11 @@ export function setupEvents(): void {
                             render();
                         }
                     });
+                }
+                if (host) {
+                    connectSoundtouchWs(host);
+                } else {
+                    closeSoundtouchWs();
                 }
                 break;
             }
@@ -95,6 +113,12 @@ export function setupEvents(): void {
 
     app.addEventListener('change', (e) => {
         const target = e.target as HTMLElement;
+        // remote volume slider: BEFORE the filter branch — it must never trigger a search
+        if (target.id === 'remoteVolume') {
+            if (state.wsStatus !== 'connected') return;
+            scheduleVolumeSend(Number((target as HTMLInputElement).value));
+            return;
+        }
         if (['limit', 'hideBroken', 'country', 'languageFilter'].includes(target.id)) {
             searchFromInputs();
             return;

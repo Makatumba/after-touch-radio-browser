@@ -532,6 +532,149 @@ button {
     margin-top: .5rem
 }
 
+.soundtouch-info {
+    position: relative;
+    display: inline-flex;
+    align-items: center
+}
+
+.soundtouch-info summary {
+    list-style: none;
+    cursor: pointer;
+    font-size: 1.1rem;
+    line-height: 1;
+    color: var(--primary);
+    padding: .1rem .35rem;
+    border-radius: 9999px
+}
+
+.soundtouch-info summary::-webkit-details-marker {
+    display: none
+}
+
+.soundtouch-info[open] summary {
+    background: var(--primary-soft)
+}
+
+.soundtouch-info-body {
+    position: absolute;
+    right: 0;
+    top: 100%;
+    z-index: 2;
+    min-width: 220px;
+    margin-top: .4rem;
+    padding: .75rem;
+    background: var(--surface);
+    border: 1px solid color-mix(in srgb, var(--text) 9%, transparent);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    display: grid;
+    gap: .35rem
+}
+
+.soundtouch-info-row {
+    display: grid;
+    gap: .1rem
+}
+
+.soundtouch-info-row span {
+    font-size: .72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--muted)
+}
+
+.soundtouch-info-row strong {
+    font-size: .85rem
+}
+
+.remote-panel {
+    display: grid;
+    gap: .75rem
+}
+
+.remote-head {
+    display: flex;
+    justify-content: space-between;
+    gap: .75rem;
+    align-items: center
+}
+
+.remote-head h2 {
+    margin: 0;
+    font-size: 1.1rem
+}
+
+.remote-status {
+    font-weight: 700;
+    font-size: .9rem;
+    text-align: center
+}
+
+.remote-status.status-ok {
+    color: var(--primary)
+}
+
+.remote-status.status-err {
+    color: #c33
+}
+
+.remote-nowplaying {
+    display: grid;
+    gap: .25rem
+}
+
+.remote-nowplaying small {
+    color: var(--muted)
+}
+
+.remote-playstatus {
+    justify-self: start;
+    display: inline-flex;
+    padding: .25rem .75rem;
+    border-radius: 9999px;
+    background: var(--surface-2);
+    color: var(--muted);
+    font-size: .75rem;
+    font-weight: 700
+}
+
+.remote-transport {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem
+}
+
+.remote-transport .btn {
+    flex: 1 1 120px
+}
+
+.remote-volume {
+    display: flex;
+    gap: .75rem;
+    align-items: center;
+    flex-wrap: wrap
+}
+
+.remote-volume .range {
+    flex: 1;
+    min-width: 180px
+}
+
+.remote-volume-value {
+    min-width: 2.5rem;
+    text-align: right;
+    font-weight: 700
+}
+
+.remote-transport .btn svg,
+.remote-volume .btn svg {
+    width: 1.4em;
+    height: 1.4em;
+    flex-shrink: 0
+}
+
 .btn:disabled {
     opacity: .5;
     cursor: not-allowed

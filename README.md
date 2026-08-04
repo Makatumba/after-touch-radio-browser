@@ -8,16 +8,17 @@ software that keeps these speakers alive: [AfterTouch — Bose SoundTouch Toolki
 (https://gesellix.github.io/Bose-SoundTouch/). Not affiliated with Bose Corporation.
 
 Features shipped in this release and planned for the next are specified in
-[FEATURES.md](FEATURES.md) — wave-1 features are implemented; wave-2 features (live device
-state, lock-screen controls) remain planned.
+[FEATURES.md](FEATURES.md) — wave-1 features and the wave-2 live device-state remote (FR-3)
+are implemented; lock-screen controls remain planned.
 
 ## SoundTouch remote control
 
 The app turns your phone into a remote control for a Bose SoundTouch speaker on your network.
 The speaker plays the radio; the phone picks what plays on it — and can preview stations in the
 browser instead. The app connects straight to the speaker's own Web API — no account, cloud, or
-service in the app itself. Live state from the speaker (now playing, volume) and lock-screen
-controls are planned for the next wave.
+service in the app itself. Live state from the speaker (now playing, volume, mute) and the
+transport commands ship as the FR-3 live remote (see
+[FEATURES.md](FEATURES.md)); lock-screen controls remain planned for a later wave.
 
 Because Bose shut down the SoundTouch cloud on May 6, 2026, the speaker must be migrated to
 [AfterTouch](https://gesellix.github.io/Bose-SoundTouch/) with the **Radio Browser** source
@@ -39,6 +40,22 @@ to AfterTouch, and the AfterTouch Health tab shows **Radio Browser** as active.
    an address is saved.
 3. The app remembers the speaker — setup is needed only once. The address stays editable in the
    compact SoundTouch bar on the main screen.
+
+### Remote control
+
+The FR-3 live remote (see [FEATURES.md](FEATURES.md)) keeps a WebSocket connection to the
+speaker's state feed (port 8080) once configured and shows a **Remote** panel on the main
+screen:
+
+- **Now playing** — what's playing on the speaker (station/track, artist, source) and whether
+  it's playing or paused, updated in real time.
+- **Playback** — play/pause, next, and previous buttons.
+- **Volume** — a slider that mirrors the speaker's actual volume and sends changes to it,
+  plus a mute button.
+
+If the connection drops (e.g. the phone leaves the home Wi-Fi), the panel keeps the last
+known state and retries; if the speaker turns out to be unreachable, the offline banner
+appears and the controls are disabled.
 
 ### Play stations on the speaker
 
@@ -67,9 +84,10 @@ speaker.
 
 ### Notes
 
-- The app connects to the speaker directly: HTTP port 8090 — the device's Web API — for both the
-  reachability check (GET /info) and play commands (POST /select). Live state via WebSocket
-  (port 8080) is planned for the next wave.
+- The app connects to the speaker directly: HTTP port 8090 — the device's Web API — for the
+  reachability check (GET /info) and play commands (POST /select). The remote-control
+  commands (POST /key, POST /volume) and the live-state WebSocket feed on port 8080 ship with
+  the FR-3 live remote (see FEATURES.md).
 - Chrome (and other Chromium browsers) may ask permission to *look for and connect to devices on
   your local network* — allow it for the app.
 - The app is an installable PWA (web app manifest + icons, standalone window) with **no
@@ -106,7 +124,8 @@ A full codebase map — structure, key files, module dependency graph, and conve
 
 - **Vanilla TypeScript SPA** — no framework; Vite bundler.
 - **Entry point** — `src/main.ts` renders the app, wires the event listeners, fetches the
-  initial Top-voted list, and pings a saved SoundTouch host.
+  initial Top-voted list, and pings a saved SoundTouch host and opens its live-state
+  WebSocket.
 - **State** — global mutable state lives in `src/app.ts` (types in `src/state.ts`); components
   read and write it directly.
 - **Components** — pure functions in `src/components/*.ts` that return HTML strings; no virtual
@@ -134,14 +153,18 @@ A full codebase map — structure, key files, module dependency graph, and conve
   `radio-browser-languages-cache` / `radio-browser-countries-cache` (raw JSON fallback copies of
   the last successful Language/Country dropdown option lists, used when the Radio Browser API
   fetch fails or returns empty).
-- **SoundTouch ports** — 8090: the device Web API for the reachability check (GET `/info`) and
+- **SoundTouch ports** — 8090: the device Web API for the reachability check (GET `/info`),
   play commands (POST `/select`, `no-cors`, `text/plain;charset=UTF-8`, body is a
   `<ContentItem source="RADIO_BROWSER" type="stationurl" location="/stations/byuuid/{uuid}"/>`
-  document). The check is a `no-cors` GET `/info` probe: stock Bose firmware answers with a
-  fixed CORS allowlist that never matches the app's origin, so the response is opaque and
-  "✓ Reachable" simply means the Web API answers on 8090. Each attempt aborts after 5s. An
-  explicit port in the saved host is honored (no `:8090` appended). WebSocket live state
-  (port 8080, "gabbo" protocol) is planned for the next wave. The host input is sanitized
+  document), and the remote-control commands (POST `/key` — press+release pairs with
+  `sender="Gabbo"` for play/pause/next/prev — and POST `/volume` for volume/mute). 8080: the
+  live-state WebSocket feed (`ws://<host>:8080/`, "gabbo" protocol, XML `<updates>` messages:
+  `nowPlayingUpdated`, `volumeUpdated`); live device state is written only from these events —
+  no echo loops. The reachability check is a `no-cors` GET `/info` probe: stock Bose firmware
+  answers with a fixed CORS allowlist that never matches the app's origin, so the response is
+  opaque and "✓ Reachable" simply means the Web API answers on 8090. Each attempt aborts
+  after 5s. An explicit port in the saved host is honored for both the Web API and the
+  WebSocket (no `:8090`/`:8080` appended). The host input is sanitized
   before use (scheme, path, and unsafe characters stripped).
 - **Status line** — shows "Loading stations…" during a fetch, "N loaded" on success, or
   "Service unavailable" on error. In Search and Favorites modes it appends the active sort

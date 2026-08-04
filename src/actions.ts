@@ -2,8 +2,17 @@ import type {SortKey, Station, State} from './state';
 import {getLabels, getLocale} from './i18n';
 import type {Language} from './i18n';
 import {playStream, stopStream} from './player';
+import {state} from './app';
 
 const PING_TIMEOUT_MS = 5000;
+const VOLUME_DEBOUNCE_MS = 400;
+
+export const REMOTE_KEYS = {
+    play: 'PLAY',
+    pause: 'PAUSE',
+    next: 'NEXT_TRACK',
+    prev: 'PREV_TRACK'
+} as const;
 
 export function compareFavorites(a: Station, b: Station, sort: SortKey, locale: string): number {
     if (sort === 'name_asc') return (a.name || '').localeCompare(b.name || '', locale);
@@ -25,6 +34,63 @@ export function soundtouchBaseUrl(raw: string): string {
     const clean = sanitizeHost(raw);
     if (!clean) return '';
     return `http://${clean}${/:\d+$/.test(clean) ? '' : ':8090'}`;
+}
+
+export function soundtouchWsUrl(raw: string): string {
+    const clean = sanitizeHost(raw);
+    if (!clean) return '';
+    return `ws://${clean}${/:\d+$/.test(clean) ? '' : ':8080'}/`;
+}
+
+export async function sendKeyPress(key: string): Promise<void> {
+    const host = sanitizeHost(state.soundtouchAddress);
+    if (!host) return;
+    const init: RequestInit = {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: {'Content-Type': 'text/plain;charset=UTF-8'}
+    };
+    await fetch(`${soundtouchBaseUrl(host)}/key`, {...init, body: `<key state="press" sender="Gabbo">${key}</key>`});
+    await fetch(`${soundtouchBaseUrl(host)}/key`, {...init, body: `<key state="release" sender="Gabbo">${key}</key>`});
+}
+
+export async function sendVolume(value: number): Promise<void> {
+    const host = sanitizeHost(state.soundtouchAddress);
+    if (!host) return;
+    const clamped = Math.max(0, Math.min(100, Math.round(value)));
+    await fetch(`${soundtouchBaseUrl(host)}/volume`, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: {'Content-Type': 'text/plain;charset=UTF-8'},
+        body: `<volume>${clamped}</volume>`
+    });
+}
+
+export async function sendMute(muted: boolean): Promise<void> {
+    const host = sanitizeHost(state.soundtouchAddress);
+    if (!host) return;
+    await fetch(`${soundtouchBaseUrl(host)}/volume`, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: {'Content-Type': 'text/plain;charset=UTF-8'},
+        body: `<volume><muteenabled>${muted ? 'true' : 'false'}</muteenabled></volume>`
+    });
+}
+
+let volumeTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingVolumeHost = '';
+
+export function scheduleVolumeSend(value: number): void {
+    const host = sanitizeHost(state.soundtouchAddress);
+    if (!host) return;
+    if (volumeTimer !== null) clearTimeout(volumeTimer);
+    pendingVolumeHost = host;
+    volumeTimer = setTimeout(() => {
+        volumeTimer = null;
+        // stale-host guard: the address may have changed while the timer was pending
+        if (sanitizeHost(state.soundtouchAddress) !== pendingVolumeHost) return;
+        sendVolume(value);
+    }, VOLUME_DEBOUNCE_MS);
 }
 
 export function playStation(station: Station, state: State) {
