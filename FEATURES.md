@@ -18,7 +18,7 @@ auto-detected (`en`/`de`/`ru`/`ukr`).
 ### Product decisions
 
 - **Primary job**: the phone is the remote — the speaker plays, the phone controls (WebSocket
-  state + commands are core; live control is planned, see below).
+  state + commands are core; live control ships in wave 2 with FR-3).
 - **Audience**: family first (non-technical parents), then partner/self; possible public
   announcement later.
 - **Devices**: one SoundTouch device, remembered.
@@ -29,7 +29,8 @@ auto-detected (`en`/`de`/`ru`/`ukr`).
 
 ## Implemented (wave 1)
 
-Shipped features. Low-risk, self-contained: they need no live WebSocket state. The setup view,
+Shipped features. Low-risk, self-contained: unlike the wave-2 live remote (FR-3), they need no
+live WebSocket state. The setup view,
 play-on-speaker as the primary card action, in-browser preview, the device-offline banner,
 language auto-detection, the single preview setting, the logo/branding, and PWA
 installability.
@@ -115,7 +116,8 @@ learns whether the port answers. If it does, the device is "✓ Reachable"; if n
 error, timeout, connection refused), "✗ Unreachable". Each attempt aborts after 5s, so a hung
 device never leaves the status on "checking". An explicit port in the saved address is
 honored (no `:8090` appended). Device metadata (name/type/ID) is not readable from the
-browser — that data is planned via the port-8080 WebSocket (see FR-3).
+browser; the port-8080 WebSocket feed (FR-3) exposes only the device ID (MAC) — name and
+type stay out of reach, so the info widget shows the ID and leaves the name/type rows hidden.
 
 ### FR-4 Play station on speaker
 
@@ -124,8 +126,10 @@ favorites play straight to the speaker too. The action is disabled with a clear 
 the device is offline or no address is saved. On send, a plain-language confirmation appears
 ("Playing on speaker…"); a failed send surfaces a plain-language error and marks the device
 unreachable. The separate **"Send to SoundTouch"** button has been removed — the primary action
-replaces it, including dropping the obsolete `send` translation key. A WebSocket-based
-now-playing confirmation is planned (see FR-3).
+replaces it, including dropping the obsolete `send` translation key. Live now-playing state
+ships with FR-3 (the Remote panel mirrors it in real time); replacing the optimistic
+"Playing on speaker…" message with a live-state-based confirmation remains planned (see the
+FR-4/FR-5 extension).
 
 ### FR-5 Preview playback (disabled by default)
 
@@ -156,8 +160,10 @@ keys are ignored on load (defaults used). Reset restores defaults.
 ### FR-11 Device-offline state
 
 On cellular / wrong Wi-Fi: a friendly banner "Speaker is offline — connect to the same Wi-Fi
-as your speaker" appears when the saved address fails the reachability check or a send fails;
-browsing still works; play-on-speaker actions are disabled with a clear message. Never crashes.
+as your speaker" appears when the saved address fails the reachability check, a send fails,
+or the live WebSocket connection is lost and repeated reachability probes still fail (see
+FR-3); browsing still works; play-on-speaker actions are disabled with a clear message. Never
+crashes.
 
 ### FR-12 Branding / logo
 
@@ -307,18 +313,135 @@ capability are non-goals (see Non-goals).
 - GitHub Pages subpath — all manifest URLs are relative and resolve under the subpath.
 - Browser without install support — the app simply works as a normal website (unchanged).
 
-## Planned (wave 2+)
+## Implemented (wave 2)
 
-Not yet implemented. These features build the live remote on top of the shipped wave-1 base:
-the WebSocket remote core, media-session / lock-screen controls, and confirmation of play
-actions from live device state.
+Shipped in the live-remote wave: the WebSocket connection, live now-playing / play-state /
+volume / mute mirroring, transport commands, reconnection with backoff, and the
+WebSocket-fed device-info widget.
 
 ### FR-3 Device remote (core)
 
-Live state via WebSocket (device port 8080, "gabbo" protocol): now playing (track/artist/
-source), play state, volume, mute. Transport commands play/pause/next/prev via POST (port
-8090). Volume slider (debounced) + mute toggle, always mirroring device state. On connection
-loss: "Connection lost — retrying", keep last-known state, auto-reconnect with backoff.
+The phone is a live remote for the speaker. When an address is saved (and setup was not
+skipped), the app keeps a WebSocket connection to the speaker's notification feed
+(`ws://<host>:8080/`, "gabbo" protocol) open for as long as the app runs and mirrors device
+state in real time: what's playing, play state, volume, mute. Commands (play/pause/next/prev,
+volume, mute) go to the device Web API on port 8090 as fire-and-forget `no-cors` POSTs;
+confirmation of each command arrives back over the WebSocket, which is the **only** writer of
+live device state — no echo loops. Wire contracts are pinned in
+[API-NOTES.md](API-NOTES.md) ("SoundTouch device wire contracts").
+
+#### WebSocket connection lifecycle
+
+- Connect to `ws://<host>:8080/` with the "gabbo" protocol whenever an address is saved:
+  at startup for a saved address and right after the user saves one. An explicit port in the
+  saved address is honored for the WebSocket too (no `:8080` appended), mirroring the 8090
+  rule. Only one connection exists at a time; saving a different address closes the old
+  socket and connects to the new host.
+- Connection states: `connecting` → `connected`, `reconnecting` after a drop.
+
+#### Live state events
+
+Incoming messages are XML `<updates>` documents; the app parses the events it uses and
+ignores everything else (malformed or unknown messages are never fatal):
+
+- `nowPlayingUpdated` — full now-playing payload: station/track, artist, source, play status
+  (`PLAY_STATE`/`PAUSE_STATE`/`BUFFERING_STATE`/`STOP_STATE`, from which the UI derives
+  "playing?"), album when present.
+- `volumeUpdated` (with data) — target/actual volume (0–100) and mute state.
+- Signal-only events (`connectionStateUpdated`, `infoUpdated`, or a `volumeUpdated` without a
+  payload) leave the last-known state untouched: a readable `GET /volume` is CORS-blocked
+  from the browser, so the with-data form is the only volume source.
+- The `deviceID` attribute (the speaker's MAC) on `<updates>`/`<nowPlaying>` feeds the
+  device-info widget (below).
+
+#### Remote control panel
+
+A "Remote" panel on the main screen (visible whenever an address is saved) shows:
+
+- **Now playing** — the live station/track, artist, and source from the WebSocket, with the
+  current play status.
+- **Transport** — play/pause, next, previous as icon buttons (inline SVG, inheriting the
+  button color; the translated labels are kept as `aria-label` + `title` tooltips).
+  Play/pause is context-aware: if the device is playing, the button pauses; otherwise it
+  plays. Each command is a `POST /key` press+release pair with `sender="Gabbo"` (keys
+  `PLAY`/`PAUSE`/`NEXT_TRACK`/`PREV_TRACK` — unprefixed, case-sensitive per the Bose
+  documentation; see API-NOTES.md); the WebSocket update confirms the effect.
+- **Volume** — a 0–100 slider mirroring the WebSocket-confirmed volume. Dragging sends one
+  debounced `POST /volume` after the user stops adjusting; the slider value only ever updates
+  from WebSocket events (a local POST never writes the state directly), so the device
+  reconciles the slider without echo loops.
+- **Mute** — an icon button (speaker-on / speaker-off, `aria-label` + `title` tooltip) that
+  toggles via a `POST /volume` with a `muteenabled` element; the button reflects the
+  WebSocket-confirmed mute state.
+
+#### Connection loss & reconnection
+
+On WebSocket close/error: keep the last-known state on screen, mark the connection
+`reconnecting`, and verify the speaker is still reachable with the existing port-8090
+`GET /info` probe. If the probe succeeds, keep retrying the WebSocket with capped exponential
+backoff (no banner); if the probe fails, wait and retry, and only after repeated probe
+failures does the device-offline banner (FR-11) appear and the device become "unreachable".
+Controls are disabled while disconnected; the last-known state stays visible. The backoff
+resets on a successful connection, and reconnecting stops when the address is cleared or
+changed.
+
+#### Device-info widget (WebSocket-fed)
+
+The compact SoundTouch bar's info widget shows the **device ID** (the MAC address carried by
+the `deviceID` attribute of WebSocket messages) once it has been observed. Device name and
+type are not exposed by the WebSocket feed and remain unreadable from the browser (CORS);
+those rows render only if the data exists — today they stay hidden (a documented future
+extension should AfterTouch ever expose readable device info). The i18n keys
+`deviceName`/`deviceType`/`deviceId` are added in all four languages with the widget in the
+implementation wave.
+
+### User flows (wave 2)
+
+1. **Live control** — open the app with a saved address → the Remote panel shows what's
+   playing on the speaker → tap play/pause/next/prev, drag the volume slider, or toggle mute
+   → the device confirms over the WebSocket within ~1s.
+2. **Connection loss** — the phone leaves the home Wi-Fi → the panel keeps the last-known
+   state and shows "Connection lost — retrying"; once the reachability probe also fails, the
+   offline banner (FR-11) appears and the controls are disabled.
+
+### Acceptance criteria (wave 2)
+
+- The WebSocket connects at startup for a saved address (`ws://<host>:8080/`, "gabbo"
+  protocol, explicit port honored); one connection at a time.
+- `nowPlayingUpdated` updates track/artist/source/play status; `volumeUpdated` updates
+  volume/mute; unknown or malformed messages are ignored without crashing.
+- Play/pause/next/prev send press+release `/key` POSTs (`sender="Gabbo"`); volume sends a
+  debounced `/volume` POST; mute sends a `muteenabled` POST.
+- Live device state is written only by WebSocket events — no echo loops: a local command POST
+  never updates volume/play state directly.
+- On close: `reconnecting` with capped exponential backoff; the backoff resets on a
+  successful connection; a dropped connection triggers the reachability probe, and only
+  repeated probe failures show the offline banner and disable the controls.
+- The device-info widget shows the device ID once known; name/type rows are absent while no
+  data exists; the widget's new i18n keys (`deviceName`/`deviceType`/`deviceId`) are added in
+  all four languages.
+- `npm test`, `npx tsc --noEmit --skipLibCheck`, and `npm run build` pass.
+
+### Edge cases (wave 2)
+
+- Malformed or unknown WebSocket messages — ignored, never fatal.
+- Signal-only events (empty `volumeUpdated`, `connectionStateUpdated`, `infoUpdated`) —
+  last-known state kept.
+- Stale socket messages arriving after a re-render or an address change — ignored when the
+  address no longer matches.
+- Explicit port in the saved address — honored for the WebSocket (no `:8080` appended).
+- Reconnect storms — capped backoff, a single timer, one socket at a time.
+- Volume drag storms — debounced POSTs, reconciled by WebSocket updates.
+- iOS Safari blocking `ws://` to the LAN — the WebSocket fails, the probe fails, and the
+  FR-11 banner explains the situation (existing limitation).
+- Multiple browser tabs — last-write-wins, accepted limitation.
+- Device reboot — the WebSocket drops and reconnects; events re-establish the state.
+
+## Planned (wave 2+)
+
+Not yet implemented. These features finish the live remote on top of the shipped wave-1 base
+and the shipped wave-2 features: media-session / lock-screen controls and confirmation of
+play actions from live device state.
 
 ### FR-6 Media-session / lock-screen controls
 
@@ -327,31 +450,27 @@ commands). Graceful no-op where unsupported.
 
 ### FR-4/FR-5 extension: now-playing confirmation
 
-Once FR-3 lands, play-on-speaker and preview confirmations come from live device state
-(WebSocket) instead of the current optimistic "Playing on speaker…" message.
+Once FR-3 ships the live state (the Remote panel mirrors it in real time), play-on-speaker
+and preview confirmations can come from live device state (WebSocket) instead of the current
+optimistic "Playing on speaker…" message.
 
 ### User flows
 
-1. **Live control** — open app → see what's playing on the speaker → control playback and
-   volume from the phone → lock the phone → control from the lock screen.
+1. **Lock-screen control** — lock the phone → see now-playing metadata on the lock screen and
+   control playback from there (supported browsers only).
 
 ### Acceptance criteria
 
-- WebSocket state reflects the device within ~1s of a change; transport/volume commands take
-  effect; the volume slider reconciles without echo loops.
 - Lock screen: metadata + actions appear while connected on supported browsers.
 
 ### Edge cases
 
-- Device reachable but WebSocket unavailable — degrade to REST polling or a clear "limited
-  mode" message.
-- WebSocket reconnect storms — exponential backoff.
-- Volume drag storms — debounced POSTs; reconciled via WebSocket updates.
 - Multiple browser tabs — last-write-wins, accepted limitation.
-- iOS Safari blocking http/ws to LAN — degrade with a plain-language message.
 - Speaker reachable but the Radio Browser source is inactive (`INVALID_SOURCE`) — show a
-  plain-language hint to check the AfterTouch Health tab.
-- Station stream fails on the device — surface the device error event.
+  plain-language hint to check the AfterTouch Health tab (planned with the FR-4/FR-5
+  extension).
+- Station stream fails on the device — surface the device error event (the WebSocket
+  now-playing events make the error state observable).
 
 ## Non-goals (v1)
 
@@ -360,6 +479,8 @@ Once FR-3 lands, play-on-speaker and preview confirmations come from live device
 - Streaming audio as a first-class mode (preview only, default off).
 - Accounts, cloud sync.
 - Bass/source switching (v1 is transport + volume only).
+- Device name/type display (the WebSocket feed exposes only the device ID; the HTTP API is
+  CORS-blocked from the browser).
 - Logo variants (SVG/ICO, animation) — a single PNG; the small favicon copy is an implementation
   detail.
 - PWA extras beyond the FR-8 wave's scope: a service worker, offline support / offline UI,

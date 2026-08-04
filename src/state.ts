@@ -52,6 +52,15 @@ export interface State {
     status: string;
     soundtouchAddress: string;
     soundtouchStatus: 'idle' | 'checking' | 'available' | 'unreachable';
+    wsStatus: 'idle' | 'connecting' | 'connected' | 'reconnecting';
+    deviceNowPlaying: string;
+    deviceArtist: string;
+    deviceAlbum: string;
+    deviceSource: string;
+    devicePlayStatus: string;
+    deviceVolume: number;
+    deviceMute: boolean;
+    soundtouchDevice: { id: string; name?: string; type?: string } | null;
     currentIndex: number;
     showSettings: boolean;
     skippedSetup: boolean;

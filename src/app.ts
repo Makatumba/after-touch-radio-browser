@@ -9,6 +9,7 @@ import type {FilterCacheKind} from './filter-cache';
 import {compareFavorites} from './actions';
 import {renderHeader} from './components/header';
 import {renderSoundtouch} from './components/soundtouch';
+import {renderRemotePanel} from './components/remote';
 import {renderSetup} from './components/setup';
 import {renderOfflineBanner} from './components/banner';
 import {renderFilters} from './components/filters';
@@ -49,6 +50,15 @@ export const state: State = {
     status: 'Idle',
     soundtouchAddress: localStorage.getItem(LS_SOUNDTOUCH) || '',
     soundtouchStatus: 'idle',
+    wsStatus: 'idle',
+    deviceNowPlaying: '',
+    deviceArtist: '',
+    deviceAlbum: '',
+    deviceSource: '',
+    devicePlayStatus: '',
+    deviceVolume: 0,
+    deviceMute: false,
+    soundtouchDevice: null,
     currentIndex: -1,
     showSettings: false,
     skippedSetup: false,
@@ -79,6 +89,7 @@ function App() {
     <main id="main">
         ${bannerHtml}
         ${renderSoundtouch(state, t)}
+        ${state.soundtouchAddress ? renderRemotePanel(state, t) : ''}
         <section class="layout">
             ${renderFilters(state, t)}
             <section class="panel results-panel">
