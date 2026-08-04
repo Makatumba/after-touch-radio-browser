@@ -629,6 +629,13 @@ button {
     color: var(--muted)
 }
 
+.remote-art {
+    width: 3rem;
+    height: 3rem;
+    object-fit: cover;
+    justify-self: start
+}
+
 .remote-playstatus {
     justify-self: start;
     display: inline-flex;

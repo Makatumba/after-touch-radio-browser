@@ -23,13 +23,13 @@ AfterTouch-RadioBrowser/
 │   ├── app.ts                  # Global mutable state + render/refresh orchestration
 │   ├── events.ts               # All user interaction via 3 delegated listeners
 │   ├── actions.ts              # Domain actions: sanitize, favorites, language, SoundTouch send/preview + remote commands (REMOTE_KEYS, sendKeyPress, sendVolume, sendMute, scheduleVolumeSend)
-│   ├── soundtouch-ws.ts        # WebSocket client: gabbo feed, XML parsing, snapshot requests on connect + successful (re)connection checks, reconnect with backoff
+│   ├── soundtouch-ws.ts        # WebSocket client: gabbo feed, XML parsing (full now-playing + device info), snapshot requests on connect + successful (re)connection checks, reconnect with backoff
 │   ├── api.ts                  # Radio Browser API client (axios): search/top/recent + languages/countries lists
 │   ├── i18n.ts                 # Translations en/de/ru/ukr (as const) + locale helpers (getLocale, localizeFilterOptions, filterLabelOverrides)
 │   ├── player.ts               # Persistent <audio> singleton
 │   ├── settings.ts             # Settings defaults + localStorage persistence
 │   ├── filter-cache.ts         # Filter option list localStorage cache (raw {value,label,code} lists)
-│   ├── state.ts                # Shared types (Station, Settings, State, Mode, FilterOption)
+│   ├── state.ts                # Shared types (Station, Settings, State, Mode, FilterOption, DeviceInfo, DeviceNowPlayingVerbose)
 │   ├── styles.css              # All styling
 │   └── components/             # Pure render functions returning HTML strings
 │       ├── header.ts           # Logo branding, title, language chips, settings gear
@@ -67,10 +67,10 @@ AfterTouch-RadioBrowser/
 | `src/main.ts` | Application entry point (bootstrap) |
 | `src/app.ts` | Global `state` export + `render()`/`refresh()` core; owns the sort→API `order`/`reverse` mapping (`SORT_API_PARAMS`) |
 | `src/events.ts` | All event delegation (click/keydown/change on `#app`) |
-| `src/state.ts` | Core domain types (FilterOption carries the canonical API `code` for label localization) |
+| `src/state.ts` | Core domain types (FilterOption carries the canonical API `code` for label localization; DeviceNowPlayingVerbose / DeviceInfo are the FR-3 verbose state and full device-info payloads) |
 | `src/api.ts` | Radio Browser API endpoints (search/top/recent + languages/countries lists; `searchStations` sends the mapped `order`/`reverse`) |
 | `src/actions.ts` | Playback, favorites, SoundTouch domain logic + remote commands (`REMOTE_KEYS`, `sendKeyPress`, `sendVolume`, `sendMute`, `scheduleVolumeSend`, `soundtouchWsUrl`) |
-| `src/soundtouch-ws.ts` | Live-state WebSocket client: gabbo feed, XML `<updates>` parsing + REST-proxy snapshot requests (`now_playing`/`volume`/`info`) on connect and on every successful (re)connection check, reconnect with backoff + `/info` probe |
+| `src/soundtouch-ws.ts` | Live-state WebSocket client: gabbo feed, XML `<updates>` parsing (full now-playing payload + full device info), REST-proxy snapshot requests (`now_playing`/`volume`/`info`) on connect and on every successful (re)connection check, reconnect with backoff + `/info` probe |
 | `src/i18n.ts` | 4-language translation dictionary + locale helpers (`getLocale`, `localizeFilterOptions`, `filterLabelOverrides`) |
 | `src/settings.ts` | Settings defaults + persistence |
 | `src/filter-cache.ts` | Filter option list localStorage persistence (raw `{value, label, code}` lists with validation) |
@@ -214,8 +214,23 @@ graph TD
   exponential backoff (1s→2s→4s→8s→16s→30s) while probing reachability via `/info`; only
   repeated probe failures show the offline banner (FR-11) and disable the controls. The
   remote panel (`src/components/remote.ts`) renders now playing, transport, volume, and mute,
-  and the SoundTouch widget shows the WebSocket-fed device ID/name/type (name/type from the
-  `info` snapshot response, re-requested on each successful (re)connection check).
+  and the SoundTouch widget shows the WebSocket-fed device info. The now-playing parser
+  stores the full verbose payload (`deviceNowPlayingDetail` in `state.ts`: stationName, art,
+  ContentItem, skip/favorite presence flags, seekSupported, shuffle/repeat, streamType,
+  trackID, position, description, stationLocation) — the panel derives the title
+  `track` → `stationName` → `ContentItem.itemName` → "No station playing", the artist falls
+  back to the verbose `description`, next/prev are gated on the `skipEnabled` /
+  `skipPreviousEnabled` presence flags (in the component and in the delegated click
+  handler), and artwork renders `art` → `ContentItem.containerArt` as a single
+  `img.remote-art` that removes itself on error. The `info` snapshot response populates the
+  full device payload (id, name, type, moduleType, variant, variantMode, country/region
+  codes, networkInfo MAC/IP, first component's category/serial/firmware, marge URL/UUID;
+  the element's own `deviceID` attribute wins over the RESPONSE header) and the widget
+  renders the curated rows — id, name, type, module type, variant, serial, IP, firmware —
+  each row only when its data exists (labels `deviceName`/`deviceType`/`deviceId`/
+  `deviceModuleType`/`deviceVariant`/`deviceSerial`/`deviceIp`/`deviceFirmware` exist in
+  all four languages). The `info` snapshot is re-requested on each successful
+  (re)connection check.
 - **Hosting**: `docs/` is committed deploy output for GitHub Pages; `dist/` and `.DS_Store`
   are gitignored. `public/` is copied to the dist/docs root by Vite; the favicon uses a
   relative `href="logo.png"` so it resolves under the GitHub Pages subpath. The manifest

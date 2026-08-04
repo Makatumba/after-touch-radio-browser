@@ -58,6 +58,7 @@ export const state: State = {
     devicePlayStatus: '',
     deviceVolume: 0,
     deviceMute: false,
+    deviceNowPlayingDetail: null,
     soundtouchDevice: null,
     currentIndex: -1,
     showSettings: false,

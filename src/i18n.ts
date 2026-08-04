@@ -133,7 +133,12 @@ export const translations = {
         remoteStopped: 'Stopped',
         deviceName: 'Device name',
         deviceType: 'Device type',
-        deviceId: 'Device ID'
+        deviceId: 'Device ID',
+        deviceModuleType: 'Module type',
+        deviceVariant: 'Variant',
+        deviceSerial: 'Serial number',
+        deviceIp: 'IP address',
+        deviceFirmware: 'Firmware'
     },
     de: {
         title: 'AfterTouch radio browser',
@@ -214,7 +219,12 @@ export const translations = {
         remoteStopped: 'Gestoppt',
         deviceName: 'Gerätename',
         deviceType: 'Gerätetyp',
-        deviceId: 'Geräte-ID'
+        deviceId: 'Geräte-ID',
+        deviceModuleType: 'Modultyp',
+        deviceVariant: 'Variante',
+        deviceSerial: 'Seriennummer',
+        deviceIp: 'IP-Adresse',
+        deviceFirmware: 'Firmware'
     },
     ru: {
         title: 'AfterTouch radio browser',
@@ -295,7 +305,12 @@ export const translations = {
         remoteStopped: 'Остановлено',
         deviceName: 'Название устройства',
         deviceType: 'Тип устройства',
-        deviceId: 'ID устройства'
+        deviceId: 'ID устройства',
+        deviceModuleType: 'Тип модуля',
+        deviceVariant: 'Вариант',
+        deviceSerial: 'Серийный номер',
+        deviceIp: 'IP-адрес',
+        deviceFirmware: 'Прошивка'
     },
     ukr: {
         title: 'AfterTouch radio browser',
@@ -376,7 +391,12 @@ export const translations = {
         remoteStopped: 'Зупинено',
         deviceName: 'Назва пристрою',
         deviceType: 'Тип пристрою',
-        deviceId: 'ID пристрою'
+        deviceId: 'ID пристрою',
+        deviceModuleType: 'Тип модуля',
+        deviceVariant: 'Варіант',
+        deviceSerial: 'Серійний номер',
+        deviceIp: 'IP-адреса',
+        deviceFirmware: 'Прошивка'
     }
 } as const;
 

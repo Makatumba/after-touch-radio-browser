@@ -21,11 +21,14 @@ const ICONS = {
 } as const;
 
 export function renderRemotePanel(state: State, t: Record<string, string>): string {
-    const disabled = state.wsStatus === 'connected' ? '' : ' disabled';
-    const statusText = state.wsStatus === 'connecting' ? `⟳ ${t.checking}` : state.wsStatus === 'connected' ? `✓ ${t.remoteConnected}` : state.wsStatus === 'reconnecting' ? `⟳ ${t.remoteReconnecting}` : '—';
-    const statusCls = state.wsStatus === 'connected' ? ' status-ok' : state.wsStatus === 'reconnecting' ? ' status-err' : '';
-    const nowPlaying = state.deviceNowPlaying || t.noStationPlaying;
-    const meta = [state.deviceArtist, state.deviceAlbum, state.deviceSource].filter(Boolean).join(' · ');
+    const detail = state.deviceNowPlayingDetail;
+    const connected = state.wsStatus === 'connected';
+    const statusText = state.wsStatus === 'connecting' ? `⟳ ${t.checking}` : connected ? `✓ ${t.remoteConnected}` : state.wsStatus === 'reconnecting' ? `⟳ ${t.remoteReconnecting}` : '—';
+    const statusCls = connected ? ' status-ok' : state.wsStatus === 'reconnecting' ? ' status-err' : '';
+    // title fallback: track → stationName → ContentItem.itemName → no station playing
+    const title = state.deviceNowPlaying || detail?.stationName || detail?.contentItem?.itemName || t.noStationPlaying;
+    // artist fallback: artist → verbose description; album/source join as today
+    const meta = [state.deviceArtist || detail?.description || '', state.deviceAlbum, state.deviceSource].filter(Boolean).join(' · ');
     const playStatusLabel = PLAY_STATUS_LABELS[state.devicePlayStatus];
     const playStatusChip = playStatusLabel ? `<span class="remote-playstatus">${t[playStatusLabel]}</span>` : '';
     const playing = state.devicePlayStatus === 'PLAY_STATE';
@@ -33,26 +36,36 @@ export function renderRemotePanel(state: State, t: Record<string, string>): stri
     const playPauseIcon = playing ? ICONS.pause : ICONS.play;
     const muteLabel = state.deviceMute ? t.remoteUnmute : t.remoteMute;
     const muteIcon = state.deviceMute ? ICONS.speakerOff : ICONS.speakerOn;
+    // presence gating (per the gesellix reference): next/prev are disabled
+    // while their skip flag is absent — independent of the wsStatus gate
+    const nextDisabled = !connected || !detail?.skipEnabled;
+    const prevDisabled = !connected || !detail?.skipPreviousEnabled;
+    // artwork: art → ContentItem.containerArt; a broken/blocked image removes
+    // itself via the inline onerror (error events do not bubble, so the
+    // delegated listeners cannot cover them — the only inline JS in the app)
+    const artUrl = detail?.art || detail?.contentItem?.containerArt || '';
+    const artHtml = artUrl ? `<img class="remote-art" src="${escapeHtml(artUrl)}" alt="" onerror="this.remove()" />` : '';
     return `<section class="panel remote-panel">
     <div class="remote-head">
         <h2>${t.remoteTitle}</h2>
         <span class="remote-status${statusCls}">${statusText}</span>
     </div>
     <div class="remote-nowplaying">
-        <strong>${escapeHtml(nowPlaying)}</strong>
+        ${artHtml}
+        <strong>${escapeHtml(title)}</strong>
         ${meta ? `<small>${escapeHtml(meta)}</small>` : ''}
         ${playStatusChip}
     </div>
     <div class="remote-transport">
-        <button class="btn btn-secondary" id="remotePrev"${disabled} aria-label="${t.remotePrev}" title="${t.remotePrev}">${ICONS.prev}</button>
-        <button class="btn btn-primary" id="remotePlayPause"${disabled} aria-label="${playPauseLabel}" title="${playPauseLabel}">${playPauseIcon}</button>
-        <button class="btn btn-secondary" id="remoteNext"${disabled} aria-label="${t.remoteNext}" title="${t.remoteNext}">${ICONS.next}</button>
+        <button class="btn btn-secondary" id="remotePrev"${prevDisabled ? ' disabled' : ''} aria-label="${t.remotePrev}" title="${t.remotePrev}">${ICONS.prev}</button>
+        <button class="btn btn-primary" id="remotePlayPause"${connected ? '' : ' disabled'} aria-label="${playPauseLabel}" title="${playPauseLabel}">${playPauseIcon}</button>
+        <button class="btn btn-secondary" id="remoteNext"${nextDisabled ? ' disabled' : ''} aria-label="${t.remoteNext}" title="${t.remoteNext}">${ICONS.next}</button>
     </div>
     <div class="remote-volume">
         <label for="remoteVolume">${t.remoteVolume}</label>
-        <input class="range" type="range" id="remoteVolume" min="0" max="100" value="${state.deviceVolume}"${disabled} />
+        <input class="range" type="range" id="remoteVolume" min="0" max="100" value="${state.deviceVolume}"${connected ? '' : ' disabled'} />
         <span class="remote-volume-value">${state.deviceVolume}</span>
-        <button class="btn btn-secondary" id="remoteMute"${disabled} aria-label="${muteLabel}" title="${muteLabel}">${muteIcon}</button>
+        <button class="btn btn-secondary" id="remoteMute"${connected ? '' : ' disabled'} aria-label="${muteLabel}" title="${muteLabel}">${muteIcon}</button>
     </div>
 </section>`;
 }

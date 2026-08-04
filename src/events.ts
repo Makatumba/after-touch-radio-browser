@@ -45,8 +45,17 @@ export function setupEvents(): void {
             if (state.wsStatus !== 'connected') return;
             switch (remoteBtn.id) {
                 case 'remotePlayPause': sendKeyPress(state.devicePlayStatus === 'PLAY_STATE' ? REMOTE_KEYS.pause : REMOTE_KEYS.play); break;
-                case 'remoteNext': sendKeyPress(REMOTE_KEYS.next); break;
-                case 'remotePrev': sendKeyPress(REMOTE_KEYS.prev); break;
+                // presence gating: the delegated handler must not send while
+                // the device reports skipping unavailable (the button's
+                // disabled attribute is bypassed by a direct dispatchEvent)
+                case 'remoteNext':
+                    if (!state.deviceNowPlayingDetail?.skipEnabled) return;
+                    sendKeyPress(REMOTE_KEYS.next);
+                    break;
+                case 'remotePrev':
+                    if (!state.deviceNowPlayingDetail?.skipPreviousEnabled) return;
+                    sendKeyPress(REMOTE_KEYS.prev);
+                    break;
                 case 'remoteMute': sendMute(!state.deviceMute); break;
             }
             return;
