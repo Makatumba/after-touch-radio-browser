@@ -23,7 +23,7 @@ AfterTouch-RadioBrowser/
 │   ├── app.ts                  # Global mutable state + render/refresh orchestration
 │   ├── events.ts               # All user interaction via 3 delegated listeners
 │   ├── actions.ts              # Domain actions: sanitize, favorites, language, SoundTouch send/preview + remote commands (REMOTE_KEYS, sendKeyPress, sendVolume, sendMute, scheduleVolumeSend)
-│   ├── soundtouch-ws.ts        # WebSocket client: gabbo feed, XML parsing, reconnect with backoff
+│   ├── soundtouch-ws.ts        # WebSocket client: gabbo feed, XML parsing, snapshot requests on connect + successful (re)connection checks, reconnect with backoff
 │   ├── api.ts                  # Radio Browser API client (axios): search/top/recent + languages/countries lists
 │   ├── i18n.ts                 # Translations en/de/ru/ukr (as const) + locale helpers (getLocale, localizeFilterOptions, filterLabelOverrides)
 │   ├── player.ts               # Persistent <audio> singleton
@@ -70,7 +70,7 @@ AfterTouch-RadioBrowser/
 | `src/state.ts` | Core domain types (FilterOption carries the canonical API `code` for label localization) |
 | `src/api.ts` | Radio Browser API endpoints (search/top/recent + languages/countries lists; `searchStations` sends the mapped `order`/`reverse`) |
 | `src/actions.ts` | Playback, favorites, SoundTouch domain logic + remote commands (`REMOTE_KEYS`, `sendKeyPress`, `sendVolume`, `sendMute`, `scheduleVolumeSend`, `soundtouchWsUrl`) |
-| `src/soundtouch-ws.ts` | Live-state WebSocket client: gabbo feed, XML `<updates>` parsing, reconnect with backoff + `/info` probe |
+| `src/soundtouch-ws.ts` | Live-state WebSocket client: gabbo feed, XML `<updates>` parsing + REST-proxy snapshot requests (`now_playing`/`volume`/`info`) on connect and on every successful (re)connection check, reconnect with backoff + `/info` probe |
 | `src/i18n.ts` | 4-language translation dictionary + locale helpers (`getLocale`, `localizeFilterOptions`, `filterLabelOverrides`) |
 | `src/settings.ts` | Settings defaults + persistence |
 | `src/filter-cache.ts` | Filter option list localStorage persistence (raw `{value, label, code}` lists with validation) |
@@ -189,14 +189,23 @@ graph TD
   probe, 5s timeout), station send (POST `/select`, `text/plain;charset=UTF-8`), and the
   remote-control commands (POST `/key` press+release pairs with `sender="Gabbo"`,
   POST `/volume`). 8080 = the live-state WebSocket feed (`ws://<host>:8080/`, "gabbo"
-  protocol, XML `<updates>` messages). An explicit port in the saved host is honored for both
+  protocol, XML `<updates>` messages) that also answers GET requests with a REST-proxy
+  `<msg>` envelope. An explicit port in the saved host is honored for both
   (no `:8090`/`:8080` appended). The probe's opaque response only proves the port answers;
-  device metadata (name/type) is out of reach from the browser, and the WebSocket feed
-  exposes only the device ID (MAC).
+  device metadata (name/type) is not readable over HTTP (CORS), but the WebSocket REST-proxy
+  exposes it — the app fetches `now_playing`/`volume`/`info` on every connection open
+  and on every successful (re)connection check.
 - **SoundTouch remote control**: with an address saved, the app keeps one WebSocket
   (`src/soundtouch-ws.ts`) to `ws://<host>:8080/` ("gabbo" protocol) and mirrors device state
   from XML `<updates>` messages (`nowPlayingUpdated` → now playing + play status,
   `volumeUpdated` → volume + mute; unknown or signal-only events keep the last-known state).
+  On every connection open — and again on every successful (re)connection check (startup
+  for a saved address, address save, successful drop-recovery probe) — the client sends
+  `now_playing`/`volume`/`info` snapshot requests over the same WS (REST-proxy `<msg>`
+  envelope, `requestID` increments per request and resets per connection); a check-time
+  request is only sent while the current socket for the current host is open; RESPONSE
+  bodies are parsed with the same defensive path as `<updates>` and ignored when they
+  arrive from a superseded connection.
   Commands are `no-cors` POSTs on 8090: `/key` press+release pairs (`sender="Gabbo"`) for
   play/pause/next/prev and `/volume` for volume/mute (volume slider sends one debounced POST
   per drag via `scheduleVolumeSend`). **No echo loops**: live device state is written only
@@ -205,7 +214,8 @@ graph TD
   exponential backoff (1s→2s→4s→8s→16s→30s) while probing reachability via `/info`; only
   repeated probe failures show the offline banner (FR-11) and disable the controls. The
   remote panel (`src/components/remote.ts`) renders now playing, transport, volume, and mute,
-  and the SoundTouch widget shows the WebSocket-fed device ID/name/type.
+  and the SoundTouch widget shows the WebSocket-fed device ID/name/type (name/type from the
+  `info` snapshot response, re-requested on each successful (re)connection check).
 - **Hosting**: `docs/` is committed deploy output for GitHub Pages; `dist/` and `.DS_Store`
   are gitignored. `public/` is copied to the dist/docs root by Vite; the favicon uses a
   relative `href="logo.png"` so it resolves under the GitHub Pages subpath. The manifest

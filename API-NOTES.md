@@ -186,11 +186,73 @@ matters (`GET /info` for the reachability probe) is also `no-cors` and opaque.
   ```
 
   In some cases the device sends a signal-only notification without the payload; the app
-  keeps its last-known values then, because a readable `GET /volume` is CORS-blocked.
+  keeps its last-known values then — the readable `GET /volume` is CORS-blocked, and the
+  app never pulls volume mid-connection (the snapshot below runs on connection open and on
+  successful (re)connection checks).
 - Other event types (`connectionStateUpdated`, `infoUpdated`, preset/zone/bass events) are
   ignored by the app; unknown events are never fatal.
 - The connection is kept alive by the server's WebSocket ping frames; the browser answers
   them automatically.
+
+#### State snapshot — request/response over the same WebSocket
+
+The device answers GET requests over the same "gabbo" WebSocket with a REST-proxy
+envelope (documented in Bose Android app MITM captures and the gesellix reference
+implementation; the request shape below was confirmed live against a SoundTouch 10 on
+2026-08-04). The app uses this to fetch a state snapshot on every connection open and
+again on every successful (re)connection check (startup for a saved address, address
+save, successful drop-recovery probe) — the check-time re-request gives a missed or
+unanswered first snapshot a fresh chance.
+
+Request envelope — the `url` attribute has **no leading slash** (a `/` prefix is
+rejected with error 2015 `NOT_REGISTERED`); the `deviceID` attribute is required but
+not validated:
+
+```xml
+<msg>
+    <header deviceID="304511B9B8BC" url="now_playing" method="GET">
+        <request requestID="1"><info type="new"/></request>
+    </header>
+    <body/>
+</msg>
+```
+
+The app sends three requests on each connection open and again on each successful
+(re)connection check — `now_playing`, `volume`, and `info` — with a `requestID` that
+increments per request and resets to 1 on every (re)connect. A check-triggered request is
+only sent while the current socket for the current host is open; a failed check sends
+nothing. The response carries `msgType="RESPONSE"` and a `<body>` whose payload
+shapes are the same XML the `<updates>` events carry, so the app's defensive field
+mapping applies 1:1:
+
+```xml
+<msg>
+    <header deviceID="304511B9B8BC" url="now_playing" method="GET" msgType="RESPONSE">
+        <request requestID="1"/>
+    </header>
+    <body>
+        <nowPlaying source="RADIO_BROWSER">
+            <track>Station name</track>
+            <artist>Artist name</artist>
+            <album>Album name</album>
+            <playStatus>PLAY_STATE</playStatus>
+        </nowPlaying>
+    </body>
+</msg>
+```
+
+- `GET now_playing` → `<body><nowPlaying …>` — track/artist/album, `source`, and
+  `playStatus` (same field mapping as `nowPlayingUpdated`).
+- `GET volume` → `<body><volume …>` — `targetvolume`/`actualvolume`/`muteenabled`
+  (same field mapping as `volumeUpdated`).
+- `GET info` → `<body><info …>` — device metadata: the `deviceID` attribute plus
+  `<name>` and `<type>` (e.g. "SoundTouch 10"). This is the app's only source for the
+  device name/type rows in the info widget. Shape per the Bose Web API docs and the
+  gesellix reference; the exact `<info>` element names should be confirmed against the
+  live speaker while testing the feature branch.
+- Responses carry no client-side correlation beyond the socket itself: a message from
+  a superseded connection is ignored, and unknown or malformed RESPONSE bodies are
+  never fatal (the app treats them like any unknown `<updates>` message).
 
 ### Commands — HTTP API (port 8090)
 
@@ -229,3 +291,6 @@ The app sends them fire-and-forget and reconciles from WebSocket events (no echo
       `CLIENT_XML_ERROR` 1019, unprefixed press+release returns `<status>/key</status>`).
 - [ ] `POST /volume` with body `<volume>N</volume>` changes the volume, and the `muteenabled`
       body toggles mute.
+- [ ] The `GET now_playing` / `GET volume` / `GET info` snapshot requests over the WebSocket
+      answer with `msgType="RESPONSE"` envelopes carrying the documented payload shapes
+      (including the exact `<info>` name/type element names).
