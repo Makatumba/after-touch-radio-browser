@@ -3,7 +3,7 @@ import { render, state } from '../src/app';
 import { setupEvents } from '../src/events';
 // FR-3 modules — both land with the live-remote implementation wave; the
 // module-not-found failures here are the intended red at this commit.
-import { closeSoundtouchWs, connectSoundtouchWs, requestSnapshot } from '../src/soundtouch-ws';
+import { checkSoundtouchOnStartup, closeSoundtouchWs, connectSoundtouchWs, requestSnapshot } from '../src/soundtouch-ws';
 import { renderRemotePanel } from '../src/components/remote';
 import { getLabels, translations } from '../src/i18n';
 import { defaultSettings } from '../src/settings';
@@ -688,6 +688,59 @@ describe('state snapshot — re-requested on (re)connection check', () => {
         await flush(); // probe resolves ok → the save handler calls requestSnapshot()
         expect(ws.sent).toHaveLength(6);
         expect(ws.sent[5]).toBe(SNAPSHOT_REQUEST_XML('', 'info', 6));
+    });
+
+    it('the startup check re-requests the snapshot once the probe succeeds', async () => {
+        vi.useFakeTimers();
+        const fetchMock = vi.fn().mockResolvedValue({} as Response);
+        vi.stubGlobal('fetch', fetchMock);
+
+        state.soundtouchAddress = '192.168.1.42';
+        state.soundtouchStatus = 'checking';
+        checkSoundtouchOnStartup('192.168.1.42');
+
+        const ws = FakeWebSocket.instances[0];
+        ws.open();
+        expect(ws.sent).toHaveLength(3);
+
+        await flush();
+        expect(state.soundtouchStatus).toBe('available');
+        expect(ws.sent).toHaveLength(6);
+        expect(ws.sent[3]).toBe(SNAPSHOT_REQUEST_XML('', 'now_playing', 4));
+        expect(ws.sent[4]).toBe(SNAPSHOT_REQUEST_XML('', 'volume', 5));
+        expect(ws.sent[5]).toBe(SNAPSHOT_REQUEST_XML('', 'info', 6));
+    });
+
+    it('a failed startup check marks the speaker unreachable and sends nothing', async () => {
+        vi.useFakeTimers();
+        const fetchMock = vi.fn().mockRejectedValue(new Error('offline'));
+        vi.stubGlobal('fetch', fetchMock);
+
+        checkSoundtouchOnStartup('192.168.1.42');
+        const ws = FakeWebSocket.instances[0];
+        ws.open();
+        expect(ws.sent).toHaveLength(3);
+
+        await flush();
+        expect(state.soundtouchStatus).toBe('unreachable');
+        expect(ws.sent).toHaveLength(3);
+    });
+
+    it('a startup check that outlives an address change applies nothing', async () => {
+        vi.useFakeTimers();
+        const fetchMock = vi.fn().mockResolvedValue({} as Response);
+        vi.stubGlobal('fetch', fetchMock);
+
+        state.soundtouchAddress = '192.168.1.42';
+        checkSoundtouchOnStartup('192.168.1.42');
+        const ws = FakeWebSocket.instances[0];
+        ws.open();
+        expect(ws.sent).toHaveLength(3);
+
+        state.soundtouchAddress = '192.168.1.43'; // the user re-saved during the probe
+        await flush();
+        expect(state.soundtouchStatus).toBe('checking'); // stale probe applied nothing
+        expect(ws.sent).toHaveLength(3);
     });
 });
 
