@@ -3,7 +3,7 @@ import type {Mode, SortKey, Station} from './state';
 import {state} from './app';
 import {render, refresh, searchFromInputs, reset, loadNextResultSet, loadPreviousResultSet} from './app';
 import {playStation, stopPlayback, toggleFavorite, sendToSoundtouch, setLanguage, pingSoundtouch, sanitizeHost, sendKeyPress, sendMute, scheduleVolumeSend, REMOTE_KEYS} from './actions';
-import {connectSoundtouchWs, closeSoundtouchWs} from './soundtouch-ws';
+import {connectSoundtouchWs, closeSoundtouchWs, requestSnapshot} from './soundtouch-ws';
 import {defaultSettings, saveSettings} from './settings';
 
 export function setupEvents(): void {
@@ -66,6 +66,7 @@ export function setupEvents(): void {
                         if (state.soundtouchAddress === host) {
                             state.soundtouchStatus = ok ? 'available' : 'unreachable';
                             render();
+                            if (ok) requestSnapshot();
                         }
                     });
                 }

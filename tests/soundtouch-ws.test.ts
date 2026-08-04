@@ -3,7 +3,7 @@ import { render, state } from '../src/app';
 import { setupEvents } from '../src/events';
 // FR-3 modules — both land with the live-remote implementation wave; the
 // module-not-found failures here are the intended red at this commit.
-import { closeSoundtouchWs, connectSoundtouchWs } from '../src/soundtouch-ws';
+import { closeSoundtouchWs, connectSoundtouchWs, requestSnapshot } from '../src/soundtouch-ws';
 import { renderRemotePanel } from '../src/components/remote';
 import { getLabels, translations } from '../src/i18n';
 import { defaultSettings } from '../src/settings';
@@ -46,6 +46,9 @@ class FakeWebSocket {
     onclose: (() => void) | null = null;
     onerror: (() => void) | null = null;
     closed = false;
+    // records the REST-proxy envelopes the client sends over the socket
+    // (the FR-3 snapshot requests land here on open once implemented)
+    sent: string[] = [];
 
     constructor(url: string, protocols?: string | string[]) {
         this.url = url;
@@ -55,6 +58,10 @@ class FakeWebSocket {
 
     close(): void {
         this.closed = true;
+    }
+
+    send(data: string): void {
+        this.sent.push(String(data));
     }
 
     open(): void {
@@ -88,6 +95,23 @@ const NOW_PLAYING_XML = (track: string, playStatus: string, source = 'RADIO_BROW
 
 const VOLUME_XML = (volume: number, mute: boolean) =>
     `<updates deviceID="689E19B8BB8A"><volumeUpdated><volume><targetvolume>${volume}</targetvolume><actualvolume>${volume}</actualvolume><muteenabled>${mute}</muteenabled></volume></volumeUpdated></updates>`;
+
+// FR-3 snapshot wire contract (API-NOTES.md "State snapshot"): the url attribute
+// carries no leading slash, the deviceID attribute is required but may be empty,
+// and the requestID counts per request, resetting to 1 on every connection.
+const SNAPSHOT_REQUEST_XML = (deviceId: string, name: string, requestId: number) =>
+    `<msg><header deviceID="${deviceId}" url="${name}" method="GET"><request requestID="${requestId}"><info type="new"/></request></header><body/></msg>`;
+
+// RESPONSE envelopes — same payload shapes the <updates> events carry, so the
+// app's defensive field mapping applies 1:1 (requestID is not correlated).
+const NOW_PLAYING_RESPONSE_XML = (track: string, playStatus: string, source = 'RADIO_BROWSER') =>
+    `<msg><header deviceID="689E19B8BB8A" url="now_playing" method="GET" msgType="RESPONSE"><request requestID="1"/></header><body><nowPlaying source="${source}"><track>${track}</track><artist>Artist name</artist><album>Album name</album><playStatus>${playStatus}</playStatus></nowPlaying></body></msg>`;
+
+const VOLUME_RESPONSE_XML = (volume: number, mute: boolean) =>
+    `<msg><header deviceID="689E19B8BB8A" url="volume" method="GET" msgType="RESPONSE"><request requestID="2"/></header><body><volume><targetvolume>${volume}</targetvolume><actualvolume>${volume}</actualvolume><muteenabled>${mute}</muteenabled></volume></body></msg>`;
+
+const INFO_RESPONSE_XML = (name: string | null, type: string | null) =>
+    `<msg><header deviceID="689E19B8BB8A" url="info" method="GET" msgType="RESPONSE"><request requestID="3"/></header><body><info deviceID="689E19B8BB8A">${name ? `<name>${name}</name>` : ''}${type ? `<type>${type}</type>` : ''}</info></body></msg>`;
 
 beforeEach(() => {
     document.body.innerHTML = '<div id="app"></div>';
@@ -445,6 +469,406 @@ describe('connection loss & reconnection', () => {
         old.closeFromServer();
         expect(fetchMock).not.toHaveBeenCalled();
         expect(wsState.wsStatus).toBe('connecting'); // the new socket is still connecting
+    });
+});
+
+describe('state snapshot — sent on connection open', () => {
+    it('sends exactly three snapshot requests in order now_playing, volume, info', () => {
+        connectSoundtouchWs('192.168.1.42');
+        const ws = FakeWebSocket.instances[0];
+        ws.open();
+
+        expect(ws.sent).toHaveLength(3);
+        expect(ws.sent[0]).toBe(SNAPSHOT_REQUEST_XML('', 'now_playing', 1));
+        expect(ws.sent[1]).toBe(SNAPSHOT_REQUEST_XML('', 'volume', 2));
+        expect(ws.sent[2]).toBe(SNAPSHOT_REQUEST_XML('', 'info', 3));
+        // pinned REST-proxy shape: no leading slash on url, requestID per request
+        for (const sent of ws.sent) {
+            expect(sent).toMatch(/url="[^/][^"]*"/);
+            expect(sent).toContain('<request requestID="');
+            expect(sent).toContain('<info type="new"/>');
+            expect(sent).toContain('<body/>');
+        }
+    });
+
+    it('sends an empty deviceID attribute when no device is known yet', () => {
+        connectSoundtouchWs('192.168.1.42');
+        const ws = FakeWebSocket.instances[0];
+        ws.open();
+
+        expect(ws.sent).toHaveLength(3);
+        for (const sent of ws.sent) {
+            expect(sent).toContain('<header deviceID=""');
+        }
+    });
+
+    it('sends the known device MAC in the headers after an event established it', async () => {
+        vi.useFakeTimers();
+        const fetchMock = vi.fn().mockResolvedValue({} as Response);
+        vi.stubGlobal('fetch', fetchMock);
+
+        connectSoundtouchWs('192.168.1.42');
+        const first = FakeWebSocket.instances[0];
+        first.open();
+        first.message(NOW_PLAYING_XML('Station name', 'PLAY_STATE'));
+        expect(wsState.soundtouchDevice).toEqual({ id: '689E19B8BB8A' });
+
+        first.closeFromServer();
+        await flush();
+        await vi.advanceTimersByTimeAsync(1000);
+        await flush();
+
+        const second = FakeWebSocket.instances[1];
+        second.open();
+        expect(second.sent).toHaveLength(3);
+        expect(second.sent[0]).toBe(SNAPSHOT_REQUEST_XML('689E19B8BB8A', 'now_playing', 1));
+        expect(second.sent[1]).toBe(SNAPSHOT_REQUEST_XML('689E19B8BB8A', 'volume', 2));
+        expect(second.sent[2]).toBe(SNAPSHOT_REQUEST_XML('689E19B8BB8A', 'info', 3));
+    });
+
+    it('resets the requestID sequence to 1,2,3 on every connection', async () => {
+        vi.useFakeTimers();
+        const fetchMock = vi.fn().mockResolvedValue({} as Response);
+        vi.stubGlobal('fetch', fetchMock);
+
+        connectSoundtouchWs('192.168.1.42');
+        const first = FakeWebSocket.instances[0];
+        first.open();
+        expect(first.sent.map(s => s.match(/requestID="(\d+)"/)?.[1])).toEqual(['1', '2', '3']);
+
+        first.closeFromServer();
+        await flush();
+        await vi.advanceTimersByTimeAsync(1000);
+        await flush();
+
+        const second = FakeWebSocket.instances[1];
+        second.open();
+        expect(second.sent).toHaveLength(3);
+        expect(second.sent.map(s => s.match(/requestID="(\d+)"/)?.[1])).toEqual(['1', '2', '3']);
+    });
+
+    it('sending the snapshot writes no live state (no echo loop)', () => {
+        connectSoundtouchWs('192.168.1.42');
+        const ws = FakeWebSocket.instances[0];
+        ws.open();
+
+        expect(ws.sent).toHaveLength(3);
+        expect(wsState.deviceNowPlaying).toBe('');
+        expect(wsState.deviceArtist).toBe('');
+        expect(wsState.deviceAlbum).toBe('');
+        expect(wsState.deviceSource).toBe('');
+        expect(wsState.devicePlayStatus).toBe('');
+        expect(wsState.deviceVolume).toBe(0);
+        expect(wsState.deviceMute).toBe(false);
+        expect(wsState.soundtouchDevice).toBeNull();
+    });
+});
+
+describe('state snapshot — re-requested on (re)connection check', () => {
+    it('re-sends the three requests in order when the connection is open', () => {
+        connectSoundtouchWs('192.168.1.42');
+        const ws = FakeWebSocket.instances[0];
+        ws.open();
+        expect(ws.sent).toHaveLength(3);
+
+        requestSnapshot();
+        expect(ws.sent).toHaveLength(6);
+        expect(ws.sent[3]).toBe(SNAPSHOT_REQUEST_XML('', 'now_playing', 4));
+        expect(ws.sent[4]).toBe(SNAPSHOT_REQUEST_XML('', 'volume', 5));
+        expect(ws.sent[5]).toBe(SNAPSHOT_REQUEST_XML('', 'info', 6));
+        // no echo loop: the re-request writes no live state
+        expect(wsState.soundtouchDevice).toBeNull();
+        expect(wsState.deviceNowPlaying).toBe('');
+        expect(wsState.deviceArtist).toBe('');
+        expect(wsState.deviceAlbum).toBe('');
+        expect(wsState.deviceSource).toBe('');
+        expect(wsState.devicePlayStatus).toBe('');
+        expect(wsState.deviceVolume).toBe(0);
+        expect(wsState.deviceMute).toBe(false);
+    });
+
+    it('repeated checks keep incrementing the requestID', () => {
+        connectSoundtouchWs('192.168.1.42');
+        const ws = FakeWebSocket.instances[0];
+        ws.open();
+        expect(ws.sent).toHaveLength(3);
+
+        requestSnapshot();
+        expect(ws.sent).toHaveLength(6);
+        expect(ws.sent[5]).toBe(SNAPSHOT_REQUEST_XML('', 'info', 6));
+
+        requestSnapshot();
+        expect(ws.sent).toHaveLength(9);
+        expect(ws.sent.map(s => s.match(/requestID="(\d+)"/)?.[1])).toEqual(['1', '2', '3', '4', '5', '6', '7', '8', '9']);
+    });
+
+    it('sends nothing while the socket is still connecting', () => {
+        connectSoundtouchWs('192.168.1.42');
+        // do NOT open the socket
+
+        expect(() => requestSnapshot()).not.toThrow();
+        expect(FakeWebSocket.instances[0].sent).toHaveLength(0);
+    });
+
+    it('sends nothing while reconnecting', async () => {
+        vi.useFakeTimers();
+        const fetchMock = vi.fn().mockResolvedValue({} as Response);
+        vi.stubGlobal('fetch', fetchMock);
+
+        connectSoundtouchWs('192.168.1.42');
+        const ws = FakeWebSocket.instances[0];
+        ws.open();
+        expect(ws.sent).toHaveLength(3);
+
+        ws.closeFromServer();
+        await flush();
+        expect(wsState.wsStatus).toBe('reconnecting');
+
+        expect(() => requestSnapshot()).not.toThrow();
+        expect(ws.sent).toHaveLength(3);
+    });
+
+    it('a successful drop-recovery probe does not send on the closed socket; the reopened socket snapshots fresh 1,2,3', async () => {
+        vi.useFakeTimers();
+        const fetchMock = vi.fn().mockResolvedValue({} as Response);
+        vi.stubGlobal('fetch', fetchMock);
+
+        connectSoundtouchWs('192.168.1.42');
+        const first = FakeWebSocket.instances[0];
+        first.open();
+        expect(first.sent).toHaveLength(3);
+
+        first.closeFromServer();
+        await flush();
+        expect(first.sent).toHaveLength(3); // probe ok, runProbe's requestSnapshot() no-ops while the socket is closed
+
+        await vi.advanceTimersByTimeAsync(1000);
+        await flush();
+        const second = FakeWebSocket.instances[1];
+        second.open();
+        expect(second.sent).toHaveLength(3);
+        expect(second.sent[0]).toBe(SNAPSHOT_REQUEST_XML('', 'now_playing', 1));
+        expect(second.sent[1]).toBe(SNAPSHOT_REQUEST_XML('', 'volume', 2));
+        expect(second.sent[2]).toBe(SNAPSHOT_REQUEST_XML('', 'info', 3));
+    });
+
+    it('a failed drop-recovery probe sends nothing', async () => {
+        vi.useFakeTimers();
+        const fetchMock = vi.fn().mockRejectedValue(new Error('offline'));
+        vi.stubGlobal('fetch', fetchMock);
+
+        connectSoundtouchWs('192.168.1.42');
+        const ws = FakeWebSocket.instances[0];
+        ws.open();
+        expect(ws.sent).toHaveLength(3);
+
+        ws.closeFromServer();
+        await flush();
+        expect(ws.sent).toHaveLength(3);
+    });
+
+    it('saving an address re-requests the snapshot after the probe succeeds', async () => {
+        vi.useFakeTimers();
+        const fetchMock = vi.fn().mockResolvedValue({} as Response);
+        vi.stubGlobal('fetch', fetchMock);
+
+        state.soundtouchAddress = '';
+        state.skippedSetup = true;
+        render();
+        setupEvents();
+
+        const input = document.querySelector<HTMLInputElement>('#soundtouch')!;
+        input.value = '192.168.1.42';
+        document.querySelector<HTMLButtonElement>('#saveSoundtouch')!.click();
+
+        const ws = FakeWebSocket.instances[0];
+        ws.open();
+        expect(ws.sent).toHaveLength(3);
+
+        await flush(); // probe resolves ok → the save handler calls requestSnapshot()
+        expect(ws.sent).toHaveLength(6);
+        expect(ws.sent[5]).toBe(SNAPSHOT_REQUEST_XML('', 'info', 6));
+    });
+});
+
+describe('state snapshot — RESPONSE parsing', () => {
+    it('parses a now_playing RESPONSE into now playing state and the header deviceID', () => {
+        connectSoundtouchWs('192.168.1.42');
+        const ws = FakeWebSocket.instances[0];
+        ws.open();
+        ws.message(NOW_PLAYING_RESPONSE_XML('Station name', 'PLAY_STATE'));
+
+        expect(wsState.deviceNowPlaying).toBe('Station name');
+        expect(wsState.deviceArtist).toBe('Artist name');
+        expect(wsState.deviceAlbum).toBe('Album name');
+        expect(wsState.deviceSource).toBe('RADIO_BROWSER');
+        expect(wsState.devicePlayStatus).toBe('PLAY_STATE');
+        expect(wsState.soundtouchDevice).toEqual({ id: '689E19B8BB8A' });
+    });
+
+    it('maps an unknown playStatus in a RESPONSE to an empty string (shared whitelist)', () => {
+        connectSoundtouchWs('192.168.1.42');
+        const ws = FakeWebSocket.instances[0];
+        ws.open();
+        ws.message(NOW_PLAYING_RESPONSE_XML('Station name', 'PLAYING'));
+
+        expect(wsState.devicePlayStatus).toBe('');
+        expect(wsState.deviceNowPlaying).toBe('Station name'); // the rest still parses
+    });
+
+    it('parses a volume RESPONSE into volume and mute', () => {
+        connectSoundtouchWs('192.168.1.42');
+        const ws = FakeWebSocket.instances[0];
+        ws.open();
+        ws.message(VOLUME_RESPONSE_XML(50, false));
+
+        expect(wsState.deviceVolume).toBe(50);
+        expect(wsState.deviceMute).toBe(false);
+    });
+
+    it('keeps the updates-path volume precedence in a RESPONSE (actualvolume preferred)', () => {
+        connectSoundtouchWs('192.168.1.42');
+        const ws = FakeWebSocket.instances[0];
+        ws.open();
+
+        ws.message('<msg><header deviceID="689E19B8BB8A" url="volume" method="GET" msgType="RESPONSE"><request requestID="2"/></header><body><volume><targetvolume>80</targetvolume><actualvolume>42</actualvolume><muteenabled>true</muteenabled></volume></body></msg>');
+        expect(wsState.deviceVolume).toBe(42);
+        expect(wsState.deviceMute).toBe(true);
+
+        // a target-only payload still applies (fallback, same as updates)
+        ws.message('<msg><header deviceID="689E19B8BB8A" url="volume" method="GET" msgType="RESPONSE"><request requestID="2"/></header><body><volume><targetvolume>77</targetvolume></volume></body></msg>');
+        expect(wsState.deviceVolume).toBe(77);
+    });
+
+    it('parses an info RESPONSE into the device id, name, and type', () => {
+        connectSoundtouchWs('192.168.1.42');
+        const ws = FakeWebSocket.instances[0];
+        ws.open();
+        ws.message(INFO_RESPONSE_XML('Bose SoundTouch B9B8BC', 'SoundTouch 10'));
+
+        expect(wsState.soundtouchDevice).toEqual({ id: '689E19B8BB8A', name: 'Bose SoundTouch B9B8BC', type: 'SoundTouch 10' });
+    });
+
+    it('stores only the id for an info RESPONSE without name/type and renders one row', () => {
+        connectSoundtouchWs('192.168.1.42');
+        const ws = FakeWebSocket.instances[0];
+        ws.open();
+        ws.message('<msg><header deviceID="689E19B8BB8A" url="info" method="GET" msgType="RESPONSE"><request requestID="3"/></header><body><info deviceID="689E19B8BB8A"/></body></msg>');
+
+        expect(wsState.soundtouchDevice).toEqual({ id: '689E19B8BB8A' });
+        expect(wsState.soundtouchDevice).not.toHaveProperty('name');
+        expect(wsState.soundtouchDevice).not.toHaveProperty('type');
+
+        render();
+        expect(document.querySelectorAll('.soundtouch-info-row')).toHaveLength(1);
+        expect(document.querySelector('.soundtouch-info-body')!.textContent).toContain('689E19B8BB8A');
+    });
+
+    it('applies three RESPONSEs on one connection independently', () => {
+        connectSoundtouchWs('192.168.1.42');
+        const ws = FakeWebSocket.instances[0];
+        ws.open();
+
+        ws.message(NOW_PLAYING_RESPONSE_XML('Station name', 'PLAY_STATE'));
+        ws.message(VOLUME_RESPONSE_XML(42, true));
+        ws.message(INFO_RESPONSE_XML('Bose SoundTouch B9B8BC', 'SoundTouch 10'));
+
+        expect(wsState.deviceNowPlaying).toBe('Station name');
+        expect(wsState.deviceArtist).toBe('Artist name');
+        expect(wsState.deviceVolume).toBe(42);
+        expect(wsState.deviceMute).toBe(true);
+        expect(wsState.soundtouchDevice).toEqual({ id: '689E19B8BB8A', name: 'Bose SoundTouch B9B8BC', type: 'SoundTouch 10' });
+    });
+
+    it('is never fatal: unknown or malformed RESPONSEs leave state unchanged and the socket keeps working', () => {
+        connectSoundtouchWs('192.168.1.42');
+        const ws = FakeWebSocket.instances[0];
+        ws.open();
+
+        expect(() => {
+            // <msg> with no header at all
+            ws.message('<msg><body>not a header</body></msg>');
+            // header without msgType="RESPONSE" (a request echoed back)
+            ws.message('<msg><header deviceID="689E19B8BB8A" url="now_playing" method="GET"><request requestID="1"><info type="new"/></request></header><body/></msg>');
+            // msgType="ERROR"
+            ws.message('<msg><header deviceID="689E19B8BB8A" url="now_playing" method="GET" msgType="ERROR"><request requestID="1"/></header><body><nowPlaying><track>Ignored</track></nowPlaying></body></msg>');
+            // empty body
+            ws.message('<msg><header deviceID="689E19B8BB8A" url="now_playing" method="GET" msgType="RESPONSE"><request requestID="1"/></header><body/></msg>');
+            // unknown payload
+            ws.message('<msg><header deviceID="689E19B8BB8A" url="now_playing" method="GET" msgType="RESPONSE"><request requestID="1"/></header><body><preset id="1">Ignored</preset></body></msg>');
+            // malformed XML
+            ws.message('<msg><header deviceID="689E19B8BB8A" url="now_playing" method="GET" msgType="RESPONSE"><request requestID="1"/></header><body><broken');
+            // parsererror
+            ws.message('not xml at all');
+        }).not.toThrow();
+
+        expect(wsState.deviceNowPlaying).toBe('');
+        expect(wsState.deviceArtist).toBe('');
+        expect(wsState.deviceAlbum).toBe('');
+        expect(wsState.deviceVolume).toBe(0);
+        expect(wsState.devicePlayStatus).toBe('');
+        expect(wsState.soundtouchDevice).toBeNull();
+
+        // the same connection still processes a valid RESPONSE afterwards
+        ws.message(NOW_PLAYING_RESPONSE_XML('Station name', 'PLAY_STATE'));
+        expect(wsState.deviceNowPlaying).toBe('Station name');
+    });
+
+    it('keeps the panel blank with zero timers when no RESPONSE arrives', () => {
+        vi.useFakeTimers();
+        const fetchMock = vi.fn().mockResolvedValue({} as Response);
+        vi.stubGlobal('fetch', fetchMock);
+
+        connectSoundtouchWs('192.168.1.42');
+        const ws = FakeWebSocket.instances[0];
+        ws.open();
+
+        expect(ws.sent).toHaveLength(3);
+        expect(wsState.wsStatus).toBe('connected');
+        expect(wsState.deviceNowPlaying).toBe('');
+        expect(wsState.deviceArtist).toBe('');
+        expect(wsState.deviceAlbum).toBe('');
+        expect(wsState.deviceVolume).toBe(0);
+        expect(wsState.deviceMute).toBe(false);
+        expect(wsState.soundtouchDevice).toBeNull();
+        expect(vi.getTimerCount()).toBe(0);
+
+        render();
+        const text = document.querySelector('#app')!.textContent!;
+        expect(text).toContain(tView.en.noStationPlaying); // blank panel, not a stale track
+        expect(text).not.toContain(tView.en.remotePlaying);
+        expect(text).not.toContain(tView.en.remotePaused);
+    });
+
+    it('ignores RESPONSEs from a stale socket after an address change', () => {
+        connectSoundtouchWs('192.168.1.42');
+        const old = FakeWebSocket.instances[0];
+        old.open();
+        old.message(NOW_PLAYING_XML('Station name', 'PLAY_STATE'));
+        expect(wsState.soundtouchDevice).toEqual({ id: '689E19B8BB8A' });
+
+        connectSoundtouchWs('192.168.1.43'); // address change clears the device state
+        expect(old.closed).toBe(true);
+        expect(FakeWebSocket.instances).toHaveLength(2);
+        expect(wsState.soundtouchDevice).toBeNull();
+
+        old.message(NOW_PLAYING_RESPONSE_XML('Stale', 'PLAY_STATE'));
+        expect(wsState.deviceNowPlaying).toBe('');
+        expect(wsState.devicePlayStatus).toBe('');
+
+        old.message(INFO_RESPONSE_XML('Stale Bose', 'SoundTouch 10'));
+        expect(wsState.soundtouchDevice).toBeNull();
+
+        // the new connection's state is untouched and it starts its own snapshot
+        expect(wsState.wsStatus).toBe('connecting');
+        const fresh = FakeWebSocket.instances[1];
+        expect(fresh.sent).toHaveLength(0);
+        fresh.open();
+        expect(fresh.sent).toHaveLength(3);
+        expect(fresh.sent[0]).toBe(SNAPSHOT_REQUEST_XML('', 'now_playing', 1));
+        expect(fresh.sent[1]).toBe(SNAPSHOT_REQUEST_XML('', 'volume', 2));
+        expect(fresh.sent[2]).toBe(SNAPSHOT_REQUEST_XML('', 'info', 3));
+        expect(wsState.deviceNowPlaying).toBe(''); // the stale RESPONSE never applied
     });
 });
 

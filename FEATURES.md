@@ -115,9 +115,11 @@ allowlist that never matches the app's origin, so the response is opaque and the
 learns whether the port answers. If it does, the device is "✓ Reachable"; if not (network
 error, timeout, connection refused), "✗ Unreachable". Each attempt aborts after 5s, so a hung
 device never leaves the status on "checking". An explicit port in the saved address is
-honored (no `:8090` appended). Device metadata (name/type/ID) is not readable from the
-browser; the port-8080 WebSocket feed (FR-3) exposes only the device ID (MAC) — name and
-type stay out of reach, so the info widget shows the ID and leaves the name/type rows hidden.
+honored (no `:8090` appended). Device metadata (name/type/ID) is not readable over HTTP
+(the 8090 API is CORS-blocked from the browser), but the port-8080 WebSocket answers GET
+requests with a REST-proxy envelope (FR-3): the app fetches `info` on connection open and
+on successful (re)connection checks, so
+the info widget shows the device ID, name, and type.
 
 ### FR-4 Play station on speaker
 
@@ -337,6 +339,15 @@ live device state — no echo loops. Wire contracts are pinned in
   saved address is honored for the WebSocket too (no `:8080` appended), mirroring the 8090
   rule. Only one connection exists at a time; saving a different address closes the old
   socket and connects to the new host.
+- On every connection open (first connect, reconnects, address change) the app sends a
+  **state snapshot** over the same WebSocket: `GET` requests for `now_playing`, `volume`,
+  and `info` in the REST-proxy `<msg>` envelope (wire contract in API-NOTES.md), with a
+  `requestID` that increments per request and resets on each connection. The snapshot is
+  also re-requested on every successful (re)connection check — at startup for a saved
+  address, right after saving an address, and after a successful drop-recovery probe —
+  so a missed or unanswered first snapshot gets a fresh chance at check time. There is
+  no periodic or manual refresh — the snapshot exists so the Remote panel is populated at
+  connect (and at each check) instead of staying blank until the first pushed event.
 - Connection states: `connecting` → `connected`, `reconnecting` after a drop.
 
 #### Live state events
@@ -349,10 +360,16 @@ ignores everything else (malformed or unknown messages are never fatal):
   "playing?"), album when present.
 - `volumeUpdated` (with data) — target/actual volume (0–100) and mute state.
 - Signal-only events (`connectionStateUpdated`, `infoUpdated`, or a `volumeUpdated` without a
-  payload) leave the last-known state untouched: a readable `GET /volume` is CORS-blocked
-  from the browser, so the with-data form is the only volume source.
-- The `deviceID` attribute (the speaker's MAC) on `<updates>`/`<nowPlaying>` feeds the
-  device-info widget (below).
+  payload) leave the last-known state untouched — the app never pulls volume mid-connection
+  (HTTP `GET /volume` is CORS-blocked; snapshots run only on connection open and on
+  successful (re)connection checks), so volume/mute arrive only via pushed events and the
+  snapshots.
+- `<msg>` responses (`msgType="RESPONSE"`) to the snapshot requests are parsed with the same
+  defensive path as `<updates>`: the `<body>` payloads (`nowPlaying`, `volume`, `info`) map
+  to the identical state fields the pushed events use. Responses arriving from a superseded
+  connection (address changed, socket replaced) are ignored.
+- The `deviceID` attribute (the speaker's MAC) on `<updates>`/`<nowPlaying>` and on snapshot
+  RESPONSE `<msg>` headers feeds the device-info widget (below).
 
 #### Remote control panel
 
@@ -387,13 +404,15 @@ changed.
 
 #### Device-info widget (WebSocket-fed)
 
-The compact SoundTouch bar's info widget shows the **device ID** (the MAC address carried by
-the `deviceID` attribute of WebSocket messages) once it has been observed. Device name and
-type are not exposed by the WebSocket feed and remain unreadable from the browser (CORS);
-those rows render only if the data exists — today they stay hidden (a documented future
-extension should AfterTouch ever expose readable device info). The i18n keys
-`deviceName`/`deviceType`/`deviceId` are added in all four languages with the widget in the
-implementation wave.
+The compact SoundTouch bar's info widget shows the **device ID**, **name**, and **type**.
+The ID (the MAC address carried by the `deviceID` attribute) is observed from any message
+the app uses; the name and type come from the `info` snapshot response (`<name>` /
+`<type>`, e.g. "SoundTouch 10") fetched on connection open and re-requested on every
+successful (re)connection check — the HTTP API stays CORS-blocked, so the WebSocket
+REST-proxy response is the only source. Rows render only
+when their data exists, so the widget is visible once the device ID is known and grows
+name/type rows when the `info` snapshot lands. The i18n keys
+`deviceName`/`deviceType`/`deviceId` exist in all four languages.
 
 ### User flows (wave 2)
 
@@ -408,6 +427,13 @@ implementation wave.
 
 - The WebSocket connects at startup for a saved address (`ws://<host>:8080/`, "gabbo"
   protocol, explicit port honored); one connection at a time.
+- On every connection open — and again on every successful (re)connection check (startup
+  for a saved address, address save, successful drop-recovery probe) — the app sends
+  `now_playing`/`volume`/`info` snapshot requests (REST-proxy `<msg>` envelope,
+  incrementing `requestID` per request, reset per connection); RESPONSE bodies populate the
+  same state fields as the pushed events; the `info` response fills the device name/type/id
+  rows in the info widget. A check-triggered snapshot is only sent while the current
+  socket for the current host is open; a failed check sends nothing.
 - `nowPlayingUpdated` updates track/artist/source/play status; `volumeUpdated` updates
   volume/mute; unknown or malformed messages are ignored without crashing.
 - Play/pause/next/prev send press+release `/key` POSTs (`sender="Gabbo"`); volume sends a
@@ -429,6 +455,15 @@ implementation wave.
   last-known state kept.
 - Stale socket messages arriving after a re-render or an address change — ignored when the
   address no longer matches.
+- Snapshot responses arriving after an address change or from a closed socket — ignored
+  (stale-guard); the current device's state is never overwritten by a superseded
+  connection.
+- A missing RESPONSE (the device ignores the snapshot, or the connection drops before it
+  answers) — the panel stays blank until the first pushed event or the next successful
+  (re)connection check, which re-requests the snapshot (existing behavior otherwise: no
+  timeout or retry within a connection).
+- An `info` payload without name or type — the corresponding widget rows stay hidden
+  (existing conditional rendering); the device ID still shows.
 - Explicit port in the saved address — honored for the WebSocket (no `:8080` appended).
 - Reconnect storms — capped backoff, a single timer, one socket at a time.
 - Volume drag storms — debounced POSTs, reconciled by WebSocket updates.
@@ -479,8 +514,8 @@ optimistic "Playing on speaker…" message.
 - Streaming audio as a first-class mode (preview only, default off).
 - Accounts, cloud sync.
 - Bass/source switching (v1 is transport + volume only).
-- Device name/type display (the WebSocket feed exposes only the device ID; the HTTP API is
-  CORS-blocked from the browser).
+- Device name/type display over HTTP (the HTTP API is CORS-blocked from the browser) — the
+  app reads device info over the WebSocket REST-proxy instead (FR-3).
 - Logo variants (SVG/ICO, animation) — a single PNG; the small favicon copy is an implementation
   detail.
 - PWA extras beyond the FR-8 wave's scope: a service worker, offline support / offline UI,
