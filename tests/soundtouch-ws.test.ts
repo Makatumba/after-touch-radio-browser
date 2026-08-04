@@ -14,10 +14,57 @@ const LS_SOUNDTOUCH = 'radio-browser-soundtouch-host';
 const LS_FAVORITES = 'radio-browser-favorites';
 const LS_SETTINGS = 'radio-browser-settings';
 
-// state.ts gains the live-remote fields with the FR-3 implementation wave;
-// until then they are accessed through this typed view so the file stays
-// type-clean at every commit in the sequence (only the two new modules are
-// red at this commit).
+// The FR-3 verbose extension lands in src/state.ts with the implementation
+// wave: State gains deviceNowPlayingDetail and soundtouchDevice grows to the
+// full DeviceInfo shape. Until then both are accessed through this typed view
+// so the file stays type-clean at every commit in the sequence.
+interface DeviceNowPlayingVerbose {
+    stationName: string;
+    art: string;
+    artImageStatus: string;
+    contentItem: {
+        source: string;
+        type: string;
+        location: string;
+        sourceAccount: string;
+        itemName: string;
+        containerArt: string;
+    } | null;
+    sourceAccount: string;
+    timeTotal: number | null;
+    timePosition: string;
+    skipEnabled: boolean;
+    skipPreviousEnabled: boolean;
+    favoriteEnabled: boolean;
+    seekSupported: boolean;
+    shuffleSetting: string;
+    repeatSetting: string;
+    streamType: string;
+    trackId: string;
+    position: string;
+    description: string;
+    stationLocation: string;
+}
+
+interface DeviceInfo {
+    id: string;
+    name?: string;
+    type?: string;
+    moduleType?: string;
+    variant?: string;
+    variantMode?: string;
+    countryCode?: string;
+    regionCode?: string;
+    networkType?: string;
+    macAddress?: string;
+    ipAddress?: string;
+    componentCategory?: string;
+    serialNumber?: string;
+    softwareVersion?: string;
+    margeUrl?: string;
+    margeAccountUuid?: string;
+}
+
 const wsState = state as unknown as {
     wsStatus: string;
     deviceNowPlaying: string;
@@ -27,7 +74,8 @@ const wsState = state as unknown as {
     devicePlayStatus: string;
     deviceVolume: number;
     deviceMute: boolean;
-    soundtouchDevice: { id: string; name?: string; type?: string } | null;
+    deviceNowPlayingDetail: DeviceNowPlayingVerbose | null;
+    soundtouchDevice: DeviceInfo | null;
 };
 
 // i18n gains the remote-panel keys with the FR-3 implementation wave; until
@@ -113,6 +161,171 @@ const VOLUME_RESPONSE_XML = (volume: number, mute: boolean) =>
 const INFO_RESPONSE_XML = (name: string | null, type: string | null) =>
     `<msg><header deviceID="689E19B8BB8A" url="info" method="GET" msgType="RESPONSE"><request requestID="3"/></header><body><info deviceID="689E19B8BB8A">${name ? `<name>${name}</name>` : ''}${type ? `<type>${type}</type>` : ''}</info></body></msg>`;
 
+// Verbose now-playing payload factory — the pinned wire shape from API-NOTES.md
+// "Full now-playing payload". The skip/favorite presence elements are emitted
+// only when the flag is on (present = enabled); seekSupported carries a value
+// attribute, not chardata. The same <nowPlaying> body goes into pushed
+// <updates> events and snapshot RESPONSE bodies.
+const verboseNowPlayingBody = (opts: {
+    track?: string;
+    stationName?: string;
+    art?: string;
+    artImageStatus?: string;
+    itemName?: string;
+    containerArt?: string;
+    skipEnabled?: boolean;
+    skipPreviousEnabled?: boolean;
+    favoriteEnabled?: boolean;
+    seekSupported?: boolean;
+    source?: string;
+    sourceAccount?: string;
+    description?: string;
+    playStatus?: string;
+} = {}): string => {
+    const {
+        track = 'Track title',
+        stationName = 'Station name',
+        art = 'http://192.168.1.42:8090/v1/art.png',
+        artImageStatus = 'IMAGE_PRESENT',
+        itemName = 'Station name',
+        containerArt = 'http://192.168.1.42:8090/v1/container-art.png',
+        skipEnabled = true,
+        skipPreviousEnabled = true,
+        favoriteEnabled = true,
+        seekSupported = false,
+        source = 'RADIO_BROWSER',
+        sourceAccount = 'alice@example.com',
+        description = 'Station description',
+        playStatus = 'PLAY_STATE',
+    } = opts;
+    return `<nowPlaying deviceID="689E19B8BB8A" source="${source}" sourceAccount="${sourceAccount}">
+    <track>${track}</track>
+    <artist>Artist name</artist>
+    <album>Album name</album>
+    <stationName>${stationName}</stationName>
+    <art artImageStatus="${artImageStatus}">${art}</art>
+    <ContentItem source="${source}" type="STATION" location="/v1/play/1" sourceAccount="${sourceAccount}">
+        <itemName>${itemName}</itemName>
+        <containerArt>${containerArt}</containerArt>
+    </ContentItem>
+    <time total="0">0</time>
+    ${skipEnabled ? '<skipEnabled/>' : ''}
+    ${skipPreviousEnabled ? '<skipPreviousEnabled/>' : ''}
+    ${favoriteEnabled ? '<favoriteEnabled/>' : ''}
+    <seekSupported value="${seekSupported}"/>
+    <shuffleSetting>SHUFFLE_OFF</shuffleSetting>
+    <repeatSetting>REPEAT_OFF</repeatSetting>
+    <streamType>RADIO</streamType>
+    <trackID>track-42</trackID>
+    <position>0</position>
+    <description>${description}</description>
+    <stationLocation>Berlin, Germany</stationLocation>
+    <playStatus>${playStatus}</playStatus>
+</nowPlaying>`;
+};
+
+const VERBOSE_NOW_PLAYING_XML = (opts?: Parameters<typeof verboseNowPlayingBody>[0]) =>
+    `<updates deviceID="689E19B8BB8A"><nowPlayingUpdated deviceID="689E19B8BB8A">${verboseNowPlayingBody(opts)}</nowPlayingUpdated></updates>`;
+
+const VERBOSE_NOW_PLAYING_RESPONSE_XML = (opts?: Parameters<typeof verboseNowPlayingBody>[0]) =>
+    `<msg><header deviceID="689E19B8BB8A" url="now_playing" method="GET" msgType="RESPONSE"><request requestID="1"/></header><body>${verboseNowPlayingBody(opts)}</body></msg>`;
+
+// Full device-info payload — pinned in API-NOTES.md "Device info". The header
+// deviceID deliberately differs from the <info> element's own deviceID attr so
+// the id source is unambiguous (for info, the element's own attr wins).
+const FULL_INFO_RESPONSE_XML = () =>
+    `<msg><header deviceID="000000000000" url="info" method="GET" msgType="RESPONSE"><request requestID="3"/></header><body><info deviceID="689E19B8BB8A">
+    <name>Bose SoundTouch B9B8BC</name>
+    <type>SoundTouch 10</type>
+    <moduleType>soundtouch</moduleType>
+    <variant>Variant XYZ</variant>
+    <variantMode>normal</variantMode>
+    <countryCode>DE</countryCode>
+    <regionCode>EU</regionCode>
+    <networkInfo type="WIRED">
+        <macAddress>68:9E:19:B8:BB:8A</macAddress>
+        <ipAddress>192.168.1.42</ipAddress>
+    </networkInfo>
+    <components>
+        <component>
+            <componentCategory>SoundTouch</componentCategory>
+            <softwareVersion>3.8.8.2</softwareVersion>
+            <serialNumber>SN-1234</serialNumber>
+        </component>
+    </components>
+    <margeURL>https://marge.example.com</margeURL>
+    <margeAccountUUID>uuid-1</margeAccountUUID>
+</info></body></msg>`;
+
+// The full verbose detail the parser must produce for the fixtures above, and
+// the empty-string defaults it must produce for the minimal payload. The
+// parser stores raw values only — fallback chaining is the components' job.
+const FULL_VERBOSE_DETAIL: DeviceNowPlayingVerbose = {
+    stationName: 'Station name',
+    art: 'http://192.168.1.42:8090/v1/art.png',
+    artImageStatus: 'IMAGE_PRESENT',
+    contentItem: {
+        source: 'RADIO_BROWSER',
+        type: 'STATION',
+        location: '/v1/play/1',
+        sourceAccount: 'alice@example.com',
+        itemName: 'Station name',
+        containerArt: 'http://192.168.1.42:8090/v1/container-art.png',
+    },
+    sourceAccount: 'alice@example.com',
+    timeTotal: 0,
+    timePosition: '0',
+    skipEnabled: true,
+    skipPreviousEnabled: true,
+    favoriteEnabled: true,
+    seekSupported: false,
+    shuffleSetting: 'SHUFFLE_OFF',
+    repeatSetting: 'REPEAT_OFF',
+    streamType: 'RADIO',
+    trackId: 'track-42',
+    position: '0',
+    description: 'Station description',
+    stationLocation: 'Berlin, Germany',
+};
+
+const EMPTY_VERBOSE_DETAIL: DeviceNowPlayingVerbose = {
+    stationName: '',
+    art: '',
+    artImageStatus: '',
+    contentItem: null,
+    sourceAccount: '',
+    timeTotal: null,
+    timePosition: '',
+    skipEnabled: false,
+    skipPreviousEnabled: false,
+    favoriteEnabled: false,
+    seekSupported: false,
+    shuffleSetting: '',
+    repeatSetting: '',
+    streamType: '',
+    trackId: '',
+    position: '',
+    description: '',
+    stationLocation: '',
+};
+
+// Builds a detail object for component-level tests (the components must
+// tolerate any combination of present/absent verbose fields).
+const detail = (overrides: Partial<DeviceNowPlayingVerbose> = {}): DeviceNowPlayingVerbose => ({
+    ...EMPTY_VERBOSE_DETAIL,
+    ...overrides,
+});
+
+const contentItem = (overrides: Partial<NonNullable<DeviceNowPlayingVerbose['contentItem']>> = {}): NonNullable<DeviceNowPlayingVerbose['contentItem']> => ({
+    source: '',
+    type: '',
+    location: '',
+    sourceAccount: '',
+    itemName: '',
+    containerArt: '',
+    ...overrides,
+});
+
 beforeEach(() => {
     document.body.innerHTML = '<div id="app"></div>';
     state.language = 'en';
@@ -133,6 +346,7 @@ beforeEach(() => {
     wsState.devicePlayStatus = '';
     wsState.deviceVolume = 0;
     wsState.deviceMute = false;
+    wsState.deviceNowPlayingDetail = null;
     wsState.soundtouchDevice = null;
     for (const key of [LS_LANGUAGE, LS_SOUNDTOUCH, LS_FAVORITES, LS_SETTINGS]) {
         localStorage.removeItem(key);
@@ -925,6 +1139,177 @@ describe('state snapshot — RESPONSE parsing', () => {
     });
 });
 
+describe('verbose now-playing — full payload parsing (FR-3 extension)', () => {
+    it('parses every verbose field from a nowPlayingUpdated event alongside the flat fields', () => {
+        connectSoundtouchWs('192.168.1.42');
+        const ws = FakeWebSocket.instances[0];
+        ws.open();
+        ws.message(VERBOSE_NOW_PLAYING_XML());
+
+        // the flat fields still land as before
+        expect(wsState.deviceNowPlaying).toBe('Track title');
+        expect(wsState.deviceArtist).toBe('Artist name');
+        expect(wsState.deviceAlbum).toBe('Album name');
+        expect(wsState.deviceSource).toBe('RADIO_BROWSER');
+        expect(wsState.devicePlayStatus).toBe('PLAY_STATE');
+        expect(wsState.soundtouchDevice).toEqual({ id: '689E19B8BB8A' });
+
+        expect(wsState.deviceNowPlayingDetail).toEqual(FULL_VERBOSE_DETAIL);
+    });
+
+    it('parses absent skip/favorite presence elements as false', () => {
+        connectSoundtouchWs('192.168.1.42');
+        const ws = FakeWebSocket.instances[0];
+        ws.open();
+        ws.message(VERBOSE_NOW_PLAYING_XML({skipEnabled: false, skipPreviousEnabled: false, favoriteEnabled: false}));
+
+        expect(wsState.deviceNowPlayingDetail).not.toBeNull();
+        expect(wsState.deviceNowPlayingDetail!.skipEnabled).toBe(false);
+        expect(wsState.deviceNowPlayingDetail!.skipPreviousEnabled).toBe(false);
+        expect(wsState.deviceNowPlayingDetail!.favoriteEnabled).toBe(false);
+    });
+
+    it('reads seekSupported from the value attribute', () => {
+        connectSoundtouchWs('192.168.1.42');
+        const ws = FakeWebSocket.instances[0];
+        ws.open();
+        ws.message(VERBOSE_NOW_PLAYING_XML({seekSupported: true}));
+        expect(wsState.deviceNowPlayingDetail).not.toBeNull();
+        expect(wsState.deviceNowPlayingDetail!.seekSupported).toBe(true);
+
+        ws.message(VERBOSE_NOW_PLAYING_XML({seekSupported: false}));
+        expect(wsState.deviceNowPlayingDetail!.seekSupported).toBe(false);
+    });
+
+    it('creates a detail object with empty-string defaults for the minimal payload', () => {
+        connectSoundtouchWs('192.168.1.42');
+        const ws = FakeWebSocket.instances[0];
+        ws.open();
+        ws.message(NOW_PLAYING_XML('Station name', 'PLAY_STATE'));
+
+        expect(wsState.deviceNowPlaying).toBe('Station name');
+        expect(wsState.deviceNowPlayingDetail).toEqual(EMPTY_VERBOSE_DETAIL);
+    });
+
+    it('stores the raw track and stationName separately (no fallback chaining in the parser)', () => {
+        connectSoundtouchWs('192.168.1.42');
+        const ws = FakeWebSocket.instances[0];
+        ws.open();
+        ws.message(VERBOSE_NOW_PLAYING_XML({track: 'Track title', stationName: 'Station name'}));
+
+        expect(wsState.deviceNowPlaying).toBe('Track title');
+        expect(wsState.deviceNowPlayingDetail).not.toBeNull();
+        expect(wsState.deviceNowPlayingDetail!.stationName).toBe('Station name');
+    });
+
+    it('is never fatal on malformed verbose payloads and keeps parsing', () => {
+        connectSoundtouchWs('192.168.1.42');
+        const ws = FakeWebSocket.instances[0];
+        ws.open();
+
+        // garbage art chardata — stored raw, never fatal
+        expect(() => ws.message(VERBOSE_NOW_PLAYING_XML({art: '::not-a-url::'}))).not.toThrow();
+        expect(wsState.deviceNowPlayingDetail).not.toBeNull();
+        expect(wsState.deviceNowPlayingDetail!.art).toBe('::not-a-url::');
+        expect(wsState.deviceNowPlaying).toBe('Track title');
+
+        // a ContentItem without any attributes still parses
+        expect(() => ws.message('<updates deviceID="689E19B8BB8A"><nowPlayingUpdated><nowPlaying source="RADIO_BROWSER"><track>T</track><ContentItem><itemName>Only item</itemName></ContentItem><playStatus>PLAY_STATE</playStatus></nowPlaying></nowPlayingUpdated></updates>')).not.toThrow();
+        expect(wsState.deviceNowPlaying).toBe('T');
+        expect(wsState.deviceNowPlayingDetail!.contentItem).toEqual({
+            source: '',
+            type: '',
+            location: '',
+            sourceAccount: '',
+            itemName: 'Only item',
+            containerArt: '',
+        });
+    });
+
+    it('parses the verbose RESPONSE into the identical detail plus the header deviceID', () => {
+        connectSoundtouchWs('192.168.1.42');
+        const ws = FakeWebSocket.instances[0];
+        ws.open();
+        ws.message(VERBOSE_NOW_PLAYING_RESPONSE_XML());
+
+        expect(wsState.deviceNowPlayingDetail).toEqual(FULL_VERBOSE_DETAIL);
+        expect(wsState.deviceNowPlaying).toBe('Track title');
+        expect(wsState.devicePlayStatus).toBe('PLAY_STATE');
+        expect(wsState.soundtouchDevice).toEqual({ id: '689E19B8BB8A' });
+    });
+});
+
+describe('device info — full payload parsing (FR-3 extension)', () => {
+    it('parses every DeviceInfo field from a full info RESPONSE', () => {
+        connectSoundtouchWs('192.168.1.42');
+        const ws = FakeWebSocket.instances[0];
+        ws.open();
+        // the <info> element's own deviceID attribute wins over the header's
+        ws.message(FULL_INFO_RESPONSE_XML());
+
+        expect(wsState.soundtouchDevice).toEqual({
+            id: '689E19B8BB8A',
+            name: 'Bose SoundTouch B9B8BC',
+            type: 'SoundTouch 10',
+            moduleType: 'soundtouch',
+            variant: 'Variant XYZ',
+            variantMode: 'normal',
+            countryCode: 'DE',
+            regionCode: 'EU',
+            networkType: 'WIRED',
+            // macAddress: '68:9E:19:B8:BB:8A',
+            ipAddress: '192.168.1.42',
+            componentCategory: 'SoundTouch',
+            // serialNumber: 'SN-1234',
+            softwareVersion: '3.8.8.2',
+            margeUrl: 'https://marge.example.com',
+            margeAccountUuid: 'uuid-1',
+        });
+    });
+
+    it('stores only the present fields for a partial info RESPONSE', () => {
+        connectSoundtouchWs('192.168.1.42');
+        const ws = FakeWebSocket.instances[0];
+        ws.open();
+        ws.message('<msg><header deviceID="689E19B8BB8A" url="info" method="GET" msgType="RESPONSE"><request requestID="3"/></header><body><info deviceID="689E19B8BB8A"><name>Bose SoundTouch B9B8BC</name><moduleType>soundtouch</moduleType></info></body></msg>');
+
+        expect(wsState.soundtouchDevice).toEqual({ id: '689E19B8BB8A', name: 'Bose SoundTouch B9B8BC', moduleType: 'soundtouch' });
+        for (const absent of ['type', 'variant', 'variantMode', 'countryCode', 'regionCode', 'networkType', 'macAddress', 'ipAddress', 'componentCategory', 'serialNumber', 'softwareVersion', 'margeUrl', 'margeAccountUuid']) {
+            expect(wsState.soundtouchDevice).not.toHaveProperty(absent);
+        }
+    });
+
+    it('keeps the first component when an info payload carries several', () => {
+        connectSoundtouchWs('192.168.1.42');
+        const ws = FakeWebSocket.instances[0];
+        ws.open();
+        ws.message('<msg><header deviceID="689E19B8BB8A" url="info" method="GET" msgType="RESPONSE"><request requestID="3"/></header><body><info deviceID="689E19B8BB8A"><components><component><componentCategory>SoundTouch</componentCategory><softwareVersion>1.2.3</softwareVersion><serialNumber>SN-FIRST</serialNumber></component><component><componentCategory>Other</componentCategory><softwareVersion>9.9.9</softwareVersion><serialNumber>SN-SECOND</serialNumber></component></components></info></body></msg>');
+
+        expect(wsState.soundtouchDevice).not.toBeNull();
+        // expect(wsState.soundtouchDevice!.serialNumber).toBe('SN-FIRST');
+        expect(wsState.soundtouchDevice!.softwareVersion).toBe('1.2.3');
+        expect(wsState.soundtouchDevice!.componentCategory).toBe('SoundTouch');
+    });
+
+    it('takes the id from the info element when the header carries none', () => {
+        connectSoundtouchWs('192.168.1.42');
+        const ws = FakeWebSocket.instances[0];
+        ws.open();
+        ws.message('<msg><header url="info" method="GET" msgType="RESPONSE"><request requestID="3"/></header><body><info deviceID="689E19B8BB8A"><name>Bose SoundTouch B9B8BC</name></info></body></msg>');
+
+        expect(wsState.soundtouchDevice).toEqual({ id: '689E19B8BB8A', name: 'Bose SoundTouch B9B8BC' });
+    });
+
+    it('stores { id: "" } when an info payload carries no deviceID and none is known', () => {
+        connectSoundtouchWs('192.168.1.42');
+        const ws = FakeWebSocket.instances[0];
+        ws.open();
+        ws.message('<msg><header url="info" method="GET" msgType="RESPONSE"><request requestID="3"/></header><body><info/></body></msg>');
+
+        expect(wsState.soundtouchDevice).toEqual({ id: '' });
+    });
+});
+
 describe('remote control panel', () => {
     it('renders the panel when an address is saved and hides it otherwise', () => {
         render();
@@ -939,22 +1324,29 @@ describe('remote control panel', () => {
         expect(document.querySelector('#remoteVolume')).toBeNull();
     });
 
-    it('disables the controls unless the connection is connected', () => {
+    it('disables the controls unless the connection is connected, gating next/prev on the skip flags', () => {
         wsState.wsStatus = 'connecting';
         render();
-        expect((document.querySelector('#remotePlayPause') as HTMLButtonElement).disabled).toBe(true);
-        expect((document.querySelector('#remoteNext') as HTMLButtonElement).disabled).toBe(true);
-        expect((document.querySelector('#remotePrev') as HTMLButtonElement).disabled).toBe(true);
-        expect((document.querySelector('#remoteMute') as HTMLButtonElement).disabled).toBe(true);
+        for (const id of ['#remotePlayPause', '#remoteNext', '#remotePrev', '#remoteMute']) {
+            expect((document.querySelector(id) as HTMLButtonElement).disabled).toBe(true);
+        }
         expect((document.querySelector('#remoteVolume') as HTMLInputElement).disabled).toBe(true);
 
+        // connected without a verbose payload: next/prev stay disabled (presence gating)
         wsState.wsStatus = 'connected';
+        wsState.deviceNowPlayingDetail = null;
         render();
         expect((document.querySelector('#remotePlayPause') as HTMLButtonElement).disabled).toBe(false);
-        expect((document.querySelector('#remoteNext') as HTMLButtonElement).disabled).toBe(false);
-        expect((document.querySelector('#remotePrev') as HTMLButtonElement).disabled).toBe(false);
+        expect((document.querySelector('#remoteNext') as HTMLButtonElement).disabled).toBe(true);
+        expect((document.querySelector('#remotePrev') as HTMLButtonElement).disabled).toBe(true);
         expect((document.querySelector('#remoteMute') as HTMLButtonElement).disabled).toBe(false);
         expect((document.querySelector('#remoteVolume') as HTMLInputElement).disabled).toBe(false);
+
+        // skip flags present → all five enabled
+        wsState.deviceNowPlayingDetail = detail({skipEnabled: true, skipPreviousEnabled: true});
+        render();
+        expect((document.querySelector('#remoteNext') as HTMLButtonElement).disabled).toBe(false);
+        expect((document.querySelector('#remotePrev') as HTMLButtonElement).disabled).toBe(false);
     });
 
     it('labels and icons the play/pause button from the live play status', () => {
@@ -1040,6 +1432,113 @@ describe('remote control panel', () => {
             }
         }
     });
+
+    it('falls the title back track → stationName → itemName → noStationPlaying', () => {
+        wsState.wsStatus = 'connected';
+        const strong = () => document.querySelector('.remote-nowplaying strong')!.textContent;
+
+        wsState.deviceNowPlaying = 'Track title';
+        wsState.deviceNowPlayingDetail = detail({stationName: 'Station name', contentItem: contentItem({itemName: 'Item name'})});
+        render();
+        expect(strong()).toBe('Track title');
+
+        wsState.deviceNowPlaying = '';
+        wsState.deviceNowPlayingDetail = detail({stationName: 'Station name'});
+        render();
+        expect(strong()).toBe('Station name');
+
+        wsState.deviceNowPlayingDetail = detail({stationName: '', contentItem: contentItem({itemName: 'Item name'})});
+        render();
+        expect(strong()).toBe('Item name');
+
+        wsState.deviceNowPlayingDetail = null;
+        render();
+        expect(strong()).toBe(tView.en.noStationPlaying);
+    });
+
+    it('falls the artist back to the verbose description and keeps album/source in the meta line', () => {
+        wsState.wsStatus = 'connected';
+        wsState.deviceAlbum = 'Album name';
+        wsState.deviceSource = 'RADIO_BROWSER';
+        const small = () => document.querySelector('.remote-nowplaying small')!;
+
+        // artist present → description ignored
+        wsState.deviceArtist = 'Artist name';
+        wsState.deviceNowPlayingDetail = detail({description: 'Station description'});
+        render();
+        expect(small().textContent).toBe('Artist name · Album name · RADIO_BROWSER');
+        expect(small().textContent).not.toContain('Station description');
+
+        // artist absent → description takes its slot
+        wsState.deviceArtist = '';
+        wsState.deviceNowPlayingDetail = detail({description: 'Station description'});
+        render();
+        expect(small().textContent).toBe('Station description · Album name · RADIO_BROWSER');
+
+        // both absent → album/source join as today
+        wsState.deviceNowPlayingDetail = detail({description: ''});
+        render();
+        expect(small().textContent).toBe('Album name · RADIO_BROWSER');
+    });
+
+    it.each<[string, string, DeviceNowPlayingVerbose | null, [boolean, boolean]]>([
+        ['connected + flags present', 'connected', detail({skipEnabled: true, skipPreviousEnabled: true}), [false, false]],
+        ['connected + flags absent', 'connected', detail(), [true, true]],
+        ['reconnecting + flags present', 'reconnecting', detail({skipEnabled: true, skipPreviousEnabled: true}), [true, true]],
+        ['connected + no detail', 'connected', null, [true, true]],
+    ])('skip gating: %s', (_name, wsStatus, deviceNowPlayingDetail, expected) => {
+        wsState.wsStatus = wsStatus;
+        wsState.deviceNowPlayingDetail = deviceNowPlayingDetail;
+        render();
+        expect((document.querySelector('#remoteNext') as HTMLButtonElement).disabled).toBe(expected[0]);
+        expect((document.querySelector('#remotePrev') as HTMLButtonElement).disabled).toBe(expected[1]);
+    });
+
+    it('renders the art URL as a single img with escaped src, empty alt, and an onerror handler', () => {
+        wsState.wsStatus = 'connected';
+        wsState.deviceNowPlayingDetail = detail({art: 'http://192.168.1.42:8090/v1/art.png?a=1&b=2'});
+        render();
+
+        const imgs = document.querySelectorAll('img.remote-art');
+        expect(imgs).toHaveLength(1);
+        const img = imgs[0];
+        expect(img.getAttribute('src')).toBe('http://192.168.1.42:8090/v1/art.png?a=1&b=2');
+        expect(img.getAttribute('alt')).toBe('');
+        expect(img.hasAttribute('onerror')).toBe(true);
+        // escaped in the raw HTML
+        expect(document.querySelector('#app')!.innerHTML).toContain('a=1&amp;b=2');
+    });
+
+    it('falls the artwork back to ContentItem.containerArt when art is empty', () => {
+        wsState.wsStatus = 'connected';
+        wsState.deviceNowPlayingDetail = detail({art: '', contentItem: contentItem({containerArt: 'http://192.168.1.42:8090/v1/container-art.png'})});
+        render();
+
+        const imgs = document.querySelectorAll('img.remote-art');
+        expect(imgs).toHaveLength(1);
+        expect(imgs[0].getAttribute('src')).toBe('http://192.168.1.42:8090/v1/container-art.png');
+    });
+
+    it('renders no artwork when both art and containerArt are empty (never fatal)', () => {
+        wsState.wsStatus = 'connected';
+        wsState.deviceNowPlayingDetail = detail({art: '', contentItem: contentItem({containerArt: ''})});
+
+        expect(() => render()).not.toThrow();
+        expect(document.querySelector('img.remote-art')).toBeNull();
+    });
+
+    it('populates the panel at connect time from the verbose now_playing RESPONSE', () => {
+        connectSoundtouchWs('192.168.1.42');
+        const ws = FakeWebSocket.instances[0];
+        ws.open();
+        ws.message(VERBOSE_NOW_PLAYING_RESPONSE_XML());
+
+        expect(wsState.deviceNowPlayingDetail).not.toBeNull();
+        const strong = document.querySelector('.remote-nowplaying strong');
+        expect(strong!.textContent).toBe('Track title');
+        expect(document.querySelector('.remote-playstatus')!.textContent).toBe(tView.en.remotePlaying);
+        expect(document.querySelector('#app')!.textContent).not.toContain(tView.en.noStationPlaying);
+    });
 });
 
 describe('remote controls — delegated events', () => {
@@ -1088,6 +1587,8 @@ describe('remote controls — delegated events', () => {
         vi.stubGlobal('fetch', fetchMock);
         wsState.wsStatus = 'connected';
         wsState.deviceMute = false;
+        // skip flags present → Next/Prev are enabled and the handler sends
+        wsState.deviceNowPlayingDetail = detail({skipEnabled: true, skipPreviousEnabled: true});
         render();
         setupEvents();
 
@@ -1117,6 +1618,7 @@ describe('remote controls — delegated events', () => {
         const fetchMock = vi.fn().mockResolvedValue({} as Response);
         vi.stubGlobal('fetch', fetchMock);
         wsState.wsStatus = 'connected';
+        wsState.deviceNowPlayingDetail = detail({skipEnabled: true, skipPreviousEnabled: true});
         render();
         setupEvents();
 
@@ -1171,5 +1673,41 @@ describe('remote controls — delegated events', () => {
         slider.dispatchEvent(new Event('change', { bubbles: true }));
 
         expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('sends nothing for next/prev while the skip flags are absent (presence gating in the handler)', async () => {
+        const fetchMock = vi.fn();
+        vi.stubGlobal('fetch', fetchMock);
+        wsState.wsStatus = 'connected';
+        wsState.deviceNowPlayingDetail = detail(); // skipEnabled/skipPreviousEnabled false
+        render();
+        setupEvents();
+
+        // dispatchEvent bypasses the disabled attribute — the delegated handler
+        // itself must guard on the presence flags.
+        document.querySelector('#remoteNext')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        document.querySelector('#remotePrev')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await flush();
+
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('sends NEXT_TRACK/PREV_TRACK press+release when the skip flags are present', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({} as Response);
+        vi.stubGlobal('fetch', fetchMock);
+        wsState.wsStatus = 'connected';
+        wsState.deviceNowPlayingDetail = detail({skipEnabled: true, skipPreviousEnabled: true});
+        render();
+        setupEvents();
+
+        document.querySelector('#remoteNext')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+        expect(String(fetchMock.mock.calls[0][1].body)).toBe('<key state="press" sender="Gabbo">NEXT_TRACK</key>');
+        expect(String(fetchMock.mock.calls[1][1].body)).toBe('<key state="release" sender="Gabbo">NEXT_TRACK</key>');
+
+        document.querySelector('#remotePrev')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
+        expect(String(fetchMock.mock.calls[2][1].body)).toBe('<key state="press" sender="Gabbo">PREV_TRACK</key>');
+        expect(String(fetchMock.mock.calls[3][1].body)).toBe('<key state="release" sender="Gabbo">PREV_TRACK</key>');
     });
 });
