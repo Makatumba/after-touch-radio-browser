@@ -1,8 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, state } from '../src/app';
 import { setupEvents } from '../src/events';
-// FR-3 modules — both land with the live-remote implementation wave; the
-// module-not-found failures here are the intended red at this commit.
 import { checkSoundtouchOnStartup, closeSoundtouchWs, connectSoundtouchWs, requestSnapshot } from '../src/soundtouch-ws';
 import { renderRemotePanel } from '../src/components/remote';
 import { getLabels, translations } from '../src/i18n';
@@ -1257,10 +1255,8 @@ describe('device info — full payload parsing (FR-3 extension)', () => {
             countryCode: 'DE',
             regionCode: 'EU',
             networkType: 'WIRED',
-            // macAddress: '68:9E:19:B8:BB:8A',
             ipAddress: '192.168.1.42',
             componentCategory: 'SoundTouch',
-            // serialNumber: 'SN-1234',
             softwareVersion: '3.8.8.2',
             margeUrl: 'https://marge.example.com',
             margeAccountUuid: 'uuid-1',
@@ -1286,7 +1282,6 @@ describe('device info — full payload parsing (FR-3 extension)', () => {
         ws.message('<msg><header deviceID="689E19B8BB8A" url="info" method="GET" msgType="RESPONSE"><request requestID="3"/></header><body><info deviceID="689E19B8BB8A"><components><component><componentCategory>SoundTouch</componentCategory><softwareVersion>1.2.3</softwareVersion><serialNumber>SN-FIRST</serialNumber></component><component><componentCategory>Other</componentCategory><softwareVersion>9.9.9</softwareVersion><serialNumber>SN-SECOND</serialNumber></component></components></info></body></msg>');
 
         expect(wsState.soundtouchDevice).not.toBeNull();
-        // expect(wsState.soundtouchDevice!.serialNumber).toBe('SN-FIRST');
         expect(wsState.soundtouchDevice!.softwareVersion).toBe('1.2.3');
         expect(wsState.soundtouchDevice!.componentCategory).toBe('SoundTouch');
     });

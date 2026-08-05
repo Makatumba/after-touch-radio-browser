@@ -397,7 +397,7 @@ describe('device info widget (FR-3, WebSocket-fed)', () => {
     });
 
     it('adds non-empty device-info labels in all four languages', () => {
-        const keys = ['deviceName', 'deviceType', 'deviceId', 'deviceModuleType', 'deviceVariant', 'deviceSerial', 'deviceIp', 'deviceFirmware'];
+        const keys = ['deviceName', 'deviceType', 'deviceId', 'deviceModuleType', 'deviceVariant', 'deviceIp', 'deviceFirmware'];
         for (const lang of ['en', 'de', 'ru', 'ukr'] as const) {
             for (const key of keys) {
                 expect(tView[lang][key]?.trim()).toBeTruthy();
@@ -407,7 +407,7 @@ describe('device info widget (FR-3, WebSocket-fed)', () => {
 });
 
 describe('device info widget — curated verbose rows (FR-3 extension)', () => {
-    it('renders the eight curated rows when the full DeviceInfo is known', async () => {
+    it('renders the seven curated rows when the full DeviceInfo is known', async () => {
         const { renderDeviceInfo } = await loadSoundtouchComponents();
         wsState.soundtouchDevice = {
             id: '689E19B8BB8A',
@@ -430,8 +430,8 @@ describe('device info widget — curated verbose rows (FR-3 extension)', () => {
         const t = getLabels(state);
         const html = renderDeviceInfo(state, t);
 
-        // the curated set: id, name, type, moduleType, variant, serial, ip, firmware
-        expect(html.match(/soundtouch-info-row/g)).toHaveLength(8);
+        // the curated set: id, name, type, moduleType, variant, ip, firmware
+        expect(html.match(/soundtouch-info-row/g)).toHaveLength(7);
         expect(html).toContain(t.deviceId);
         expect(html).toContain('689E19B8BB8A');
         expect(html).toContain(t.deviceName);
@@ -442,15 +442,14 @@ describe('device info widget — curated verbose rows (FR-3 extension)', () => {
         expect(html).toContain('soundtouch');
         expect(html).toContain(t.deviceVariant);
         expect(html).toContain('Variant XYZ');
-        expect(html).toContain(t.deviceSerial);
-        expect(html).toContain('SN-1234');
+        expect(html).not.toContain('SN-1234');
         expect(html).toContain(t.deviceIp);
         expect(html).toContain('192.168.1.42');
         expect(html).toContain(t.deviceFirmware);
         expect(html).toContain('3.8.8.2');
-        // parsed-but-not-curated fields (variantMode, country, network, marge)
-        // render no extra rows — exactly eight remain
-        expect(html.match(/soundtouch-info-row/g)).toHaveLength(8);
+        // parsed-but-not-curated fields (variantMode, country, network type,
+        // MAC, serial, marge) render no rows — exactly seven remain
+        expect(html.match(/soundtouch-info-row/g)).toHaveLength(7);
     });
 
     it('renders exactly the present curated rows for a partial DeviceInfo', async () => {
@@ -466,7 +465,7 @@ describe('device info widget — curated verbose rows (FR-3 extension)', () => {
         expect(html).toContain('soundtouch');
         expect(html).toContain(t.deviceIp);
         expect(html).toContain('192.168.1.42');
-        for (const label of [t.deviceName, t.deviceType, t.deviceVariant, t.deviceSerial, t.deviceFirmware]) {
+        for (const label of [t.deviceName, t.deviceType, t.deviceVariant, t.deviceFirmware]) {
             expect(html).not.toContain(label);
         }
     });
