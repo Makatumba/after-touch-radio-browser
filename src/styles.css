@@ -216,6 +216,47 @@ button {
     outline: 2px solid var(--primary)
 }
 
+.station-head {
+    display: flex;
+    gap: .75rem;
+    align-items: center;
+    min-width: 0
+}
+
+.station-head .station-name {
+    min-width: 0
+}
+
+.artwork-slot {
+    width: 3rem;
+    height: 3rem;
+    border-radius: .65rem;
+    object-fit: cover;
+    flex-shrink: 0;
+    background: var(--surface-2)
+}
+
+.artwork-skeleton {
+    background-image: linear-gradient(90deg, var(--surface-2) 25%, color-mix(in srgb, var(--surface-2) 45%, var(--surface)) 50%, var(--surface-2) 75%);
+    background-size: 200% 100%;
+    animation: artwork-shimmer 1.4s ease-in-out infinite
+}
+
+.artwork-slot--empty {
+    background: var(--surface-2)
+}
+
+@keyframes artwork-shimmer {
+    from { background-position: 200% 0 }
+    to { background-position: -200% 0 }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .artwork-skeleton {
+        animation: none
+    }
+}
+
 .station-badges {
     display: flex;
     gap: .5rem;
@@ -627,13 +668,6 @@ button {
 
 .remote-nowplaying small {
     color: var(--muted)
-}
-
-.remote-art {
-    width: 3rem;
-    height: 3rem;
-    object-fit: cover;
-    justify-self: start
 }
 
 .remote-playstatus {

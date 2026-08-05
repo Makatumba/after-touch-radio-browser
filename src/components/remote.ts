@@ -1,4 +1,5 @@
 import type {State} from '../state';
+import {playingStationArtUrl, renderArtworkSlot} from '../artwork';
 
 function escapeHtml(value: string): string {
     return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -40,11 +41,12 @@ export function renderRemotePanel(state: State, t: Record<string, string>): stri
     // while their skip flag is absent — independent of the wsStatus gate
     const nextDisabled = !connected || !detail?.skipEnabled;
     const prevDisabled = !connected || !detail?.skipPreviousEnabled;
-    // artwork: art → ContentItem.containerArt; a broken/blocked image removes
-    // itself via the inline onerror (error events do not bubble, so the
-    // delegated listeners cannot cover them — the only inline JS in the app)
-    const artUrl = detail?.art || detail?.contentItem?.containerArt || '';
-    const artHtml = artUrl ? `<img class="remote-art" src="${escapeHtml(artUrl)}" alt="" onerror="this.remove()" />` : '';
+    // artwork: station favicon → cached URL by uuid → device art →
+    // ContentItem.containerArt, rendered through the FR-6 slot contract
+    // (skeleton while loading, img once ready, empty slot on failure — no
+    // inline JS, never an img after a failure)
+    const artUrl = playingStationArtUrl(state) || detail?.art || detail?.contentItem?.containerArt || '';
+    const artHtml = renderArtworkSlot(artUrl, state.stations[state.currentIndex]?.stationuuid || '');
     return `<section class="panel remote-panel">
     <div class="remote-head">
         <h2>${t.remoteTitle}</h2>

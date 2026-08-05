@@ -1,5 +1,6 @@
 import type {State, Station} from '../state';
 import {isFavorite} from '../actions';
+import {renderArtworkSlot, resolveArtworkUrl} from '../artwork';
 
 export function renderStationCard(station: Station, state: State, t: Record<string, string>): string {
     const active = state.stations[state.currentIndex]?.stationuuid === station.stationuuid;
@@ -8,7 +9,10 @@ export function renderStationCard(station: Station, state: State, t: Record<stri
     const playBtn = `<button class="btn btn-primary" data-play="${station.stationuuid}"${disabled ? ` disabled title="${title}"` : ''}>${t.playOnSpeaker}</button>`;
     const previewBtn = state.settings.enablePreview ? `<button class="btn btn-secondary" data-preview="${station.stationuuid}">${t.preview}</button>` : '';
     return `<article class="station-card ${active ? 'active' : ''}">
-    <div class="station-name">${station.name}</div>
+    <div class="station-head">
+        ${renderArtworkSlot(resolveArtworkUrl(station), station.stationuuid)}
+        <div class="station-name">${station.name}</div>
+    </div>
     <div class="station-badges">
         <span class="badge ${station.lastcheckok ? 'live' : ''}">${station.lastcheckok ? 'Reachable' : 'Unchecked / broken'}</span>
         ${station.country ? `<span class="badge">${station.country}</span>` : ''}

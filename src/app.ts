@@ -6,6 +6,7 @@ import {topStations, recentStations, searchStations, fetchLanguages, fetchCountr
 import {loadSettings} from './settings';
 import {loadFilterCache, saveFilterCache} from './filter-cache';
 import type {FilterCacheKind} from './filter-cache';
+import {scanArtwork, setRenderHook} from './artwork';
 import {compareFavorites} from './actions';
 import {renderHeader} from './components/header';
 import {renderSoundtouch} from './components/soundtouch';
@@ -158,7 +159,15 @@ export function render() {
         const section = document.querySelector<HTMLElement>('.player');
         if (section) section.appendChild(audio);
     }
+
+    // kick off background artwork fetches for any skeleton slots; requestArtwork
+    // is idempotent, so re-scanning settled/in-flight slots is a no-op
+    scanArtwork();
 }
+
+// artwork settle → re-render once, wired a single time at module load (the
+// hook's render() re-scan is a no-op for settled URLs, so no loop)
+setRenderHook(render);
 
 export function searchFromInputs() {
     state.query = document.querySelector<HTMLInputElement>('#query')?.value || '';
