@@ -223,14 +223,17 @@ graph TD
   `skipPreviousEnabled` presence flags (in the component and in the delegated click
   handler), and artwork renders `art` → `ContentItem.containerArt` as a single
   `img.remote-art` that removes itself on error. The `info` snapshot response populates the
-  full device payload (id, name, type, moduleType, variant, variantMode, country/region
-  codes, networkInfo MAC/IP, first component's category/serial/firmware, marge URL/UUID;
-  the element's own `deviceID` attribute wins over the RESPONSE header) and the widget
-  renders the curated rows — id, name, type, module type, variant, serial, IP, firmware —
+  device payload (id, name, type, moduleType, variant, variantMode, country/region
+  codes, networkInfo type + IP, first component's category/firmware, marge URL/UUID;
+  the element's own `deviceID` attribute wins over the RESPONSE header). The
+  `networkInfo` `macAddress` and the component `serialNumber` are **not parsed** —
+  they uniquely identify the physical unit and are excluded for privacy. The widget
+  renders the curated rows — id, name, type, module type, variant, IP, firmware —
   each row only when its data exists (labels `deviceName`/`deviceType`/`deviceId`/
-  `deviceModuleType`/`deviceVariant`/`deviceSerial`/`deviceIp`/`deviceFirmware` exist in
-  all four languages). The `info` snapshot is re-requested on each successful
-  (re)connection check.
+  `deviceModuleType`/`deviceVariant`/`deviceIp`/`deviceFirmware` exist in
+  all four languages; the serial row in `soundtouch.ts` and the `deviceSerial` key are
+  vestigial — the parser never produces the value). The `info` snapshot is re-requested on
+  each successful (re)connection check.
 - **Hosting**: `docs/` is committed deploy output for GitHub Pages; `dist/` and `.DS_Store`
   are gitignored. `public/` is copied to the dist/docs root by Vite; the favicon uses a
   relative `href="logo.png"` so it resolves under the GitHub Pages subpath. The manifest

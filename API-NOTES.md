@@ -340,11 +340,15 @@ element names against a real speaker:
 </info>
 ```
 
-The app renders the curated set — `deviceID`, `name`, `type`, `moduleType`, `variant`,
-`networkInfo` MAC/IP, and the `components` serial number / firmware version — one widget
-row per field, each row only when its data exists. The remaining fields (`variantMode`,
-`countryCode`, `regionCode`, `margeURL`, `margeAccountUUID`) are parsed for completeness
-and stored, not displayed.
+The app renders the curated set — `deviceID`, `name`, `type`, `moduleType`, `variant`, the
+`networkInfo` `ipAddress`, and the first component's `softwareVersion` — one widget row per
+field, each row only when its data exists. The remaining fields (`variantMode`,
+`countryCode`, `regionCode`, the `networkInfo` `type`, the component `componentCategory`,
+`margeURL`, `margeAccountUUID`) are parsed for completeness and stored, not displayed. The
+`networkInfo` `macAddress` and the component `serialNumber` are **not parsed at all**:
+they uniquely identify the physical unit and are excluded for privacy (the wire shapes
+above are documented for completeness and live verification, but the app never reads
+them).
 
 ### Commands — HTTP API (port 8090)
 

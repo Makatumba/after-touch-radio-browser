@@ -319,7 +319,9 @@ capability are non-goals (see Non-goals).
 
 Shipped in the live-remote wave: the WebSocket connection, live now-playing / play-state /
 volume / mute mirroring, transport commands, reconnection with backoff, and the
-WebSocket-fed device-info widget.
+WebSocket-fed device-info widget — plus the verbose-state extension (full now-playing
+payload parsing with title/artist fallbacks, skip gating, and artwork in the Remote panel,
+and the curated full device-info rows in the widget).
 
 ### FR-3 Device remote (core)
 
@@ -417,6 +419,104 @@ when their data exists, so the widget is visible once the device ID is known and
 name/type rows when the `info` snapshot lands. The i18n keys
 `deviceName`/`deviceType`/`deviceId` exist in all four languages.
 
+#### FR-3 extension: verbose live state & full device info
+
+The FR-3 live remote mirrors device state verbosely, following the gesellix reference
+implementation (Bose-SoundTouch): the app parses the **full** now-playing and device-info
+payloads the speaker sends over the WebSocket instead of the small field subset it read
+at launch, and the Remote panel and info widget surface the useful parts. The snapshot/
+event mechanism itself is unchanged — requests on connection open and on every successful
+(re)connection check, one snapshot per connect, no periodic or manual refresh. The verbose
+snapshot RESPONSEs populate the panel and the widget right after a connection opens or
+reopens. The payload shapes are pinned in [API-NOTES.md](API-NOTES.md) with a
+live-verification checklist.
+
+##### Verbose now-playing
+
+Both pushed `nowPlayingUpdated` events and snapshot RESPONSE `<body>` payloads parse the
+full now-playing payload: `track`, `artist`, `album`, `source`, `playStatus` plus
+`stationName`, `art` (with `artImageStatus`), `ContentItem` (`source`/`type`/
+`location` attrs, `itemName`, `containerArt`), `sourceAccount`, `time` (`total` +
+position), `skipEnabled`, `skipPreviousEnabled`, `favoriteEnabled`, `seekSupported`,
+`shuffleSetting`, `repeatSetting`, `streamType`, `trackID`, `position`, `description`,
+`stationLocation`. Missing elements stay absent; malformed payloads stay non-fatal.
+
+The Remote panel uses the extra data:
+
+- **Title fallback** (gesellix display order): `track` → `stationName` →
+  `ContentItem.itemName` → "No station playing".
+- **Meta line**: artist, falling back to `description`, joined with album/source as today.
+- **Next/Prev gating** (presence-based per the gesellix reference): Next is disabled while
+  `skipEnabled` is absent, Prev disabled while `skipPreviousEnabled` is absent; enabled
+  when present — the live-verification checklist confirms the real speaker's semantics.
+- **Artwork**: when `art` carries a URL (falling back to `ContentItem.containerArt`), the
+  panel renders it best-effort; a broken or CORS/mixed-content-blocked image degrades
+  silently and the text state stays intact.
+
+The remaining fields are stored in state for future features (time/shuffle/repeat/seek/
+favorite/stream type/station location) — no UI beyond the above.
+
+##### Full device-info widget (privacy-scoped)
+
+The `info` snapshot RESPONSE populates the device-info payload (API-NOTES.md "Device
+info"): the `deviceID` attribute plus `name`, `type`, `moduleType`, `variant`,
+`variantMode`, `countryCode`, `regionCode`, `networkInfo` (IP address — the **MAC
+address is deliberately not read**), the first component's category and firmware version
+(the **serial number is deliberately not read**), `margeURL`, `margeAccountUUID`. The MAC
+address and the serial number uniquely identify the physical unit and are excluded for
+privacy: they are neither parsed nor displayed. The widget renders the curated set —
+device ID, name, type, module type, variant, IP, firmware — one row per field, each row
+rendered only when its data exists (the ID row once any used message carries it, as
+before). The new row labels ship in all four languages.
+
+##### Play/pause sync without echo loops
+
+The play/pause button keeps deriving from the WebSocket-confirmed `devicePlayStatus`
+(`PLAY_STATE` → Pause icon, else Play); a local command POST never writes live device state
+(the no-echo-loop rule is unchanged). Because the verbose snapshot RESPONSEs populate the
+state on connect and reconnect, the button and the now-playing panel are in sync right
+after a connection opens or reopens — the panel no longer stays blank until the first
+pushed event.
+
+##### Extension user flows
+
+1. **Verbose connect** — open the app with a saved address → the snapshot RESPONSEs populate
+   the Remote panel (title with fallbacks, artist/meta line, play-status chip, artwork when
+   present) and the full device-info widget within ~1s; after a reconnect the reopened
+   socket's on-open snapshot re-syncs the same way (the last-known state stays visible
+   during the drop).
+
+##### Extension acceptance criteria
+
+- After connection open and after each reconnect, the Remote panel shows the title (`track`
+  → `stationName` → `itemName` fallback), the artist/meta line, and the play-status chip
+  from the snapshot RESPONSEs — not blank until a pushed event.
+- The play/pause button and chip reflect the WebSocket-confirmed play status; command POSTs
+  never change them (no echo loop).
+- Next/Prev render disabled when the payload reports skip unavailable (absent skip flag per
+  the reference); enabled otherwise.
+- Artwork renders when present and degrades silently when broken or blocked.
+- The info widget shows the curated rows (id, name, type, module type, variant, IP,
+  firmware), each rendered only when its data exists; the new row labels exist in all four
+  languages.
+- The MAC address and serial number from the `info` payload are never read or displayed
+  (privacy).
+- The API-NOTES.md live-verification checklist items for the verbose RESPONSE shapes are
+  verified/ticked against a real speaker; the parser and docs are corrected if the real
+  device differs from the pinned shapes.
+- `npm test`, `npx tsc --noEmit --skipLibCheck`, and `npm run build` pass.
+
+##### Extension edge cases
+
+- Info payload with some fields missing — only the known rows render.
+- Now-playing payload with no `track`/`stationName`/`itemName` — "No station playing".
+- `skipEnabled`/`skipPreviousEnabled` absent — the corresponding button stays disabled
+  (presence-based per the reference; semantics pending live confirmation).
+- Broken or CORS/mixed-content-blocked art URL — the image is hidden, the text state stays
+  intact, never fatal.
+- An `info` payload that still carries a MAC address or serial number — ignored (the
+  fields are never read), no rows render for them.
+
 ### User flows (wave 2)
 
 1. **Live control** — open the app with a saved address → the Remote panel shows what's
@@ -481,13 +581,18 @@ name/type rows when the `info` snapshot lands. The i18n keys
 ## Planned (wave 2+)
 
 Not yet implemented. These features finish the live remote on top of the shipped wave-1 base
-and the shipped wave-2 features: media-session / lock-screen controls, confirmation of
-play actions from live device state, and the verbose-state extension of FR-3.
+and the shipped wave-2 features: media-session / lock-screen controls and confirmation of
+play actions from live device state.
 
 ### FR-6 Media-session / lock-screen controls
 
 While connected, publish now-playing metadata plus play/pause/next/prev actions (→ device
 commands). Graceful no-op where unsupported.
+
+- User flow: lock the phone → see now-playing metadata on the lock screen and control
+  playback from there (supported browsers only).
+- Acceptance criterion: lock screen shows metadata + actions while connected on supported
+  browsers.
 
 ### FR-4/FR-5 extension: now-playing confirmation
 
@@ -495,105 +600,12 @@ Once FR-3 ships the live state (the Remote panel mirrors it in real time), play-
 and preview confirmations can come from live device state (WebSocket) instead of the current
 optimistic "Playing on speaker…" message.
 
-### FR-3 extension: verbose live state & full device info
+Edge cases planned with this feature:
 
-The FR-3 live remote mirrors device state verbosely, following the gesellix reference
-implementation (Bose-SoundTouch): the app parses the **full** now-playing and device-info
-payloads the speaker sends over the WebSocket instead of the small field subset it reads
-today, and the Remote panel and info widget surface the useful parts. The snapshot/event
-mechanism itself is unchanged — requests on connection open and on every successful
-(re)connection check, one snapshot per connect, no periodic or manual refresh — the
-extension is expected to make the snapshot RESPONSEs populate the panel and the widget on
-real hardware if the live payloads use field shapes the current parser misses — the payload
-shapes are pinned in [API-NOTES.md](API-NOTES.md) with a live-verification checklist.
-
-#### Verbose now-playing
-
-Both pushed `nowPlayingUpdated` events and snapshot RESPONSE `<body>` payloads parse the
-full now-playing payload: `track`, `artist`, `album`, `source`, `playStatus` (as today)
-plus `stationName`, `art` (with `artImageStatus`), `ContentItem` (`source`/`type`/
-`location` attrs, `itemName`, `containerArt`), `sourceAccount`, `time` (`total` +
-position), `skipEnabled`, `skipPreviousEnabled`, `favoriteEnabled`, `seekSupported`,
-`shuffleSetting`, `repeatSetting`, `streamType`, `trackID`, `position`, `description`,
-`stationLocation`. Missing elements stay absent; malformed payloads stay non-fatal.
-
-The Remote panel uses the extra data:
-
-- **Title fallback** (gesellix display order): `track` → `stationName` →
-  `ContentItem.itemName` → "No station playing".
-- **Meta line**: artist, falling back to `description`, joined with album/source as today.
-- **Next/Prev gating** (presence-based per the gesellix reference): Next is disabled while
-  `skipEnabled` is absent, Prev disabled while `skipPreviousEnabled` is absent; enabled
-  when present — the live-verification checklist confirms the real speaker's semantics.
-- **Artwork**: when `art` carries a URL (falling back to `ContentItem.containerArt`), the
-  panel renders it best-effort; a broken or CORS/mixed-content-blocked image degrades
-  silently and the text state stays intact.
-
-The remaining fields are stored in state for future features (time/shuffle/repeat/seek/
-favorite/stream type/station location) — no UI beyond the above.
-
-#### Full device-info widget
-
-The `info` snapshot RESPONSE populates the full device-info payload (API-NOTES.md "Device
-info"): the `deviceID` attribute plus `name`, `type`, `moduleType`, `variant`,
-`variantMode`, `countryCode`, `regionCode`, `networkInfo` (MAC/IP), `components` (serial
-numbers, firmware versions), `margeURL`, `margeAccountUUID`. The widget renders the curated
-set — device ID, name, type, module type, variant, IP, firmware — one row
-per field, each row rendered only when its data exists (the ID row once any used message
-carries it, as today). The new row labels ship in all four languages.
-
-#### Play/pause sync without echo loops
-
-The play/pause button keeps deriving from the WebSocket-confirmed `devicePlayStatus`
-(`PLAY_STATE` → Pause icon, else Play); a local command POST never writes live device state
-(the no-echo-loop rule is unchanged). Because the verbose snapshot RESPONSEs populate the
-state on connect and reconnect, the button and the now-playing panel are in sync right
-after a connection opens or reopens — the panel no longer stays blank until the first
-pushed event.
-
-### User flows
-
-1. **Lock-screen control** — lock the phone → see now-playing metadata on the lock screen and
-   control playback from there (supported browsers only).
-2. **Verbose connect** — open the app with a saved address → the snapshot RESPONSEs populate
-   the Remote panel (title with fallbacks, artist/meta line, play-status chip, artwork when
-   present) and the full device-info widget within ~1s; after a reconnect the reopened
-   socket's on-open snapshot re-syncs the same way (the last-known state stays visible
-   during the drop).
-
-### Acceptance criteria
-
-- Lock screen: metadata + actions appear while connected on supported browsers.
-- After connection open and after each reconnect, the Remote panel shows the title (`track`
-  → `stationName` → `itemName` fallback), the artist/meta line, and the play-status chip
-  from the snapshot RESPONSEs — not blank until a pushed event.
-- The play/pause button and chip reflect the WebSocket-confirmed play status; command POSTs
-  never change them (no echo loop).
-- Next/Prev render disabled when the payload reports skip unavailable (absent skip flag per
-  the reference); enabled otherwise.
-- Artwork renders when present and degrades silently when broken or blocked.
-- The info widget shows the curated rows (id, name, type, module type, variant, serial, IP,
-  firmware), each rendered only when its data exists; the new row labels exist in all four
-  languages.
-- The API-NOTES.md live-verification checklist items for the verbose RESPONSE shapes are
-  verified/ticked against a real speaker; the parser and docs are corrected if the real
-  device differs from the pinned shapes.
-- `npm test`, `npx tsc --noEmit --skipLibCheck`, and `npm run build` pass.
-
-### Edge cases
-
-- Multiple browser tabs — last-write-wins, accepted limitation.
 - Speaker reachable but the Radio Browser source is inactive (`INVALID_SOURCE`) — show a
-  plain-language hint to check the AfterTouch Health tab (planned with the FR-4/FR-5
-  extension).
+  plain-language hint to check the AfterTouch Health tab.
 - Station stream fails on the device — surface the device error event (the WebSocket
   now-playing events make the error state observable).
-- Info payload with some fields missing — only the known rows render.
-- Now-playing payload with no `track`/`stationName`/`itemName` — "No station playing".
-- `skipEnabled`/`skipPreviousEnabled` absent — the corresponding button stays disabled
-  (presence-based per the reference; semantics pending live confirmation).
-- Broken or CORS/mixed-content-blocked art URL — the image is hidden, the text state stays
-  intact, never fatal.
 
 ## Non-goals (v1)
 
