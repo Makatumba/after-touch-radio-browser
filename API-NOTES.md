@@ -378,17 +378,21 @@ relies on:
   Browser source is inactive) specially. `INVALID_SOURCE` payloads are assumed to carry no
   `ContentItem`/track and a `STOP_STATE` play status; pending live confirmation.
 - `ContentItem.location`: the app matches the echoed location against the exact
-  `/stations/byuuid/<uuid>` it POSTed in `/select`. The documented payload example above shows
-  a `/v1/play/...` form, so the echo behavior is unverified — if the device transforms the
-  location, the app falls back to source + `PLAY_STATE` matching, only when the device was not
-  already playing a Radio Browser station at send time AND the echoed location is not a
-  canonical `/stations/byuuid/` path (a canonical location different from the pending one
-  belongs to a different station). The `type` attribute is ignored for
-  matching (the app sends `stationurl`; the device may echo `STATION`).
+  `/stations/byuuid/<uuid>` it POSTed in `/select`. Verified against the live SoundTouch 10
+  (2026-08-05): the device echoes the location verbatim for a `RADIO_BROWSER` `stationurl`
+  send. (The `/v1/play/...` form in the payload example above is from a different,
+  TuneIn-style source.) As defense, if the device ever transforms the location, the app
+  falls back to source + `PLAY_STATE` matching, only when the device was not already playing
+  a Radio Browser station at send time AND the echoed location is not a canonical
+  `/stations/byuuid/` path (a canonical location different from the pending one belongs to
+  a different station). The `type` attribute is ignored for matching (the app sends
+  `stationurl`; the device echoes `stationurl` back — verified live).
 - Station-start play-status sequence: `BUFFERING_STATE` → `PLAY_STATE` is assumed, and only
   `PLAY_STATE` confirms (silently — the Remote panel mirrors the state); a matching payload
   with `STOP_STATE` is the stream-failure signal; a device that emits nothing fails the app's
-  15-second confirmation timeout. All pending live confirmation.
+  15-second confirmation timeout. Verified live (2026-08-05): a fresh `POST /select` reached
+  `PLAY_STATE` within ~5 seconds — inside the timeout (the `BUFFERING_STATE` intermediate
+  step was not captured).
 
 ### Commands — HTTP API (port 8090)
 
@@ -414,9 +418,15 @@ fire-and-forget and reconciles from WebSocket events (no echo loops).
   `>`, `"`, `'`) — station names and favicon URLs routinely contain `&`. The send is
   fire-and-forget; confirmation comes from the WebSocket echo (`ContentItem.location`
   matching — the children never affect the attribute-based matching, the M5 fallback, or the
-  short-circuit). Whether the AfterTouch `RADIO_BROWSER` source displays the sent artwork on
-  the device display is pending live verification (checklist below) — the artwork send is
-  best-effort and never affects playback.
+  short-circuit). Verified against the live SoundTouch 10 (2026-08-05): the device accepts
+  the body with children (`<status>/select</status>`, no `CLIENT_XML_ERROR`), stores the
+  sent `<itemName>`/`<containerArt>` and echoes them back verbatim in the now-playing
+  `ContentItem` (both in the snapshot and the pushed `nowPlayingUpdated`), adding
+  `isPresetable="true"` itself. The top-level `<art>` element stays
+  `artImageStatus="SHOW_DEFAULT_IMAGE"` with no URL — the RADIO_BROWSER source does not
+  propagate the sent artwork into the device's art field, so the app's Remote panel artwork
+  relies on the echoed `ContentItem.containerArt` fallback. The artwork send is best-effort
+  and never affects playback.
 - **POST `/key`** — transport commands. Each command is a press+release pair (two POSTs) with
   the `sender` attribute set to `"Gabbo"` — the standard sender from the Bose documentation,
   used by this app. `sender` is mandatory: non-standard senders (`GoClient`, `"SoundTouch
@@ -459,21 +469,26 @@ fire-and-forget and reconciles from WebSocket events (no echo loops).
       `time`, `skipEnabled`, `skipPreviousEnabled`, `favoriteEnabled`, `seekSupported`,
       `shuffleSetting`, `repeatSetting`, `streamType`, `trackID`, `position`,
       `description`, `stationLocation`).
-- [ ] The pushed `nowPlayingUpdated` events carry the same verbose fields as the snapshot
-      RESPONSE bodies (title fallback and skip-flag gating work from both paths).
+- [x] The pushed `nowPlayingUpdated` events carry the same verbose fields as the snapshot
+      bodies — captured 2026-08-05 from the live speaker: the pushed payload matched the
+      HTTP `GET now_playing` payload field-for-field, including the echoed `ContentItem` with
+      `<itemName>`/`<containerArt>` (the WS REST-proxy RESPONSE envelope shape remains the
+      item above).
 - [ ] `skipEnabled` / `skipPreviousEnabled` semantics on a source where the speaker
       disables skipping: empty presence elements (absent → disabled) vs. any text value the
       firmware actually sends, and Next/Prev render accordingly.
 - [ ] The `art` URL resolves (or degrades silently when unreachable or
       CORS/mixed-content-blocked on the HTTPS-hosted app).
-- [ ] The device display honors the `<containerArt>` URL sent in the `POST /select` body for a
-      `RADIO_BROWSER` station (the app is specified to send the station `favicon`/cached URL
-      in `<containerArt>` per the pinned form above; if the source derives art
-      exclusively, record the real behavior — the app keeps sending best-effort).
-- [ ] After `POST /select` of a Radio Browser station, the pushed `nowPlayingUpdated` echoes the
-      sent `ContentItem.location` verbatim (`/stations/byuuid/<uuid>`) or transforms it (record
-      the real form; the app's source + `PLAY_STATE` fallback depends on it), and carries
-      `playStatus` `PLAY_STATE` after `BUFFERING_STATE`.
+- [x] The device honors the `<containerArt>` URL sent in the `POST /select` body for a
+      `RADIO_BROWSER` station (verified 2026-08-05): the device accepts the children and
+      echoes `<containerArt>` (and `<itemName>`) back verbatim in the now-playing
+      `ContentItem`, but the top-level `<art>` remains `SHOW_DEFAULT_IMAGE` — the source does
+      not propagate the sent art into the device art field. The app keeps sending best-effort;
+      the Remote panel artwork comes from the echoed `containerArt` fallback.
+- [x] After `POST /select` of a Radio Browser station, the pushed `nowPlayingUpdated` echoes the
+      sent `ContentItem.location` verbatim (`/stations/byuuid/<uuid>`) — verified 2026-08-05,
+      with `playStatus` `PLAY_STATE` observed within ~5 seconds of the send (`BUFFERING_STATE`
+      not captured).
 - [ ] With the Radio Browser source inactive, the device emits `source="INVALID_SOURCE"` on the
       `<nowPlaying>` element (with or without `ContentItem`/track) and its `playStatus` value.
 - [ ] With a dead station URL, the device's observable behavior: matching `ContentItem` with
