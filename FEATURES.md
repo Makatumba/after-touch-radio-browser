@@ -615,7 +615,13 @@ an optimistic message.
   never POSTs, fetches, or requests snapshots; live state itself is written only from
   WebSocket events.
 
-## Planned (wave 4)
+## Implemented (wave 4)
+
+Shipped in the station-artwork wave: station cards and the Remote panel show each station's
+artwork (the Radio Browser `favicon` field) behind skeleton placeholders, loaded
+non-blocking and cached per station; the Remote panel's now-playing view shows the station
+artwork with the device-reported `art`/`containerArt` fallback. The artwork send with play
+(FR-4 integration) remains pending live verification against a real speaker.
 
 ### FR-6 Station artwork
 
@@ -676,7 +682,7 @@ skeleton placeholder covers every load.
   shows the artwork in the speaker's now-playing view with the skeleton pattern and the
   device-reported `art`/`containerArt` fallback.
 - Any new UI strings ship in all four languages (`en`, `de`, `ru`, `ukr`).
-- `npm test`, `npx tsc --noEmit --skipLibCheck`, and `npm run build` pass once implemented.
+- `npm test`, `npx tsc --noEmit --skipLibCheck`, and `npm run build` pass.
 
 #### Edge cases (wave 4)
 
