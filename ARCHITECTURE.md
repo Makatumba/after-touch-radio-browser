@@ -204,9 +204,12 @@ graph TD
 - **Station artwork (FR-6)**: `src/artwork.ts` owns all artwork loading/rendering. Station
   cards render the `favicon` URL (new optional `Station.favicon` field, from the Radio
   Browser API) as a fixed-size `.artwork-slot` in a new `.station-head` area; the Remote
-  panel's now-playing view renders `playingStationArtUrl(state)` (current station
-  `favicon` → cached URL by `stationuuid` → `''`) falling back to the device-reported
-  `detail.art` → `ContentItem.containerArt`. Every slot is `renderArtworkSlot(url, uuid?)`:
+  panel's now-playing view renders the device-reported logo first — `ContentItem.containerArt`
+  (the artwork the speaker echoes in the WS payload) → `detail.art` →
+  `playingStationArtUrl(state)` (current station `favicon` → cached URL by `stationuuid` →
+  `''`) — the WS truth pairs with the WS-derived title; the slot uuid follows the echoed
+  station when the device reports a canonical `/stations/byuuid/<uuid>` location, else the
+  highlighted station's. Every slot is `renderArtworkSlot(url, uuid?)`:
   `''` for an empty URL, a `.artwork-skeleton` span carrying `data-art-url`/`data-art-uuid`
   (CSS shimmer, disabled under `prefers-reduced-motion`) while loading, an
   `<img class="artwork-slot" src="…" alt="" loading="lazy">` (escaped, no inline JS, never

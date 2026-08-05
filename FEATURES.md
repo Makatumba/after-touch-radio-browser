@@ -619,8 +619,9 @@ an optimistic message.
 
 Shipped in the station-artwork wave: station cards and the Remote panel show each station's
 artwork (the Radio Browser `favicon` field) behind skeleton placeholders, loaded
-non-blocking and cached per station; the Remote panel's now-playing view shows the station
-artwork with the device-reported `art`/`containerArt` fallback. The artwork send with play
+non-blocking and cached per station; the Remote panel's now-playing view shows the
+device-reported logo first (WS-emitted `ContentItem.containerArt` → device `art`) with the
+app-side `favicon` as fallback. The artwork send with play
 (FR-4 integration) is pinned to the wire form below — the send itself is the next
 implementation item; the wire form is live-verified against a SoundTouch 10 (2026-08-05),
 see the FR-6 spec bullet.
@@ -657,16 +658,20 @@ skeleton placeholder covers every load.
   the station name (`<itemName>`) and the station artwork URL (`<containerArt>`, the
   `favicon` falling back to the per-station cache) as `ContentItem` children — included only
   when known, XML-escaped, matching the reference implementation's `ContentItem` contract
-  (`omitempty` semantics). The send is best-effort: the app's Remote panel shows the station
-  artwork in the now-playing view with the same skeleton pattern, falling back to the
-  device-reported `art`/`containerArt` when the station artwork is unavailable. The exact
+  (`omitempty` semantics). The send is best-effort and never affects playback. The exact
   wire form is pinned in [API-NOTES.md](API-NOTES.md) ("Commands — HTTP API, POST `/select`")
   and live-verified against a SoundTouch 10 (2026-08-05): the device accepts the body with
-  children, echoes `<itemName>`/`<containerArt>` back verbatim in the now-playing
-  `ContentItem`, and the app's Remote panel shows the artwork through the
-  `ContentItem.containerArt` fallback; the device's own `<art>` field stays
-  `SHOW_DEFAULT_IMAGE` — the RADIO_BROWSER source does not propagate the sent art into it, so
-  the send never affects playback.
+  children and echoes `<itemName>`/`<containerArt>` back verbatim in the now-playing
+  `ContentItem`; the device's own `<art>` field stays `SHOW_DEFAULT_IMAGE` — the RADIO_BROWSER
+  source does not propagate the sent art into it.
+- **Remote panel reads the device logo (WS-first)**: the now-playing artwork comes from the
+  logo the speaker emits in the pushed `nowPlayingUpdated` — `ContentItem.containerArt`
+  first (the echoed send URL — device truth, paired with the WS-derived title), then the
+  device `art`, then the app-side station `favicon` (`playingStationArtUrl`) as fallback,
+  then empty — all through the same skeleton slot contract. The cache write for a
+  WS-sourced logo is keyed under the station the device reports (the echoed
+  `/stations/byuuid/<uuid>` location's uuid when canonical), never under the app's
+  highlighted station — a device-initiated station's logo is never cached under a wrong uuid.
 - **Degradation**: an empty, dead, or CORS/mixed-content-blocked artwork URL (the app is
   hosted on HTTPS; many station favicons are plain http) degrades silently — the skeleton
   gives way to an empty slot, the text state stays intact, never fatal.
@@ -676,8 +681,8 @@ skeleton placeholder covers every load.
 1. **Browse with artwork** — open the app → station lists render immediately with skeleton
    thumbnails → each thumbnail fills in as its artwork loads (cached stations fill instantly).
 2. **Play with artwork** — tap a station → it plays on the speaker and the artwork (and
-   name) is sent with it (best-effort, per the pinned wire form) → the Remote panel shows
-   the station artwork in the now-playing view.
+   name) is sent with it (best-effort, per the pinned wire form) → the device echoes it and
+   the Remote panel shows the station artwork in the now-playing view.
 
 #### Acceptance criteria (wave 4)
 
@@ -688,9 +693,10 @@ skeleton placeholder covers every load.
 - The artwork URL is cached per `stationuuid` and reused across paging, mode changes,
   re-searches, favorites, and sessions; a malformed cache is ignored, never fatal.
 - Playing a station includes its artwork (and name, when known) in the send
-  (best-effort, XML-escaped, `omitempty`-style), and the Remote panel shows the artwork in
-  the speaker's now-playing view with the skeleton pattern and the device-reported
-  `art`/`containerArt` fallback.
+  (best-effort, XML-escaped, `omitempty`-style).
+- The Remote panel shows the now-playing artwork with the skeleton pattern, reading the
+  WS-emitted `ContentItem.containerArt` first, then the device `art`, then the app-side
+  station `favicon`; a WS-sourced logo is cached under the echoed station's uuid.
 - Any new UI strings ship in all four languages (`en`, `de`, `ru`, `ukr`).
 - `npm test`, `npx tsc --noEmit --skipLibCheck`, and `npm run build` pass.
 
