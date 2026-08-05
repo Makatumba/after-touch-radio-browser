@@ -1,5 +1,6 @@
 import {render, state} from './app';
 import {pingSoundtouch, sanitizeHost, soundtouchWsUrl} from './actions';
+import {cancelSendConfirmation, evaluateNowPlaying} from './confirmation';
 
 const BACKOFF_START_MS = 1000;
 const BACKOFF_CAP_MS = 30000;
@@ -131,6 +132,8 @@ function runProbe(host: string): void {
             probeFailures += 1;
             if (probeFailures >= PROBE_FAILURE_LIMIT) {
                 state.soundtouchStatus = 'unreachable';
+                // the offline banner covers the state — drop any pending confirmation
+                cancelSendConfirmation();
                 render();
             }
             scheduleRetry(host, runProbe);
@@ -192,6 +195,7 @@ export function checkSoundtouchOnStartup(savedAddress: string): void {
     pingSoundtouch(savedAddress).then(ok => {
         if (state.soundtouchAddress === savedAddress) {
             state.soundtouchStatus = ok ? 'available' : 'unreachable';
+            if (!ok) cancelSendConfirmation();
             render();
             if (ok) requestSnapshot();
         }
@@ -237,8 +241,10 @@ function handleUpdates(root: Element): void {
     }
 
     if (nowPlayingUpdated) {
-        applyNowPlaying(nowPlayingUpdated.querySelector('nowPlaying'));
-        changed = true;
+        if (applyNowPlaying(nowPlayingUpdated.querySelector('nowPlaying'))) {
+            changed = true;
+            evaluateNowPlaying();
+        }
     }
 
     if (applyVolume(volumeWithData)) changed = true;
@@ -381,7 +387,10 @@ function handleResponse(root: Element): void {
         changed = true;
     }
 
-    if (applyNowPlaying(nowPlaying)) changed = true;
+    if (applyNowPlaying(nowPlaying)) {
+        changed = true;
+        evaluateNowPlaying();
+    }
     if (applyVolume(volume)) changed = true;
     // applyInfo overrides the header id with the <info> element's own
     // deviceID attribute when both are present (the pinned precedence)
