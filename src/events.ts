@@ -82,14 +82,9 @@ export function setupEvents(): void {
             case 'saveSoundtouch': {
                 const raw = document.querySelector<HTMLInputElement>('#soundtouch')?.value || '';
                 const host = sanitizeHost(raw);
-                // Persist only when the save settles configuration state (first
-                // setup or clearing); a live address change keeps the in-memory
-                // value without touching the stored one.
-                const firstConfig = state.soundtouchAddress === '';
                 state.soundtouchAddress = host;
-                if (firstConfig || !host) {
-                    localStorage.setItem('radio-browser-soundtouch-host', host);
-                }
+                // FR-2: the address is persisted on every save (first setup, changes, clearing)
+                localStorage.setItem('radio-browser-soundtouch-host', host);
                 cancelSendConfirmation();
                 state.soundtouchStatus = host ? 'checking' : 'idle';
                 render();
