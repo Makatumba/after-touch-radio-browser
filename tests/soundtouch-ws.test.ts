@@ -6,6 +6,7 @@ import { renderRemotePanel } from '../src/components/remote';
 import { getLabels, translations } from '../src/i18n';
 import { defaultSettings } from '../src/settings';
 import { getAudioElement } from '../src/player';
+import { resetArtworkState } from '../src/artwork';
 
 const LS_LANGUAGE = 'radio-browser-language';
 const LS_SOUNDTOUCH = 'radio-browser-soundtouch-host';
@@ -1514,6 +1515,15 @@ describe('remote control panel', () => {
         beforeEach(() => {
             FakeImage.instances = [];
             vi.stubGlobal('Image', FakeImage);
+            // the artwork registry and the per-station cache are module/global
+            // state shared across the whole file — reset both so every slot
+            // test starts from an unprimed registry (a settled URL or a cached
+            // art key from an earlier test would render an img, not a skeleton)
+            resetArtworkState();
+            for (let i = localStorage.length - 1; i >= 0; i--) {
+                const key = localStorage.key(i);
+                if (key?.startsWith('radio-browser-art-')) localStorage.removeItem(key);
+            }
         });
 
         it('shows a skeleton artwork slot while the art URL is unprimed, then a single img.artwork-slot with escaped src, empty alt, and no inline onerror once ready', () => {
@@ -1543,18 +1553,81 @@ describe('remote control panel', () => {
             expect(document.querySelector('#app')!.innerHTML).toContain('a=1&amp;b=2');
         });
 
-        it('falls the artwork back to ContentItem.containerArt when art is empty', () => {
+        it('prefers WS-emitted ContentItem.containerArt over the device art and the app-side favicon', () => {
             wsState.wsStatus = 'connected';
-            const containerArtUrl = 'http://192.168.1.42:8090/v1/container-art.png';
-            wsState.deviceNowPlayingDetail = detail({art: '', contentItem: contentItem({containerArt: containerArtUrl})});
-            render();
-            expect(FakeImage.instances).toHaveLength(1);
-            FakeImage.instances[0].onload?.();
+            const containerArtUrl = 'http://192.168.1.42:8090/v1/ws-chain-container-art.png';
+            const artUrl = 'http://192.168.1.42:8090/v1/ws-chain-art.png';
+            state.stations = [{ stationuuid: 'hl-uuid', name: 'Highlighted', favicon: 'http://cdn.example.com/hl-favicon.png' }];
+            state.currentIndex = 0;
+            wsState.deviceNowPlayingDetail = detail({ art: artUrl, contentItem: contentItem({ containerArt: containerArtUrl }) });
             render();
 
-            const imgs = document.querySelectorAll('img.artwork-slot');
+            // the WS-emitted containerArt URL is what gets fetched and rendered —
+            // the highlighted station's favicon (the app-side fallback) loses to it
+            const artImage = FakeImage.instances.find(img => img.src === containerArtUrl);
+            expect(artImage).toBeDefined();
+            artImage!.onload?.();
+            render();
+
+            const imgs = document.querySelectorAll('.remote-nowplaying img.artwork-slot');
             expect(imgs).toHaveLength(1);
             expect(imgs[0].getAttribute('src')).toBe(containerArtUrl);
+        });
+
+        it('renders the slot uuid from the echoed canonical /stations/byuuid/<uuid> location', () => {
+            wsState.wsStatus = 'connected';
+            const artUrl = 'http://192.168.1.42:8090/v1/echoed-location-art.png';
+            wsState.deviceNowPlayingDetail = detail({
+                art: artUrl,
+                contentItem: contentItem({ location: '/stations/byuuid/echo-uuid' }),
+            });
+            state.stations = [{ stationuuid: 'hl-uuid', name: 'Highlighted' }];
+            state.currentIndex = 0;
+            render();
+
+            const skeleton = document.querySelector('.remote-nowplaying span.artwork-slot.artwork-skeleton');
+            expect(skeleton).not.toBeNull();
+            // the echoed station's uuid keys the slot, never the highlighted one
+            expect(skeleton!.getAttribute('data-art-url')).toBe(artUrl);
+            expect(skeleton!.getAttribute('data-art-uuid')).toBe('echo-uuid');
+        });
+
+        it.each<string>([
+            '/v1/play/1',
+            '/stations/byuuid/',
+            '/stations/byuuid/uuid-2/',
+            '/stations/byuuid/uuid-3/extra',
+            '',
+        ])('falls back to the highlighted station uuid for the non-canonical echoed location %j', (location) => {
+            wsState.wsStatus = 'connected';
+            const artUrl = 'http://192.168.1.42:8090/v1/fallback-location-art.png';
+            wsState.deviceNowPlayingDetail = detail({
+                art: artUrl,
+                contentItem: contentItem({ location }),
+            });
+            state.stations = [{ stationuuid: 'hl-uuid', name: 'Highlighted' }];
+            state.currentIndex = 0;
+            render();
+
+            const skeleton = document.querySelector('.remote-nowplaying span.artwork-slot.artwork-skeleton');
+            expect(skeleton).not.toBeNull();
+            expect(skeleton!.getAttribute('data-art-uuid')).toBe('hl-uuid');
+        });
+
+        it('renders no data-art-uuid when neither the echoed location is canonical nor a station is highlighted', () => {
+            wsState.wsStatus = 'connected';
+            const artUrl = 'http://192.168.1.42:8090/v1/no-uuid-art.png';
+            wsState.deviceNowPlayingDetail = detail({
+                art: artUrl,
+                contentItem: contentItem({ location: '/v1/play/1' }),
+            });
+            state.stations = [];
+            state.currentIndex = -1;
+            render();
+
+            const skeleton = document.querySelector('.remote-nowplaying span.artwork-slot.artwork-skeleton');
+            expect(skeleton).not.toBeNull();
+            expect(skeleton!.hasAttribute('data-art-uuid')).toBe(false);
         });
 
         it('renders no artwork when both art and containerArt are empty (never fatal), and an empty slot once the art URL fails', () => {
