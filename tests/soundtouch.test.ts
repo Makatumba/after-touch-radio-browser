@@ -5,6 +5,7 @@ import { getLabels, translations } from '../src/i18n';
 import { defaultSettings } from '../src/settings';
 import { getAudioElement } from '../src/player';
 import type { Station } from '../src/state';
+import { getArtworkLoadState, loadArtworkCache, resetArtworkState, saveArtworkCache } from '../src/artwork';
 
 const LS_LANGUAGE = 'radio-browser-language';
 const LS_SOUNDTOUCH = 'radio-browser-soundtouch-host';
@@ -208,6 +209,167 @@ describe('sendToSoundtouch — explicit port', () => {
         const url = fetchMock.mock.calls[0][0] as string;
         expect(url).toBe('http://192.168.1.42:1234/select');
         expect(state.soundtouchStatus).toBe('available');
+    });
+});
+
+// FR-6 artwork send-with-play: the /select body carries the station name
+// (<itemName>) and the artwork URL (<containerArt>) as ContentItem children when
+// known — omitempty per child, XML-escaped, 4-space-indented, itemName before
+// containerArt — and omitting both keeps the exact self-closed form (zero wire
+// regression). Artwork resolution is from the station in hand (favicon →
+// per-station cache → none), never from the playing state, and a known URL is
+// persisted and background-verified via rememberStationArtwork.
+const LS_ART_PREFIX = 'radio-browser-art-';
+
+const LOCATION = (uuid: string) => `/stations/byuuid/${uuid}`;
+const SELF_CLOSED_BODY = (uuid: string) =>
+    `<ContentItem source="RADIO_BROWSER" type="stationurl" location="${LOCATION(uuid)}"/>`;
+
+const stationWith = (overrides: Partial<Station> = {}): Station => ({ ...STATION, ...overrides });
+
+// jsdom never fires Image load/error events, and the artwork module must
+// resolve `Image` at request time (plain global lookup) for this stub to be
+// seen — the remember-driven background verification is observed black-box.
+class FakeImage {
+    static instances: FakeImage[] = [];
+    src = '';
+    onload: (() => void) | null = null;
+    onerror: (() => void) | null = null;
+
+    constructor() {
+        FakeImage.instances.push(this);
+    }
+}
+
+describe('sendToSoundtouch — FR-6 artwork children', () => {
+    beforeEach(() => {
+        FakeImage.instances = [];
+        vi.stubGlobal('Image', FakeImage);
+        resetArtworkState();
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+            const key = localStorage.key(i);
+            if (key?.startsWith(LS_ART_PREFIX)) localStorage.removeItem(key);
+        }
+    });
+
+    it('keeps the exact self-closed body when neither the name nor the artwork is known (zero wire regression)', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({} as Response);
+        vi.stubGlobal('fetch', fetchMock);
+
+        await sendToSoundtouch(stationWith({ name: '' }), state);
+
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+        expect(url).toBe('http://192.168.1.42:8090/select');
+        expect(String(init.body)).toBe(SELF_CLOSED_BODY('abc-123-def'));
+    });
+
+    it('includes itemName and containerArt as 4-space-indented children, itemName first, when both are known', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({} as Response);
+        vi.stubGlobal('fetch', fetchMock);
+
+        await sendToSoundtouch(stationWith({ name: 'Test FM', favicon: 'http://cdn.example.com/art.png' }), state);
+
+        expect(String(fetchMock.mock.calls[0][1].body)).toBe(`<ContentItem source="RADIO_BROWSER" type="stationurl" location="/stations/byuuid/abc-123-def">
+    <itemName>Test FM</itemName>
+    <containerArt>http://cdn.example.com/art.png</containerArt>
+</ContentItem>`);
+    });
+
+    it('XML-escapes the station name and the favicon URL in the children', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({} as Response);
+        vi.stubGlobal('fetch', fetchMock);
+
+        await sendToSoundtouch(
+            stationWith({ name: 'Rock & Roll <Live> "FM" \'Gold\'', favicon: 'http://cdn.example.com/a&b?x=1&y=2' }),
+            state
+        );
+
+        const body = String(fetchMock.mock.calls[0][1].body);
+        expect(body).toContain('<itemName>Rock &amp; Roll &lt;Live&gt; &quot;FM&quot; &#39;Gold&#39;</itemName>');
+        expect(body).toContain('<containerArt>http://cdn.example.com/a&amp;b?x=1&amp;y=2</containerArt>');
+        expect(body).not.toContain('Rock & Roll');
+        expect(body).not.toContain('a&b?');
+    });
+
+    it('emits only itemName when the artwork URL is unknown', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({} as Response);
+        vi.stubGlobal('fetch', fetchMock);
+
+        await sendToSoundtouch(stationWith({ name: 'Test FM' }), state);
+
+        const body = String(fetchMock.mock.calls[0][1].body);
+        expect(body).toContain('<itemName>Test FM</itemName>');
+        expect(body).not.toContain('<containerArt>');
+    });
+
+    it('emits only containerArt when the station name is empty', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({} as Response);
+        vi.stubGlobal('fetch', fetchMock);
+
+        await sendToSoundtouch(stationWith({ name: '', favicon: 'http://cdn.example.com/art.png' }), state);
+
+        const body = String(fetchMock.mock.calls[0][1].body);
+        expect(body).not.toContain('<itemName>');
+        expect(body).toContain('<containerArt>http://cdn.example.com/art.png</containerArt>');
+    });
+
+    it('resolves the artwork URL from the station favicon, falling back to the per-station cache', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({} as Response);
+        vi.stubGlobal('fetch', fetchMock);
+        const favicon = 'http://cdn.example.com/favicon.png';
+        const cached = 'http://cdn.example.com/cached.png';
+
+        saveArtworkCache('abc-123-def', cached);
+        await sendToSoundtouch(stationWith({ name: 'Test FM', favicon }), state);
+        expect(String(fetchMock.mock.calls[0][1].body)).toContain(`<containerArt>${favicon}</containerArt>`);
+
+        await sendToSoundtouch(stationWith({ name: 'Test FM' }), state);
+        expect(String(fetchMock.mock.calls[1][1].body)).toContain(`<containerArt>${cached}</containerArt>`);
+    });
+
+    it('never resolves the artwork from the playing state — only from the station in hand', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({} as Response);
+        vi.stubGlobal('fetch', fetchMock);
+
+        state.stations = [stationWith({ name: 'Playing station', favicon: 'http://cdn.example.com/playing.png' })];
+        state.currentIndex = 0;
+
+        await sendToSoundtouch(stationWith({ name: 'Test FM' }), state);
+
+        const body = String(fetchMock.mock.calls[0][1].body);
+        expect(body).not.toContain('<containerArt>');
+        expect(body).not.toContain('playing.png');
+    });
+
+    it('persists and background-verifies the artwork URL when the send knows one — favicon or cache', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({} as Response);
+        vi.stubGlobal('fetch', fetchMock);
+        const favicon = 'http://cdn.example.com/favicon.png';
+        const cached = 'http://cdn.example.com/cached.png';
+
+        await sendToSoundtouch(stationWith({ name: 'Test FM', favicon }), state);
+        expect(loadArtworkCache('abc-123-def')).toBe(favicon);
+        expect(getArtworkLoadState(favicon)).toBe('loading');
+        expect(FakeImage.instances).toHaveLength(1);
+        expect(FakeImage.instances[0].src).toBe(favicon);
+
+        saveArtworkCache('abc-123-def', cached);
+        await sendToSoundtouch(stationWith({ name: 'Test FM' }), state);
+        expect(loadArtworkCache('abc-123-def')).toBe(cached);
+        expect(getArtworkLoadState(cached)).toBe('loading');
+        expect(FakeImage.instances).toHaveLength(2);
+        expect(FakeImage.instances[1].src).toBe(cached);
+    });
+
+    it('starts no verification and writes no cache when the artwork URL is unknown', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({} as Response);
+        vi.stubGlobal('fetch', fetchMock);
+
+        await sendToSoundtouch(stationWith({ name: 'Test FM' }), state);
+
+        expect(FakeImage.instances).toHaveLength(0);
+        expect(loadArtworkCache('abc-123-def')).toBeNull();
     });
 });
 
