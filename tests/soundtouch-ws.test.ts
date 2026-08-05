@@ -128,6 +128,20 @@ class FakeWebSocket {
     }
 }
 
+// jsdom never fires Image load/error events. The artwork module must resolve
+// `Image` at request time (plain global lookup) for this stub to be seen —
+// capturing it at module load would make every remote-art test here fail.
+class FakeImage {
+    static instances: FakeImage[] = [];
+    src = '';
+    onload: (() => void) | null = null;
+    onerror: (() => void) | null = null;
+
+    constructor() {
+        FakeImage.instances.push(this);
+    }
+}
+
 // Lets pingSoundtouch's probe settle under fake timers: its 5s watchdog timer
 // clears on settle, leaving only the reconnection backoff timer pending.
 const flush = async () => {
@@ -1489,37 +1503,78 @@ describe('remote control panel', () => {
         expect((document.querySelector('#remotePrev') as HTMLButtonElement).disabled).toBe(expected[1]);
     });
 
-    it('renders the art URL as a single img with escaped src, empty alt, and an onerror handler', () => {
-        wsState.wsStatus = 'connected';
-        wsState.deviceNowPlayingDetail = detail({art: 'http://192.168.1.42:8090/v1/art.png?a=1&b=2'});
-        render();
+    // FR-6 artwork slot contract: the Remote panel artwork renders through the
+    // artwork module's slot (skeleton while the device art URL is unprimed,
+    // img once ready, empty slot on failure) instead of the old inline-onerror
+    // img. The contract is pinned black-box through render(): src/artwork.ts
+    // does not exist until the FR-6 implementation wave, so any direct import
+    // would fail this whole file at load time and take the passing tests down
+    // with it — these three tests fail on the missing feature instead.
+    describe('artwork — FR-6 slot contract', () => {
+        beforeEach(() => {
+            FakeImage.instances = [];
+            vi.stubGlobal('Image', FakeImage);
+        });
 
-        const imgs = document.querySelectorAll('img.remote-art');
-        expect(imgs).toHaveLength(1);
-        const img = imgs[0];
-        expect(img.getAttribute('src')).toBe('http://192.168.1.42:8090/v1/art.png?a=1&b=2');
-        expect(img.getAttribute('alt')).toBe('');
-        expect(img.hasAttribute('onerror')).toBe(true);
-        // escaped in the raw HTML
-        expect(document.querySelector('#app')!.innerHTML).toContain('a=1&amp;b=2');
-    });
+        it('shows a skeleton artwork slot while the art URL is unprimed, then a single img.artwork-slot with escaped src, empty alt, and no inline onerror once ready', () => {
+            wsState.wsStatus = 'connected';
+            const artUrl = 'http://192.168.1.42:8090/v1/art.png?a=1&b=2';
+            wsState.deviceNowPlayingDetail = detail({art: artUrl});
+            render();
 
-    it('falls the artwork back to ContentItem.containerArt when art is empty', () => {
-        wsState.wsStatus = 'connected';
-        wsState.deviceNowPlayingDetail = detail({art: '', contentItem: contentItem({containerArt: 'http://192.168.1.42:8090/v1/container-art.png'})});
-        render();
+            // unprimed → skeleton placeholder carrying the URL for the background fetch
+            const skeleton = document.querySelector('span.artwork-slot.artwork-skeleton');
+            expect(skeleton).not.toBeNull();
+            expect(skeleton!.getAttribute('data-art-url')).toBe(artUrl);
+            expect(document.querySelector('img.artwork-slot')).toBeNull();
 
-        const imgs = document.querySelectorAll('img.remote-art');
-        expect(imgs).toHaveLength(1);
-        expect(imgs[0].getAttribute('src')).toBe('http://192.168.1.42:8090/v1/container-art.png');
-    });
+            // render()'s background scan requested the URL; settle the load
+            expect(FakeImage.instances).toHaveLength(1);
+            FakeImage.instances[0].onload?.();
+            render();
 
-    it('renders no artwork when both art and containerArt are empty (never fatal)', () => {
-        wsState.wsStatus = 'connected';
-        wsState.deviceNowPlayingDetail = detail({art: '', contentItem: contentItem({containerArt: ''})});
+            const imgs = document.querySelectorAll('img.artwork-slot');
+            expect(imgs).toHaveLength(1);
+            const img = imgs[0];
+            expect(img.getAttribute('src')).toBe(artUrl);
+            expect(img.getAttribute('alt')).toBe('');
+            expect(img.hasAttribute('onerror')).toBe(false);
+            // escaped in the raw HTML
+            expect(document.querySelector('#app')!.innerHTML).toContain('a=1&amp;b=2');
+        });
 
-        expect(() => render()).not.toThrow();
-        expect(document.querySelector('img.remote-art')).toBeNull();
+        it('falls the artwork back to ContentItem.containerArt when art is empty', () => {
+            wsState.wsStatus = 'connected';
+            const containerArtUrl = 'http://192.168.1.42:8090/v1/container-art.png';
+            wsState.deviceNowPlayingDetail = detail({art: '', contentItem: contentItem({containerArt: containerArtUrl})});
+            render();
+            expect(FakeImage.instances).toHaveLength(1);
+            FakeImage.instances[0].onload?.();
+            render();
+
+            const imgs = document.querySelectorAll('img.artwork-slot');
+            expect(imgs).toHaveLength(1);
+            expect(imgs[0].getAttribute('src')).toBe(containerArtUrl);
+        });
+
+        it('renders no artwork when both art and containerArt are empty (never fatal), and an empty slot once the art URL fails', () => {
+            wsState.wsStatus = 'connected';
+            wsState.deviceNowPlayingDetail = detail({art: '', contentItem: contentItem({containerArt: ''})});
+
+            expect(() => render()).not.toThrow();
+            expect(document.querySelector('.artwork-slot')).toBeNull();
+            expect(FakeImage.instances).toHaveLength(0);
+
+            // a dead/blocked art URL degrades to the empty slot — never an img
+            const artUrl = 'http://192.168.1.42:8090/v1/dead.png';
+            wsState.deviceNowPlayingDetail = detail({art: artUrl});
+            render();
+            expect(FakeImage.instances).toHaveLength(1);
+            FakeImage.instances[0].onerror?.();
+            render();
+            expect(document.querySelector('span.artwork-slot--empty')).not.toBeNull();
+            expect(document.querySelector('img.artwork-slot')).toBeNull();
+        });
     });
 
     it('populates the panel at connect time from the verbose now_playing RESPONSE', () => {
