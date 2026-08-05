@@ -246,19 +246,73 @@ describe('scanArtwork', () => {
 });
 
 describe('rememberStationArtwork', () => {
-    it('marks the URL ready and writes the cache for a station uuid', () => {
+    it('starts a real background verification for an absent URL — loading until the Image settles, cache persisted at once', () => {
         rememberStationArtwork('uuid-r', ART_URL_2);
-        expect(getArtworkLoadState(ART_URL_2)).toBe('ready');
+
+        // not ready: a genuine Image load must verify the URL first
+        expect(getArtworkLoadState(ART_URL_2)).toBe('loading');
+        expect(FakeImage.instances).toHaveLength(1);
+        expect(FakeImage.instances[0].src).toBe(ART_URL_2);
+        // the cache write is unconditional for a known URL (persist at send time)
         expect(loadArtworkCache('uuid-r')).toBe(ART_URL_2);
         expect(localStorage.getItem(`${LS_ART_PREFIX}uuid-r`)).toBe(JSON.stringify(ART_URL_2));
+
+        FakeImage.instances[0].onload?.();
+        expect(getArtworkLoadState(ART_URL_2)).toBe('ready');
     });
 
-    it('marks the URL ready but writes no cache for an empty uuid', () => {
+    it('a dead URL settles through the pipeline to error and renders the empty slot, never an img', () => {
+        rememberStationArtwork('uuid-r', ART_URL_2);
+        expect(getArtworkLoadState(ART_URL_2)).toBe('loading');
+
+        FakeImage.instances[0].onerror?.();
+        expect(getArtworkLoadState(ART_URL_2)).toBe('error');
+        expect(renderArtworkSlot(ART_URL_2)).toContain('artwork-slot--empty');
+        expect(renderArtworkSlot(ART_URL_2)).not.toContain('<img');
+    });
+
+    it('writes no cache for an empty uuid but still verifies the URL', () => {
         rememberStationArtwork('', ART_URL_2);
-        expect(getArtworkLoadState(ART_URL_2)).toBe('ready');
+        expect(getArtworkLoadState(ART_URL_2)).toBe('loading');
+        expect(FakeImage.instances).toHaveLength(1);
+        expect(FakeImage.instances[0].src).toBe(ART_URL_2);
         for (let i = 0; i < localStorage.length; i++) {
             expect(localStorage.key(i)).not.toMatch(/^radio-browser-art-/);
         }
+    });
+
+    it('does nothing for an empty URL', () => {
+        rememberStationArtwork('uuid-r', '');
+        expect(FakeImage.instances).toHaveLength(0);
+        expect(loadArtworkCache('uuid-r')).toBeNull();
+    });
+
+    it('leaves an in-flight loading entry untouched (no second Image)', () => {
+        requestArtwork(ART_URL_2);
+        rememberStationArtwork('uuid-r', ART_URL_2);
+        expect(FakeImage.instances).toHaveLength(1);
+        expect(getArtworkLoadState(ART_URL_2)).toBe('loading');
+        expect(loadArtworkCache('uuid-r')).toBe(ART_URL_2);
+    });
+
+    it('never resurrects a known-dead URL', () => {
+        requestArtwork(ART_URL_2);
+        FakeImage.instances[0].onerror?.();
+        expect(getArtworkLoadState(ART_URL_2)).toBe('error');
+
+        rememberStationArtwork('uuid-r', ART_URL_2);
+        expect(getArtworkLoadState(ART_URL_2)).toBe('error');
+        expect(FakeImage.instances).toHaveLength(1);
+        expect(loadArtworkCache('uuid-r')).toBe(ART_URL_2);
+    });
+
+    it('is a no-op for an already-ready URL', () => {
+        requestArtwork(ART_URL_2);
+        FakeImage.instances[0].onload?.();
+        rememberStationArtwork('uuid-r', ART_URL_2);
+        expect(getArtworkLoadState(ART_URL_2)).toBe('ready');
+        expect(FakeImage.instances).toHaveLength(1);
+        expect(loadArtworkCache('uuid-r')).toBe(ART_URL_2);
     });
 });
 
