@@ -24,6 +24,7 @@ AfterTouch-RadioBrowser/
 │   ├── events.ts               # All user interaction via 3 delegated listeners
 │   ├── actions.ts              # Domain actions: sanitize, favorites, language, SoundTouch send/preview + remote commands (REMOTE_KEYS, sendKeyPress, sendVolume, sendMute, scheduleVolumeSend)
 │   ├── soundtouch-ws.ts        # WebSocket client: gabbo feed, XML parsing (full now-playing + device info), snapshot requests on connect + successful (re)connection checks, reconnect with backoff
+│   ├── confirmation.ts         # FR-4 play-confirmation watcher: module-local pending record, single 15s timer, writes only deviceMessage
 │   ├── api.ts                  # Radio Browser API client (axios): search/top/recent + languages/countries lists
 │   ├── i18n.ts                 # Translations en/de/ru/ukr (as const) + locale helpers (getLocale, localizeFilterOptions, filterLabelOverrides)
 │   ├── player.ts               # Persistent <audio> singleton
@@ -71,6 +72,7 @@ AfterTouch-RadioBrowser/
 | `src/api.ts` | Radio Browser API endpoints (search/top/recent + languages/countries lists; `searchStations` sends the mapped `order`/`reverse`) |
 | `src/actions.ts` | Playback, favorites, SoundTouch domain logic + remote commands (`REMOTE_KEYS`, `sendKeyPress`, `sendVolume`, `sendMute`, `scheduleVolumeSend`, `soundtouchWsUrl`) |
 | `src/soundtouch-ws.ts` | Live-state WebSocket client: gabbo feed, XML `<updates>` parsing (full now-playing payload + full device info), REST-proxy snapshot requests (`now_playing`/`volume`/`info`) on connect and on every successful (re)connection check, reconnect with backoff + `/info` probe |
+| `src/confirmation.ts` | Passive FR-4 play-confirmation watcher: module-local pending record (station name, exact location, pre-send radio-playing flag), single 15 s timer, writes only `deviceMessage` (XSS-escapes interpolations); armed/cancelled by `events.ts`, evaluated by `soundtouch-ws.ts` |
 | `src/i18n.ts` | 4-language translation dictionary + locale helpers (`getLocale`, `localizeFilterOptions`, `filterLabelOverrides`) |
 | `src/settings.ts` | Settings defaults + persistence |
 | `src/filter-cache.ts` | Filter option list localStorage persistence (raw `{value, label, code}` lists with validation) |
@@ -102,6 +104,10 @@ graph TD
     EVT --> WS
     WS --> APP
     WS --> ACT
+    EVT --> CONF[confirmation.ts]
+    WS --> CONF
+    CONF --> APP
+    CONF --> I18N
     ACT --> ST
     ACT --> I18N
     ACT --> PL
@@ -233,6 +239,20 @@ graph TD
   `deviceModuleType`/`deviceVariant`/`deviceIp`/`deviceFirmware` exist in
   all four languages). The `info` snapshot is re-requested on
   each successful (re)connection check.
+- **Play-on-speaker confirmation (FR-4)**: tapping play on a station arms a module-local
+  pending send in `src/confirmation.ts` — the `sendingToSpeaker` message with the
+  station/device interpolations (XSS-escaped at the write site) plus one 15 s timer —
+  before the `/select` POST. A tap for a station the device already plays (`PLAY_STATE`
+  with a matching `ContentItem.location`) short-circuits: no POST, no message, no pending.
+  `evaluateNowPlaying()` runs after every applied now-playing payload (pushed `<updates>`
+  and snapshot RESPONSEs) and resolves the pending send in M4 → M3 → M1 → M5 order:
+  `INVALID_SOURCE` → invalid-source hint; matching `STOP_STATE` → stream-failed hint;
+  matching location or a `RADIO_BROWSER` `PLAY_STATE` (when radio wasn't already playing
+  at send time) → silent confirm (message cleared, timer dropped); `BUFFERING_STATE` and
+  everything else keep waiting. The timer firing shows the timeout hint. Remote commands,
+  the volume slider, address save/clear, and the unreachable probe paths cancel the pending
+  send. **No echo loops**: the watcher only reads state and writes `deviceMessage` — it
+  never fetches, POSTs, or requests snapshots.
 - **Hosting**: `docs/` is committed deploy output for GitHub Pages; `dist/` and `.DS_Store`
   are gitignored. `public/` is copied to the dist/docs root by Vite; the favicon uses a
   relative `href="logo.png"` so it resolves under the GitHub Pages subpath. The manifest

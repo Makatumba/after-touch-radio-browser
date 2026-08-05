@@ -1,9 +1,11 @@
+import {getLabels} from './i18n';
 import type {Language} from './i18n';
 import type {Mode, SortKey, Station} from './state';
 import {state} from './app';
 import {render, refresh, searchFromInputs, reset, loadNextResultSet, loadPreviousResultSet} from './app';
 import {playStation, stopPlayback, toggleFavorite, sendToSoundtouch, setLanguage, pingSoundtouch, sanitizeHost, sendKeyPress, sendMute, scheduleVolumeSend, REMOTE_KEYS} from './actions';
 import {connectSoundtouchWs, closeSoundtouchWs, requestSnapshot} from './soundtouch-ws';
+import {armSendConfirmation, cancelSendConfirmation, confirmStationAlreadyPlaying} from './confirmation';
 import {defaultSettings, saveSettings} from './settings';
 
 export function setupEvents(): void {
@@ -22,7 +24,21 @@ export function setupEvents(): void {
         if (playBtn) {
             if (!state.soundtouchAddress || state.soundtouchStatus === 'unreachable') return;
             const s = state.stations.find((x: Station) => x.stationuuid === playBtn!.dataset.play);
-            if (s) { await sendToSoundtouch(s, state); render(); }
+            if (s) {
+                // FR-4: a station the device already plays never re-sends
+                if (confirmStationAlreadyPlaying(s, state)) { render(); return; }
+                armSendConfirmation(
+                    {
+                        stationName: s.name,
+                        location: `/stations/byuuid/${s.stationuuid}`,
+                        wasRadioBrowserPlaying: state.deviceSource === 'RADIO_BROWSER' && state.devicePlayStatus === 'PLAY_STATE',
+                    },
+                    getLabels(state),
+                    state.soundtouchDevice?.name ?? state.soundtouchAddress
+                );
+                await sendToSoundtouch(s, state);
+                render();
+            }
             return;
         }
 
@@ -43,6 +59,7 @@ export function setupEvents(): void {
         const remoteBtn = target.closest('#remotePlayPause, #remoteNext, #remotePrev, #remoteMute') as HTMLElement | null;
         if (remoteBtn) {
             if (state.wsStatus !== 'connected') return;
+            cancelSendConfirmation();
             switch (remoteBtn.id) {
                 case 'remotePlayPause': sendKeyPress(state.devicePlayStatus === 'PLAY_STATE' ? REMOTE_KEYS.pause : REMOTE_KEYS.play); break;
                 // presence gating: the delegated handler must not send while
@@ -65,9 +82,15 @@ export function setupEvents(): void {
             case 'saveSoundtouch': {
                 const raw = document.querySelector<HTMLInputElement>('#soundtouch')?.value || '';
                 const host = sanitizeHost(raw);
+                // Persist only when the save settles configuration state (first
+                // setup or clearing); a live address change keeps the in-memory
+                // value without touching the stored one.
+                const firstConfig = state.soundtouchAddress === '';
                 state.soundtouchAddress = host;
-                localStorage.setItem('radio-browser-soundtouch-host', host);
-                state.deviceMessage = '';
+                if (firstConfig || !host) {
+                    localStorage.setItem('radio-browser-soundtouch-host', host);
+                }
+                cancelSendConfirmation();
                 state.soundtouchStatus = host ? 'checking' : 'idle';
                 render();
                 if (host) {
@@ -126,6 +149,7 @@ export function setupEvents(): void {
         // remote volume slider: BEFORE the filter branch — it must never trigger a search
         if (target.id === 'remoteVolume') {
             if (state.wsStatus !== 'connected') return;
+            cancelSendConfirmation();
             scheduleVolumeSend(Number((target as HTMLInputElement).value));
             return;
         }

@@ -3,6 +3,7 @@ import {getLabels, getLocale} from './i18n';
 import type {Language} from './i18n';
 import {playStream, stopStream} from './player';
 import {state} from './app';
+import {cancelSendConfirmation} from './confirmation';
 
 const PING_TIMEOUT_MS = 5000;
 const VOLUME_DEBOUNCE_MS = 400;
@@ -158,11 +159,12 @@ export async function sendToSoundtouch(station: Station, state: State) {
         });
         if (state.soundtouchAddress === host) {
             state.soundtouchStatus = 'available';
-            state.deviceMessage = t.playingOnSpeaker;
         }
     } catch {
         if (state.soundtouchAddress === host) {
             state.soundtouchStatus = 'unreachable';
+            // drop any prior pending send before the failure message wins
+            cancelSendConfirmation(true);
             state.deviceMessage = t.sendFailed;
         }
     }
