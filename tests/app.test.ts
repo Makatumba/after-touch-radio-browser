@@ -6,7 +6,7 @@ import { getLabels, translations } from '../src/i18n';
 import { defaultSettings, loadSettings } from '../src/settings';
 import { setupEvents } from '../src/events';
 import { getAudioElement } from '../src/player';
-import type { Station } from '../src/state';
+import type { State, Station } from '../src/state';
 
 const LS_LANGUAGE = 'radio-browser-language';
 const LS_SOUNDTOUCH = 'radio-browser-soundtouch-host';
@@ -33,6 +33,31 @@ type SortableStation = Partial<Station> & { clicktrend?: number };
 // state.sort is added with the same feature. Until src/state.ts gains the
 // property, access it through this typed view so the tests stay type-clean.
 const sortView = state as unknown as { sort: SortKey };
+
+// The settings-modal API is added with the wave-5 settings-popup feature; the
+// cast keeps this file type-clean while src/settings-modal.ts does not exist
+// yet. A computed specifier (+ @vite-ignore) stops vite:import-analysis from
+// failing the whole file on the unresolved module, and the stub fallback turns
+// the RED into plain assertions (the popup simply never mounts) instead of a
+// load error — the real module replaces the stub once it exists.
+type SettingsModalApi = {
+    mountSettingsModal: (s: State) => void;
+    unmountSettingsModal: () => void;
+    syncSettingsModalState: (s: State) => void;
+};
+
+async function loadSettingsModal(): Promise<SettingsModalApi> {
+    const specifier = '../src/settings-modal';
+    try {
+        return (await import(/* @vite-ignore */ specifier)) as unknown as SettingsModalApi;
+    } catch {
+        return {
+            mountSettingsModal: () => {},
+            unmountSettingsModal: () => {},
+            syncSettingsModalState: () => {},
+        };
+    }
+}
 
 beforeEach(() => {
     document.body.innerHTML = '<div id="app"></div>';
@@ -150,10 +175,15 @@ describe('app', () => {
             expect(document.querySelector('#audio-widget')).toBeNull();
         });
 
-        it('renders the footer with the settings modal open', () => {
-            state.showSettings = true;
+        it('renders the footer with the settings modal open', async () => {
+            // Wave 5: the modal is mounted explicitly and survives a
+            // background render instead of being re-rendered from App().
+            const { mountSettingsModal } = await loadSettingsModal();
+            mountSettingsModal(state);
+            const overlay = document.querySelector('.modal-overlay');
+            expect(overlay).not.toBeNull();
             render();
-            expect(document.querySelector('.modal-overlay')).not.toBeNull();
+            expect(document.querySelector('.modal-overlay')).toBe(overlay);
             expect(document.querySelector('.app-shell > footer.footer')).not.toBeNull();
         });
 
@@ -622,9 +652,10 @@ describe('settings (FR-10)', () => {
         expect(loadSettings()).toEqual({ enablePreview: false });
     });
 
-    it('renders exactly one toggle in the settings modal', () => {
-        state.showSettings = true;
-        render();
+    it('renders exactly one toggle in the settings modal', async () => {
+        // Wave 5: the popup is mounted explicitly rather than baked into App().
+        const { mountSettingsModal } = await loadSettingsModal();
+        mountSettingsModal(state);
         const toggles = document.querySelectorAll('.modal-body input[type="checkbox"]');
         expect(toggles.length).toBe(1);
         const toggle = document.querySelector<HTMLInputElement>('#settingEnablePreview');
@@ -635,8 +666,9 @@ describe('settings (FR-10)', () => {
         expect(document.querySelector('#settingSoundtouchDefault')).toBeNull();
     });
 
-    it('reset restores default settings and persists them', () => {
-        state.showSettings = true;
+    it('reset restores default settings and persists them', async () => {
+        const { mountSettingsModal } = await loadSettingsModal();
+        mountSettingsModal(state);
         render();
         setupEvents();
 
@@ -649,6 +681,8 @@ describe('settings (FR-10)', () => {
         document.querySelector<HTMLButtonElement>('#resetSettings')!.click();
         expect(state.settings).toEqual({ enablePreview: false });
         expect(JSON.parse(localStorage.getItem(LS_SETTINGS)!)).toEqual({ enablePreview: false });
+        // Wave 5: reset also syncs the open popup's checkbox (syncSettingsModalState).
+        expect(document.querySelector<HTMLInputElement>('#settingEnablePreview')!.checked).toBe(false);
     });
 });
 
@@ -847,5 +881,112 @@ describe('settings popup fixes (wave 5)', () => {
         expect(gear!.innerHTML).not.toContain('&#9881;');
         expect(gear!.id).toBe('openSettings');
         expect(gear!.getAttribute('title')).toBe(getLabels(state).settingsTitle);
+    });
+
+    it('opens the popup without replacing the station-list node', () => {
+        state.stations = [STATION];
+        render();
+        setupEvents();
+        const list = document.querySelector('.station-list');
+        expect(list).not.toBeNull();
+        document.querySelector<HTMLButtonElement>('#openSettings')!.click();
+        expect(document.querySelector('.modal-overlay')).not.toBeNull();
+        expect(state.showSettings).toBe(true);
+        expect(document.querySelector('.station-list')).toBe(list);
+    });
+
+    it('toggling the preview switch preserves the popup and syncs the player bar', () => {
+        state.stations = [STATION];
+        render();
+        setupEvents();
+        document.querySelector<HTMLButtonElement>('#openSettings')!.click();
+        const overlay = document.querySelector('.modal-overlay');
+        const panel = document.querySelector('.modal-panel');
+        const list = document.querySelector('.station-list');
+        expect(overlay).not.toBeNull();
+        expect(panel).not.toBeNull();
+        const toggle = document.querySelector<HTMLInputElement>('#settingEnablePreview');
+        expect(toggle).not.toBeNull();
+
+        toggle!.checked = true;
+        toggle!.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(document.querySelector('.modal-overlay')).toBe(overlay);
+        expect(document.querySelector('.modal-panel')).toBe(panel);
+        expect(document.querySelector('.station-list')).toBe(list);
+        expect(document.querySelector('.player')).not.toBeNull();
+        expect(state.settings).toEqual({ enablePreview: true });
+        expect(JSON.parse(localStorage.getItem(LS_SETTINGS)!)).toEqual({ enablePreview: true });
+
+        toggle!.checked = false;
+        toggle!.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(document.querySelector('.modal-overlay')).toBe(overlay);
+        expect(document.querySelector('.modal-panel')).toBe(panel);
+        expect(document.querySelector('.station-list')).toBe(list);
+        expect(document.querySelector('.player')).toBeNull();
+        expect(state.settings).toEqual({ enablePreview: false });
+        expect(JSON.parse(localStorage.getItem(LS_SETTINGS)!)).toEqual({ enablePreview: false });
+    });
+
+    it('closes via ×, backdrop click, and Escape without rebuilding the page', () => {
+        state.stations = [STATION];
+        render();
+        setupEvents();
+        document.querySelector<HTMLButtonElement>('#openSettings')!.click();
+        const list = document.querySelector('.station-list');
+        expect(list).not.toBeNull();
+
+        // × closes
+        document.querySelector<HTMLButtonElement>('#closeSettings')!.click();
+        expect(document.querySelector('.modal-overlay')).toBeNull();
+        expect(state.showSettings).toBe(false);
+        expect(document.querySelector('.station-list')).toBe(list);
+
+        // backdrop click closes
+        document.querySelector<HTMLButtonElement>('#openSettings')!.click();
+        expect(document.querySelector('.modal-overlay')).not.toBeNull();
+        document.getElementById('settingsOverlay')!.click();
+        expect(document.querySelector('.modal-overlay')).toBeNull();
+        expect(state.showSettings).toBe(false);
+
+        // a click on the panel does not close
+        document.querySelector<HTMLButtonElement>('#openSettings')!.click();
+        expect(document.querySelector('.modal-overlay')).not.toBeNull();
+        document.querySelector<HTMLElement>('.modal-panel')!.click();
+        expect(document.querySelector('.modal-overlay')).not.toBeNull();
+        expect(state.showSettings).toBe(true);
+
+        // Escape closes
+        document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        expect(document.querySelector('.modal-overlay')).toBeNull();
+        expect(state.showSettings).toBe(false);
+        expect(document.querySelector('.station-list')).toBe(list);
+
+        // Escape with the popup closed is a no-op
+        document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        expect(document.querySelector('.modal-overlay')).toBeNull();
+        expect(state.showSettings).toBe(false);
+    });
+
+    it('a background render leaves the popup mounted and un-rebuilt', () => {
+        state.stations = [STATION];
+        render();
+        setupEvents();
+        document.querySelector<HTMLButtonElement>('#openSettings')!.click();
+        const overlay = document.querySelector('.modal-overlay');
+        const panel = document.querySelector('.modal-panel');
+        expect(overlay).not.toBeNull();
+        render();
+        expect(document.querySelector('.modal-overlay')).toBe(overlay);
+        expect(document.querySelector('.modal-panel')).toBe(panel);
+        expect(state.showSettings).toBe(true);
+    });
+
+    it('moves focus to the close button on open and back to the gear on close', () => {
+        render();
+        setupEvents();
+        document.querySelector<HTMLButtonElement>('#openSettings')!.click();
+        expect(document.activeElement).toBe(document.getElementById('closeSettings'));
+        document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        expect(document.activeElement).toBe(document.getElementById('openSettings'));
     });
 });
