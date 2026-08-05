@@ -86,8 +86,7 @@ function settle(url: string, image: HTMLImageElement, status: ArtLoadState): voi
 
 /** Idempotent background fetch: exactly one Image per URL (resolved at request
  * time via the plain global, never captured at module load). */
-export function requestArtwork(url: string): void {
-    if (!url || registry.has(url)) return;
+function startArtworkFetch(url: string): void {
     const image = new Image();
     registry.set(url, {status: 'loading', image});
     image.src = url;
@@ -95,21 +94,27 @@ export function requestArtwork(url: string): void {
     image.onerror = () => settle(url, image, 'error');
 }
 
+export function requestArtwork(url: string): void {
+    if (!url || registry.has(url)) return;
+    startArtworkFetch(url);
+}
+
 export function setRenderHook(fn: (() => void) | null): void {
     renderHook = fn;
 }
 
-/** Marks a URL ready and persists it for a station; an empty uuid only marks
- * the registry (no cache write). */
+/** Persists the URL for a station and starts a real background verification:
+ * an absent registry entry goes 'loading' with a fresh Image (settled through
+ * the same stale-guard pipeline as requestArtwork); an in-flight or already
+ * settled error entry is left untouched (a known-dead URL is never resurrected
+ * into a broken image); an already-ready entry is a no-op. The cache write
+ * happens at send time for a known uuid but never clobbers an already-saved
+ * URL (the cached last-known-good wins over a stale fallback); an empty uuid
+ * only verifies the URL. */
 export function rememberStationArtwork(uuid: string, url: string): void {
     if (!url) return;
-    const entry = registry.get(url);
-    if (entry) {
-        entry.status = 'ready';
-    } else {
-        registry.set(url, {status: 'ready'});
-    }
-    if (uuid) saveArtworkCache(uuid, url);
+    if (!registry.has(url)) startArtworkFetch(url);
+    if (uuid && loadArtworkCache(uuid) === null) saveArtworkCache(uuid, url);
 }
 
 /** '' when the URL is empty; a skeleton slot while loading; an img once ready;

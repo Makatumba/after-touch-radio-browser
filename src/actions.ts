@@ -4,9 +4,14 @@ import type {Language} from './i18n';
 import {playStream, stopStream} from './player';
 import {state} from './app';
 import {cancelSendConfirmation} from './confirmation';
+import {loadArtworkCache, rememberStationArtwork} from './artwork';
 
 const PING_TIMEOUT_MS = 5000;
 const VOLUME_DEBOUNCE_MS = 400;
+
+function escapeXml(value: string): string {
+    return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
 
 export const REMOTE_KEYS = {
     play: 'PLAY',
@@ -150,12 +155,30 @@ export async function sendToSoundtouch(station: Station, state: State) {
     const host = sanitizeHost(state.soundtouchAddress);
     if (!host) return;
     const t = getLabels(state);
+    // FR-6 artwork send-with-play: resolve from the station in hand (favicon →
+    // per-station cache → none), never from the playing state; a known URL is
+    // persisted and background-verified so the speaker's echoed logo stays valid.
+    const itemName = station.name || '';
+    const artUrl = station.favicon || loadArtworkCache(station.stationuuid) || '';
+    if (artUrl) rememberStationArtwork(station.stationuuid, artUrl);
+    // ContentItem children (<itemName>, <containerArt>) are included individually
+    // only when known — 4-space indented, XML-escaped; omitting both keeps the
+    // exact self-closed form (zero wire regression).
+    let contentItem: string;
+    if (itemName || artUrl) {
+        contentItem = `<ContentItem source="RADIO_BROWSER" type="stationurl" location="/stations/byuuid/${station.stationuuid}">${itemName ? `
+    <itemName>${escapeXml(itemName)}</itemName>` : ''}${artUrl ? `
+    <containerArt>${escapeXml(artUrl)}</containerArt>` : ''}
+</ContentItem>`;
+    } else {
+        contentItem = `<ContentItem source="RADIO_BROWSER" type="stationurl" location="/stations/byuuid/${station.stationuuid}"/>`;
+    }
     try {
         await fetch(`${soundtouchBaseUrl(host)}/select`, {
             method: 'POST',
             mode: 'no-cors',
             headers: {'Content-Type': 'text/plain;charset=UTF-8'},
-            body: `<ContentItem source="RADIO_BROWSER" type="stationurl" location="/stations/byuuid/${station.stationuuid}"/>`
+            body: contentItem
         });
         if (state.soundtouchAddress === host) {
             state.soundtouchStatus = 'available';
