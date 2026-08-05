@@ -615,6 +615,81 @@ an optimistic message.
   never POSTs, fetches, or requests snapshots; live state itself is written only from
   WebSocket events.
 
+## Planned (wave 4)
+
+### FR-6 Station artwork
+
+Station lists show each station's artwork — the `favicon` field the Radio Browser API ships
+on every station object, often empty (see [API-NOTES.md](API-NOTES.md) "Station object —
+artwork fields") — and the artwork travels with a station when it is played on the speaker
+and shows in the Remote panel's now-playing view. Loading is non-blocking and cached, and a
+skeleton placeholder covers every load.
+
+- **Artwork source**: the station `favicon` URL from the `/stations/search`,
+  `/stations/topvote`, and `/stations/lastclick` responses — the only artwork field the API
+  exposes in the list responses (verified live). Stations without a `favicon` render with no
+  artwork and a stable card layout.
+- **Skeleton pattern**: every artwork slot (station card thumbnail, Remote panel now-playing)
+  renders a fixed-size skeleton placeholder while its image loads — a subtle CSS shimmer, no
+  text, no broken-image icon — swapped for the loaded image without layout shift. The
+  placeholder also covers the "artwork unknown yet" state (station still being fetched, or
+  the cached artwork missing).
+- **Non-blocking load**: artwork never blocks rendering or interaction. List rendering and
+  image loading are independent: cards render immediately, images resolve in the background
+  (browser-native lazy loading plus a background artwork fetch), and in-flight loads for
+  stations that scrolled out of view or were replaced by a re-render are discarded.
+- **Cache**: the artwork URL is cached per station under the localStorage key
+  `radio-browser-art-<stationuuid>` (last-known-good, best-effort — the same convention as
+  the language/country option caches in FR-1): repeat renders, paging, re-searches, and the
+  favorites list reuse the cached URL without refetching the station, and the browser's own
+  HTTP cache serves the image bytes. A malformed or unavailable cache is ignored and rebuilt
+  from the next successful fetch; caching is never fatal.
+- **Send with play (FR-4 integration)**: playing a station on the speaker sends its artwork
+  with it, so the speaker's own display shows the station logo; the app's Remote panel shows
+  the station artwork in the now-playing view with the same skeleton pattern, falling back to
+  the device-reported `art`/`containerArt` when the station artwork is unavailable. The exact
+  wire form of the artwork send is pinned in [API-NOTES.md](API-NOTES.md) and pending live
+  verification against a real speaker: the app's `/select` body (src/actions.ts) today
+  carries no art element, and the device may derive art from the source instead — the
+  checklist item records the real behavior.
+- **Degradation**: an empty, dead, or CORS/mixed-content-blocked artwork URL (the app is
+  hosted on HTTPS; many station favicons are plain http) degrades silently — the skeleton
+  gives way to an empty slot, the text state stays intact, never fatal.
+
+#### User flows (wave 4)
+
+1. **Browse with artwork** — open the app → station lists render immediately with skeleton
+   thumbnails → each thumbnail fills in as its artwork loads (cached stations fill instantly).
+2. **Play with artwork** — tap a station → it plays on the speaker and the artwork is sent
+   with it (best-effort, pending live verification) → the Remote panel shows the station
+   artwork in the now-playing view.
+
+#### Acceptance criteria (wave 4)
+
+- Station cards show the artwork thumbnail from the station's `favicon` field.
+- A skeleton placeholder covers every artwork load and never shifts the layout; no
+  broken-image icons appear.
+- Artwork loads asynchronously; list rendering and interaction are never blocked.
+- The artwork URL is cached per `stationuuid` and reused across paging, mode changes,
+  re-searches, favorites, and sessions; a malformed cache is ignored, never fatal.
+- Playing a station includes its artwork in the send (best-effort), and the Remote panel
+  shows the artwork in the speaker's now-playing view with the skeleton pattern and the
+  device-reported `art`/`containerArt` fallback.
+- Any new UI strings ship in all four languages (`en`, `de`, `ru`, `ukr`).
+- `npm test`, `npx tsc --noEmit --skipLibCheck`, and `npm run build` pass once implemented.
+
+#### Edge cases (wave 4)
+
+- Station without a `favicon` (empty/missing field) — no artwork, stable card layout.
+- Artwork URL dead, non-image, or CORS/mixed-content-blocked — silent degradation, no
+  broken-image icon, the text state stays intact.
+- localStorage full or unavailable — cache writes are skipped, images still load per render.
+- A malformed cached URL (bad JSON, non-string) — ignored and rebuilt on the next fetch.
+- Fast paging / rapid re-renders — in-flight loads for stations that left the view are
+  discarded; a stale image must never land in a card that now shows a different station.
+- The speaker reports no `art`/`containerArt` and the station has no `favicon` — the Remote
+  panel renders without artwork; everything else stays intact.
+
 ## Non-goals (v1)
 
 - Device discovery (SSDP/mDNS — impossible from a browser; needs a future bridge).
