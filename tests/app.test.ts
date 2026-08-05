@@ -337,6 +337,7 @@ describe('play on speaker (FR-4)', () => {
             expect(t.settingDisablePlayer).toBeUndefined();
             expect(t.settingDisablePlayButton).toBeUndefined();
             expect(t.settingSoundtouchDefault).toBeUndefined();
+            expect(t.playingOnSpeaker).toBeUndefined();
         }
     });
 
@@ -395,7 +396,15 @@ describe('play on speaker (FR-4)', () => {
         expect(new Headers(init.headers as HeadersInit).get('Content-Type')).toBe('text/plain;charset=UTF-8');
         expect(String(init.body)).toContain('stationurl');
         expect(String(init.body)).toContain(STATION.stationuuid);
-        await vi.waitFor(() => expect(state.deviceMessage).toBe(getLabels(state).playingOnSpeaker), { timeout: 500 });
+        await vi.waitFor(
+            () =>
+                expect(state.deviceMessage).toBe(
+                    getLabels(state).sendingToSpeaker
+                        .replace('{station}', STATION.name)
+                        .replace('{device}', state.soundtouchDevice?.name ?? state.soundtouchAddress)
+                ),
+            { timeout: 500 }
+        );
         expect(state.soundtouchStatus).toBe('available');
         expect(playSpy).not.toHaveBeenCalled();
     });
