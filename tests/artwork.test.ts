@@ -253,7 +253,8 @@ describe('rememberStationArtwork', () => {
         expect(getArtworkLoadState(ART_URL_2)).toBe('loading');
         expect(FakeImage.instances).toHaveLength(1);
         expect(FakeImage.instances[0].src).toBe(ART_URL_2);
-        // the cache write is unconditional for a known URL (persist at send time)
+        // the cache write persists a known URL at send time (write-once:
+        // an already-saved URL is never clobbered)
         expect(loadArtworkCache('uuid-r')).toBe(ART_URL_2);
         expect(localStorage.getItem(`${LS_ART_PREFIX}uuid-r`)).toBe(JSON.stringify(ART_URL_2));
 
