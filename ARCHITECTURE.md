@@ -224,7 +224,9 @@ graph TD
   marks a URL ready and persists it (registry-only for an empty uuid);
   `resetArtworkState()` is a test seam clearing registry, in-flight requests, and the hook.
 - **SoundTouch ports**: 8090 = the device Web API for reachability (GET `/info` as a `no-cors`
-  probe, 5s timeout), station send (POST `/select`, `text/plain;charset=UTF-8`), and the
+  probe, 5s timeout), station send (POST `/select`, `text/plain;charset=UTF-8`, body
+  `<ContentItem source="RADIO_BROWSER" ...>` carrying `<itemName>` and `<containerArt>`
+  children when known — the FR-6 artwork send-with-play form pinned in API-NOTES.md), and the
   remote-control commands (POST `/key` press+release pairs with `sender="Gabbo"`,
   POST `/volume`). 8080 = the live-state WebSocket feed (`ws://<host>:8080/`, "gabbo"
   protocol, XML `<updates>` messages) that also answers GET requests with a REST-proxy

@@ -621,7 +621,9 @@ Shipped in the station-artwork wave: station cards and the Remote panel show eac
 artwork (the Radio Browser `favicon` field) behind skeleton placeholders, loaded
 non-blocking and cached per station; the Remote panel's now-playing view shows the station
 artwork with the device-reported `art`/`containerArt` fallback. The artwork send with play
-(FR-4 integration) remains pending live verification against a real speaker.
+(FR-4 integration) is pinned to the wire form below — the send itself is the next
+implementation item; whether the device display honors the sent artwork is pending live
+verification against a real speaker.
 
 ### FR-6 Station artwork
 
@@ -651,13 +653,17 @@ skeleton placeholder covers every load.
   HTTP cache serves the image bytes. A malformed or unavailable cache is ignored and rebuilt
   from the next successful fetch; caching is never fatal.
 - **Send with play (FR-4 integration)**: playing a station on the speaker sends its artwork
-  with it, so the speaker's own display shows the station logo; the app's Remote panel shows
-  the station artwork in the now-playing view with the same skeleton pattern, falling back to
-  the device-reported `art`/`containerArt` when the station artwork is unavailable. The exact
-  wire form of the artwork send is pinned in [API-NOTES.md](API-NOTES.md) and pending live
-  verification against a real speaker: the app's `/select` body (src/actions.ts) today
-  carries no art element, and the device may derive art from the source instead — the
-  checklist item records the real behavior.
+  with it, so the speaker's own display shows the station logo: the `/select` body carries
+  the station name (`<itemName>`) and the station artwork URL (`<containerArt>`, the
+  `favicon` falling back to the per-station cache) as `ContentItem` children — included only
+  when known, XML-escaped, matching the reference implementation's `ContentItem` contract
+  (`omitempty` semantics). The send is best-effort: the app's Remote panel shows the station
+  artwork in the now-playing view with the same skeleton pattern, falling back to the
+  device-reported `art`/`containerArt` when the station artwork is unavailable. The exact
+  wire form is pinned in [API-NOTES.md](API-NOTES.md) ("Commands — HTTP API, POST `/select`");
+  whether the AfterTouch `RADIO_BROWSER` source displays the sent artwork on the device
+  display is pending live verification against a real speaker (the checklist item records
+  the real behavior — the send never affects playback).
 - **Degradation**: an empty, dead, or CORS/mixed-content-blocked artwork URL (the app is
   hosted on HTTPS; many station favicons are plain http) degrades silently — the skeleton
   gives way to an empty slot, the text state stays intact, never fatal.
@@ -666,9 +672,9 @@ skeleton placeholder covers every load.
 
 1. **Browse with artwork** — open the app → station lists render immediately with skeleton
    thumbnails → each thumbnail fills in as its artwork loads (cached stations fill instantly).
-2. **Play with artwork** — tap a station → it plays on the speaker and the artwork is sent
-   with it (best-effort, pending live verification) → the Remote panel shows the station
-   artwork in the now-playing view.
+2. **Play with artwork** — tap a station → it plays on the speaker and the artwork (and
+   name) is sent with it (best-effort, per the pinned wire form) → the Remote panel shows
+   the station artwork in the now-playing view.
 
 #### Acceptance criteria (wave 4)
 
@@ -678,9 +684,10 @@ skeleton placeholder covers every load.
 - Artwork loads asynchronously; list rendering and interaction are never blocked.
 - The artwork URL is cached per `stationuuid` and reused across paging, mode changes,
   re-searches, favorites, and sessions; a malformed cache is ignored, never fatal.
-- Playing a station includes its artwork in the send (best-effort), and the Remote panel
-  shows the artwork in the speaker's now-playing view with the skeleton pattern and the
-  device-reported `art`/`containerArt` fallback.
+- Playing a station includes its artwork (and name, when known) in the send
+  (best-effort, XML-escaped, `omitempty`-style), and the Remote panel shows the artwork in
+  the speaker's now-playing view with the skeleton pattern and the device-reported
+  `art`/`containerArt` fallback.
 - Any new UI strings ship in all four languages (`en`, `de`, `ru`, `ukr`).
 - `npm test`, `npx tsc --noEmit --skipLibCheck`, and `npm run build` pass.
 
