@@ -5,6 +5,14 @@ function escapeHtml(value: string): string {
     return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+/** The echoed station uuid from a canonical `/stations/byuuid/<uuid>` location —
+ * only the canonical form; `/v1/play/1`, malformed, trailing-slash, and empty
+ * locations return '' (no percent-decoding). */
+function uuidFromLocation(location: string): string {
+    const match = /^\/stations\/byuuid\/([^/]+)$/.exec(location);
+    return match ? match[1] : '';
+}
+
 const PLAY_STATUS_LABELS: Record<string, string> = {
     PLAY_STATE: 'remotePlaying',
     PAUSE_STATE: 'remotePaused',
@@ -41,12 +49,13 @@ export function renderRemotePanel(state: State, t: Record<string, string>): stri
     // while their skip flag is absent — independent of the wsStatus gate
     const nextDisabled = !connected || !detail?.skipEnabled;
     const prevDisabled = !connected || !detail?.skipPreviousEnabled;
-    // artwork: station favicon → cached URL by uuid → device art →
-    // ContentItem.containerArt, rendered through the FR-6 slot contract
-    // (skeleton while loading, img once ready, empty slot on failure — no
-    // inline JS, never an img after a failure)
-    const artUrl = playingStationArtUrl(state) || detail?.art || detail?.contentItem?.containerArt || '';
-    const artHtml = renderArtworkSlot(artUrl, state.stations[state.currentIndex]?.stationuuid || '');
+    // artwork: WS-emitted ContentItem.containerArt → device art → app-side
+    // station favicon/cached URL by uuid (fallback), rendered through the FR-6
+    // slot contract (skeleton while loading, img once ready, empty slot on
+    // failure — no inline JS, never an img after a failure)
+    const artUrl = detail?.contentItem?.containerArt || detail?.art || playingStationArtUrl(state) || '';
+    const artUuid = uuidFromLocation(detail?.contentItem?.location || '') || state.stations[state.currentIndex]?.stationuuid || '';
+    const artHtml = renderArtworkSlot(artUrl, artUuid);
     return `<section class="panel remote-panel">
     <div class="remote-head">
         <h2>${t.remoteTitle}</h2>
