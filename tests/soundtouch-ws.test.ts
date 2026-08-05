@@ -6,7 +6,7 @@ import { renderRemotePanel } from '../src/components/remote';
 import { getLabels, translations } from '../src/i18n';
 import { defaultSettings } from '../src/settings';
 import { getAudioElement } from '../src/player';
-import { resetArtworkState } from '../src/artwork';
+import { loadArtworkCache, resetArtworkState } from '../src/artwork';
 
 const LS_LANGUAGE = 'radio-browser-language';
 const LS_SOUNDTOUCH = 'radio-browser-soundtouch-host';
@@ -1612,6 +1612,85 @@ describe('remote control panel', () => {
             const skeleton = document.querySelector('.remote-nowplaying span.artwork-slot.artwork-skeleton');
             expect(skeleton).not.toBeNull();
             expect(skeleton!.getAttribute('data-art-uuid')).toBe('hl-uuid');
+        });
+
+        it('caches the WS-sourced logo under the echoed station uuid once the background fetch settles', () => {
+            connectSoundtouchWs('192.168.1.42');
+            const ws = FakeWebSocket.instances[0];
+            ws.open();
+            const logoUrl = 'http://192.168.1.42:8090/v1/ws-cache-echo-logo.png';
+            state.stations = [{ stationuuid: 'hl-uuid', name: 'Highlighted' }];
+            state.currentIndex = 0;
+            ws.message(`<updates deviceID="689E19B8BB8A"><nowPlayingUpdated deviceID="689E19B8BB8A"><nowPlaying source="RADIO_BROWSER">
+                <track>Echoed station</track>
+                <ContentItem source="RADIO_BROWSER" type="STATION" location="/stations/byuuid/echo-uuid">
+                    <itemName>Echoed station</itemName>
+                    <containerArt>${logoUrl}</containerArt>
+                </ContentItem>
+                <playStatus>PLAY_STATE</playStatus>
+            </nowPlaying></nowPlayingUpdated></updates>`);
+
+            // the dispatch rendered the skeleton slot keyed by the echoed uuid
+            const skeleton = document.querySelector('.remote-nowplaying span.artwork-slot.artwork-skeleton');
+            expect(skeleton).not.toBeNull();
+            expect(skeleton!.getAttribute('data-art-uuid')).toBe('echo-uuid');
+
+            // the settle persists the WS-emitted logo under the echoed station's
+            // uuid — never the highlighted station's
+            const artImage = FakeImage.instances.find(img => img.src === logoUrl);
+            expect(artImage).toBeDefined();
+            artImage!.onload?.();
+            expect(loadArtworkCache('echo-uuid')).toBe(logoUrl);
+            expect(localStorage.getItem('radio-browser-art-echo-uuid')).toBe(JSON.stringify(logoUrl));
+            expect(loadArtworkCache('hl-uuid')).toBeNull();
+        });
+
+        it('caches the WS-sourced logo under the highlighted station uuid when the echoed location is not canonical', () => {
+            connectSoundtouchWs('192.168.1.42');
+            const ws = FakeWebSocket.instances[0];
+            ws.open();
+            const fallbackUrl = 'http://192.168.1.42:8090/v1/ws-cache-fallback-logo.png';
+            state.stations = [{ stationuuid: 'hl-uuid', name: 'Highlighted' }];
+            state.currentIndex = 0;
+            ws.message(`<updates deviceID="689E19B8BB8A"><nowPlayingUpdated deviceID="689E19B8BB8A"><nowPlaying source="RADIO_BROWSER">
+                <track>Fallback station</track>
+                <ContentItem source="RADIO_BROWSER" type="STATION" location="/v1/play/1">
+                    <containerArt>${fallbackUrl}</containerArt>
+                </ContentItem>
+                <playStatus>PLAY_STATE</playStatus>
+            </nowPlaying></nowPlayingUpdated></updates>`);
+
+            const fallbackImage = FakeImage.instances.find(img => img.src === fallbackUrl);
+            expect(fallbackImage).toBeDefined();
+            fallbackImage!.onload?.();
+            expect(loadArtworkCache('hl-uuid')).toBe(fallbackUrl);
+            expect(loadArtworkCache('echo-uuid')).toBeNull();
+        });
+
+        it('writes no artwork cache entry (never an empty key) when neither the echoed location is canonical nor a station is highlighted', () => {
+            connectSoundtouchWs('192.168.1.42');
+            const ws = FakeWebSocket.instances[0];
+            ws.open();
+            const orphanUrl = 'http://192.168.1.42:8090/v1/ws-cache-orphan-logo.png';
+            state.stations = [];
+            state.currentIndex = -1;
+            ws.message(`<updates deviceID="689E19B8BB8A"><nowPlayingUpdated deviceID="689E19B8BB8A"><nowPlaying source="RADIO_BROWSER">
+                <track>Orphan station</track>
+                <ContentItem source="RADIO_BROWSER" type="STATION" location="/v1/play/1">
+                    <containerArt>${orphanUrl}</containerArt>
+                </ContentItem>
+                <playStatus>PLAY_STATE</playStatus>
+            </nowPlaying></nowPlayingUpdated></updates>`);
+
+            const orphanImage = FakeImage.instances.find(img => img.src === orphanUrl);
+            expect(orphanImage).toBeDefined();
+            orphanImage!.onload?.();
+            // the settle with no slot uuid skips the cache write entirely — an
+            // empty `radio-browser-art-` key is never created
+            expect(localStorage.getItem('radio-browser-art-')).toBeNull();
+            for (let i = 0; i < localStorage.length; i++) {
+                expect(localStorage.key(i)).not.toMatch(/^radio-browser-art-/);
+            }
         });
 
         it('renders no data-art-uuid when neither the echoed location is canonical nor a station is highlighted', () => {

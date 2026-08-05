@@ -262,6 +262,28 @@ describe('rememberStationArtwork', () => {
         expect(getArtworkLoadState(ART_URL_2)).toBe('ready');
     });
 
+    it('write-once: a saved URL survives a remember call with a differing URL, which still gets background verification', () => {
+        // pre-seed the cache with URL A
+        saveArtworkCache('uuid-x', ART_URL);
+        expect(loadArtworkCache('uuid-x')).toBe(ART_URL);
+
+        // remember a DIFFERENT URL B for the same station
+        rememberStationArtwork('uuid-x', ART_URL_2);
+
+        // the guard: the cached last-known-good wins, the write is skipped —
+        // the cache and the localStorage value are never clobbered
+        expect(loadArtworkCache('uuid-x')).toBe(ART_URL);
+        expect(localStorage.getItem(`${LS_ART_PREFIX}uuid-x`)).toBe(JSON.stringify(ART_URL));
+
+        // verify-first: the new URL still starts a real background verification
+        expect(getArtworkLoadState(ART_URL_2)).toBe('loading');
+        expect(FakeImage.instances).toHaveLength(1);
+        expect(FakeImage.instances[0].src).toBe(ART_URL_2);
+
+        FakeImage.instances[0].onload?.();
+        expect(getArtworkLoadState(ART_URL_2)).toBe('ready');
+    });
+
     it('a dead URL settles through the pipeline to error and renders the empty slot, never an img', () => {
         rememberStationArtwork('uuid-r', ART_URL_2);
         expect(getArtworkLoadState(ART_URL_2)).toBe('loading');
