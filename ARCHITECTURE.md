@@ -11,8 +11,10 @@ radio stations, built with vanilla TypeScript and Vite (no framework). Station d
 the Radio Browser API; a Bose SoundTouch host receives stations directly (reachability probe
 + station send). The FR-3 live remote — transport/volume commands and live state (now playing,
 play status, volume, mute) over a WebSocket — is implemented in this release (see FEATURES.md
-and the "SoundTouch remote control" convention below). The UI is localized in 4 languages
-(`en`, `de`, `ru`, `ukr`).
+and the "SoundTouch remote control" convention below). FR-6 station artwork (favicon
+thumbnails with skeleton loading, a per-station cache, and the Remote panel art slot) is
+also implemented (see the "Station artwork (FR-6)" convention below). The UI is localized in
+4 languages (`en`, `de`, `ru`, `ukr`).
 
 ## Structure Overview
 
@@ -30,6 +32,7 @@ AfterTouch-RadioBrowser/
 │   ├── player.ts               # Persistent <audio> singleton
 │   ├── settings.ts             # Settings defaults + localStorage persistence
 │   ├── filter-cache.ts         # Filter option list localStorage cache (raw {value,label,code} lists)
+│   ├── artwork.ts              # FR-6 station artwork: per-station favicon cache, background Image fetch, skeleton/empty slot rendering
 │   ├── state.ts                # Shared types (Station, Settings, State, Mode, FilterOption, DeviceInfo, DeviceNowPlayingVerbose)
 │   ├── styles.css              # All styling
 │   └── components/             # Pure render functions returning HTML strings
@@ -76,6 +79,7 @@ AfterTouch-RadioBrowser/
 | `src/i18n.ts` | 4-language translation dictionary + locale helpers (`getLocale`, `localizeFilterOptions`, `filterLabelOverrides`) |
 | `src/settings.ts` | Settings defaults + persistence |
 | `src/filter-cache.ts` | Filter option list localStorage persistence (raw `{value, label, code}` lists with validation) |
+| `src/artwork.ts` | FR-6 station artwork: per-station favicon cache (`radio-browser-art-<uuid>`, last-known-good JSON string), idempotent background `Image` fetch with a stale-guarded render hook, skeleton/empty slot rendering, and the playing-station art URL fallback chain |
 | `vite.config.ts` | Build/test configuration |
 
 ## Module Dependencies
@@ -92,6 +96,7 @@ graph TD
     APP --> API[api.ts]
     APP --> SET[settings.ts]
     APP --> FCACHE[filter-cache.ts]
+    APP --> ART[artwork.ts]
     APP --> COMP[components/*]
     APP --> SETUP[components/setup.ts]
     APP --> BANNER[components/banner.ts]
@@ -115,12 +120,15 @@ graph TD
     API --> AXIOS[axios → Radio Browser API]
     SET --> ST
     FCACHE --> ST
+    ART --> ST
     ST --> I18N
     I18N -.-> |type-only| ST
     COMP --> ST
     COMP --> I18N
     COMP --> ACT
+    COMP --> ART
     REMOTE --> ST
+    REMOTE --> ART
 ```
 
 ## Entry Points
@@ -188,9 +196,33 @@ graph TD
 - **localStorage keys**: `radio-browser-language`, `radio-browser-soundtouch-host`,
   `radio-browser-favorites`, `radio-browser-settings`,
   `radio-browser-languages-cache` / `radio-browser-countries-cache` (raw JSON fallback lists of
-  the last successful Language/Country dropdown options).
+  the last successful Language/Country dropdown options), and
+  `radio-browser-art-<stationuuid>` (JSON-string station artwork URL — see the Station
+  artwork convention).
 - **Settings**: single `enablePreview` toggle (default off); legacy settings keys are ignored on
   load.
+- **Station artwork (FR-6)**: `src/artwork.ts` owns all artwork loading/rendering. Station
+  cards render the `favicon` URL (new optional `Station.favicon` field, from the Radio
+  Browser API) as a fixed-size `.artwork-slot` in a new `.station-head` area; the Remote
+  panel's now-playing view renders `playingStationArtUrl(state)` (current station
+  `favicon` → cached URL by `stationuuid` → `''`) falling back to the device-reported
+  `detail.art` → `ContentItem.containerArt`. Every slot is `renderArtworkSlot(url, uuid?)`:
+  `''` for an empty URL, a `.artwork-skeleton` span carrying `data-art-url`/`data-art-uuid`
+  (CSS shimmer, disabled under `prefers-reduced-motion`) while loading, an
+  `<img class="artwork-slot" src="…" alt="" loading="lazy">` (escaped, no inline JS, never
+  after a failure) once ready, and a `.artwork-slot--empty` span on error. `render()` calls
+  `scanArtwork()` last: it walks unrequested `[data-art-url]` slots and `requestArtwork`s
+  them — idempotent (one `Image` per URL, resolved at request time via the plain global, not
+  at module load), and each settle flips the registry (`getArtworkLoadState`), writes the
+  cache on success via the live slot's `data-art-uuid`, and calls the render hook only while
+  a slot for that URL is still in the DOM (stale-guard — settled URLs are never re-requested,
+  so the hook's `render()` re-scan cannot loop). `setRenderHook(render)` is wired once at
+  `app.ts` module load. The cache mirrors FR-1 filter-cache semantics: the URL is stored per
+  station as a JSON string under `radio-browser-art-<uuid>` (last-known-good, best-effort;
+  `saveArtworkCache` is a silent no-op for an empty URL or uuid and never clobbers a saved
+  URL; a malformed/unavailable cache reads as `null`). `rememberStationArtwork(uuid, url)`
+  marks a URL ready and persists it (registry-only for an empty uuid);
+  `resetArtworkState()` is a test seam clearing registry, in-flight requests, and the hook.
 - **SoundTouch ports**: 8090 = the device Web API for reachability (GET `/info` as a `no-cors`
   probe, 5s timeout), station send (POST `/select`, `text/plain;charset=UTF-8`), and the
   remote-control commands (POST `/key` press+release pairs with `sender="Gabbo"`,
@@ -227,8 +259,8 @@ graph TD
   `track` → `stationName` → `ContentItem.itemName` → "No station playing", the artist falls
   back to the verbose `description`, next/prev are gated on the `skipEnabled` /
   `skipPreviousEnabled` presence flags (in the component and in the delegated click
-  handler), and artwork renders `art` → `ContentItem.containerArt` as a single
-  `img.remote-art` that removes itself on error. The `info` snapshot response populates the
+  handler), and artwork renders through the FR-6 artwork slot (see the Station artwork
+  convention below). The `info` snapshot response populates the
   device payload (id, name, type, moduleType, variant, variantMode, country/region
   codes, networkInfo type + IP, first component's category/firmware, marge URL/UUID;
   the element's own `deviceID` attribute wins over the RESPONSE header). The
