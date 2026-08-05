@@ -392,9 +392,31 @@ relies on:
 
 ### Commands — HTTP API (port 8090)
 
-Both endpoints are `no-cors` POSTs with `text/plain;charset=UTF-8` bodies, like `/select`.
-The app sends them fire-and-forget and reconciles from WebSocket events (no echo loops).
+All commands are `no-cors` POSTs with `text/plain;charset=UTF-8` bodies. The app sends them
+fire-and-forget and reconciles from WebSocket events (no echo loops).
 
+- **POST `/select` — Radio Browser station send (FR-6 artwork extension)**: play-on-speaker
+  station selection. Body:
+
+  ```xml
+  <ContentItem source="RADIO_BROWSER" type="stationurl" location="/stations/byuuid/<uuid>">
+      <itemName>Station name</itemName>
+      <containerArt>https://station-artwork-url</containerArt>
+  </ContentItem>
+  ```
+
+  `source`, `type`, and `location` are always sent; `<itemName>` (the station name) and
+  `<containerArt>` (the station artwork URL — the Radio Browser `favicon`, falling back to
+  the per-station cache) are included only when known, mirroring the reference
+  implementation's `ContentItem` serialization (`omitempty` for both children; the gesellix
+  `SelectContentItem`/`SelectLocalInternetRadio` send the same shape, and the device echoes
+  the same element names in now-playing `ContentItem`). All values are XML-escaped (`&`, `<`,
+  `>`, `"`, `'`) — station names and favicon URLs routinely contain `&`. The send is
+  fire-and-forget; confirmation comes from the WebSocket echo (`ContentItem.location`
+  matching — the children never affect the attribute-based matching, the M5 fallback, or the
+  short-circuit). Whether the AfterTouch `RADIO_BROWSER` source displays the sent artwork on
+  the device display is pending live verification (checklist below) — the artwork send is
+  best-effort and never affects playback.
 - **POST `/key`** — transport commands. Each command is a press+release pair (two POSTs) with
   the `sender` attribute set to `"Gabbo"` — the standard sender from the Bose documentation,
   used by this app. `sender` is mandatory: non-standard senders (`GoClient`, `"SoundTouch
@@ -444,10 +466,10 @@ The app sends them fire-and-forget and reconciles from WebSocket events (no echo
       firmware actually sends, and Next/Prev render accordingly.
 - [ ] The `art` URL resolves (or degrades silently when unreachable or
       CORS/mixed-content-blocked on the HTTPS-hosted app).
-- [ ] How a `RADIO_BROWSER` station's artwork reaches the speaker's display: whether
-      `POST /select` accepts an art URL (and in which element), or whether art is
-      exclusively source-derived — record the real form so the app's station-artwork send
-      (FR-6) matches it.
+- [ ] The device display honors the `<containerArt>` URL sent in the `POST /select` body for a
+      `RADIO_BROWSER` station (the app is specified to send the station `favicon`/cached URL
+      in `<containerArt>` per the pinned form above; if the source derives art
+      exclusively, record the real behavior — the app keeps sending best-effort).
 - [ ] After `POST /select` of a Radio Browser station, the pushed `nowPlayingUpdated` echoes the
       sent `ContentItem.location` verbatim (`/stations/byuuid/<uuid>`) or transforms it (record
       the real form; the app's source + `PLAY_STATE` fallback depends on it), and carries
