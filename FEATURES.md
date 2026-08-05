@@ -226,8 +226,8 @@ capability are non-goals (see Non-goals).
 
 1. **First run** — full-screen setup → enter address → verified → main screen; "Browse
    stations anyway" skips setup and browsing works.
-2. **Daily use** — open app → tap a station → it plays on the speaker → "Playing on
-   speaker…" confirmation.
+2. **Daily use** — open app → tap a station → it plays on the speaker → the send is
+   confirmed from the speaker's live state (silent on success; failure/timeout hints otherwise).
 3. **Offline device** — banner + disabled device actions.
 4. **Preview opt-in** — Settings → enable preview → Preview action appears on station cards.
 5. **Install** — visit → browser-native install affordance (address-bar icon, browser menu, or
