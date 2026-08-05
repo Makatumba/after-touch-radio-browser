@@ -462,9 +462,11 @@ The `info` snapshot RESPONSE populates the device-info payload (API-NOTES.md "De
 info"): the `deviceID` attribute plus `name`, `type`, `moduleType`, `variant`,
 `variantMode`, `countryCode`, `regionCode`, `networkInfo` (IP address — the **MAC
 address is deliberately not read**), the first component's category and firmware version
-(the **serial number is deliberately not read**), `margeURL`, `margeAccountUUID`. The MAC
-address and the serial number uniquely identify the physical unit and are excluded for
-privacy: they are neither parsed nor displayed. The widget renders the curated set —
+(the **serial number is deliberately not read**), `margeURL`, `margeAccountUUID`. The
+`networkInfo` `macAddress` element and the `serialNumber` uniquely identify the physical
+unit and are excluded for privacy: they are neither parsed nor displayed (the device-ID
+row is a separate value carried by the `deviceID` attribute, not the `networkInfo` MAC).
+The widget renders the curated set —
 device ID, name, type, module type, variant, IP, firmware — one row per field, each row
 rendered only when its data exists (the ID row once any used message carries it, as
 before). The new row labels ship in all four languages.
