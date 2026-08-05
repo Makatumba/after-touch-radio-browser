@@ -156,8 +156,9 @@ A full codebase map — structure, key files, module dependency graph, and conve
   fetch fails or returns empty).
 - **SoundTouch ports** — 8090: the device Web API for the reachability check (GET `/info`),
   play commands (POST `/select`, `no-cors`, `text/plain;charset=UTF-8`, body is a
-  `<ContentItem source="RADIO_BROWSER" type="stationurl" location="/stations/byuuid/{uuid}"/>`
-  document), and the remote-control commands (POST `/key` — press+release pairs with
+  `<ContentItem source="RADIO_BROWSER" type="stationurl" location="/stations/byuuid/{uuid}">`
+  document carrying `<itemName>` and `<containerArt>` children when known — XML-escaped),
+  and the remote-control commands (POST `/key` — press+release pairs with
   `sender="Gabbo"` for play/pause/next/prev — and POST `/volume` for volume/mute). 8080: the
   live-state WebSocket feed (`ws://<host>:8080/`, "gabbo" protocol, XML `<updates>` messages:
   `nowPlayingUpdated`, `volumeUpdated`); live device state is written only from these events —

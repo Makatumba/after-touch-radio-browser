@@ -621,10 +621,10 @@ Shipped in the station-artwork wave: station cards and the Remote panel show eac
 artwork (the Radio Browser `favicon` field) behind skeleton placeholders, loaded
 non-blocking and cached per station; the Remote panel's now-playing view shows the
 device-reported logo first (WS-emitted `ContentItem.containerArt` → device `art`) with the
-app-side `favicon` as fallback. The artwork send with play
-(FR-4 integration) is pinned to the wire form below — the send itself is the next
-implementation item; the wire form is live-verified against a SoundTouch 10 (2026-08-05),
-see the FR-6 spec bullet.
+app-side `favicon` as fallback. The artwork send with play (FR-4 integration)
+ships the pinned wire form below — the `/select` body carries the station name and
+artwork URL when known, and the Remote panel reads the WS-emitted logo first; the
+wire form is live-verified against a SoundTouch 10 (2026-08-05), see the FR-6 spec bullet.
 
 ### FR-6 Station artwork
 
