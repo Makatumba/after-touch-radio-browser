@@ -74,10 +74,8 @@ export interface DeviceInfo {
     countryCode?: string;
     regionCode?: string;
     networkType?: string;
-    macAddress?: string;
     ipAddress?: string;
     componentCategory?: string;
-    serialNumber?: string;
     softwareVersion?: string;
     margeUrl?: string;
     margeAccountUuid?: string;
