@@ -7,6 +7,7 @@ export type SortKey = 'name_asc' | 'name_desc' | 'clickcount' | 'clicktrend' | '
 export interface Station {
     stationuuid: string;
     name: string;
+    favicon?: string;
     url?: string;
     url_resolved?: string;
     homepage?: string;
