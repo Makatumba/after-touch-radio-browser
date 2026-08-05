@@ -12,14 +12,13 @@ function infoRow(label: string, value: string | undefined): string {
 export function renderDeviceInfo(state: State, t: Record<string, string>): string {
     const d = state.soundtouchDevice;
     if (!d?.id) return '';
-    // the curated set: id, name, type, module type, variant, serial, IP,
-    // firmware — parsed-but-not-displayed fields (variantMode, country,
-    // region, network type/MAC, marge) render no rows
+    // the curated set: id, name, type, module type, variant, IP, firmware —
+    // parsed-but-not-displayed fields (variantMode, country, region, network
+    // type, marge) and the never-parsed MAC/serial render no rows
     const nameRow = infoRow(t.deviceName, d.name);
     const typeRow = infoRow(t.deviceType, d.type);
     const moduleTypeRow = infoRow(t.deviceModuleType, d.moduleType);
     const variantRow = infoRow(t.deviceVariant, d.variant);
-    const serialRow = infoRow(t.deviceSerial, d.serialNumber);
     const ipRow = infoRow(t.deviceIp, d.ipAddress);
     const firmwareRow = infoRow(t.deviceFirmware, d.softwareVersion);
     const idRow = infoRow(t.deviceId, d.id);
@@ -30,7 +29,6 @@ export function renderDeviceInfo(state: State, t: Record<string, string>): strin
         ${typeRow}
         ${moduleTypeRow}
         ${variantRow}
-        ${serialRow}
         ${ipRow}
         ${firmwareRow}
         ${idRow}

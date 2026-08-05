@@ -136,7 +136,6 @@ export const translations = {
         deviceId: 'Device ID',
         deviceModuleType: 'Module type',
         deviceVariant: 'Variant',
-        deviceSerial: 'Serial number',
         deviceIp: 'IP address',
         deviceFirmware: 'Firmware'
     },
@@ -222,7 +221,6 @@ export const translations = {
         deviceId: 'Geräte-ID',
         deviceModuleType: 'Modultyp',
         deviceVariant: 'Variante',
-        deviceSerial: 'Seriennummer',
         deviceIp: 'IP-Adresse',
         deviceFirmware: 'Firmware'
     },
@@ -308,7 +306,6 @@ export const translations = {
         deviceId: 'ID устройства',
         deviceModuleType: 'Тип модуля',
         deviceVariant: 'Вариант',
-        deviceSerial: 'Серийный номер',
         deviceIp: 'IP-адрес',
         deviceFirmware: 'Прошивка'
     },
@@ -394,7 +391,6 @@ export const translations = {
         deviceId: 'ID пристрою',
         deviceModuleType: 'Тип модуля',
         deviceVariant: 'Варіант',
-        deviceSerial: 'Серійний номер',
         deviceIp: 'IP-адреса',
         deviceFirmware: 'Прошивка'
     }

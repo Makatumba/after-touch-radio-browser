@@ -315,11 +315,9 @@ function applyInfo(info: Element | null, headerId: string): boolean {
     const regionCode = info.querySelector('regionCode')?.textContent?.trim() || undefined;
     const networkInfo = info.querySelector('networkInfo');
     const networkType = networkInfo?.getAttribute('type') || undefined;
-    // const macAddress = networkInfo?.querySelector('macAddress')?.textContent?.trim() || undefined;
     const ipAddress = networkInfo?.querySelector('ipAddress')?.textContent?.trim() || undefined;
     const component = info.querySelector('components > component');
     const componentCategory = component?.querySelector('componentCategory')?.textContent?.trim() || undefined;
-    // const serialNumber = component?.querySelector('serialNumber')?.textContent?.trim() || undefined;
     const softwareVersion = component?.querySelector('softwareVersion')?.textContent?.trim() || undefined;
     const margeUrl = info.querySelector('margeURL')?.textContent?.trim() || undefined;
     const margeAccountUuid = info.querySelector('margeAccountUUID')?.textContent?.trim() || undefined;
@@ -335,10 +333,8 @@ function applyInfo(info: Element | null, headerId: string): boolean {
         ...(countryCode ? {countryCode} : {}),
         ...(regionCode ? {regionCode} : {}),
         ...(networkType ? {networkType} : {}),
-        // ...(macAddress ? {macAddress} : {}),
         ...(ipAddress ? {ipAddress} : {}),
         ...(componentCategory ? {componentCategory} : {}),
-        // ...(serialNumber ? {serialNumber} : {}),
         ...(softwareVersion ? {softwareVersion} : {}),
         ...(margeUrl ? {margeUrl} : {}),
         ...(margeAccountUuid ? {margeAccountUuid} : {})

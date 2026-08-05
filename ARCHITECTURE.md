@@ -231,8 +231,7 @@ graph TD
   renders the curated rows — id, name, type, module type, variant, IP, firmware —
   each row only when its data exists (labels `deviceName`/`deviceType`/`deviceId`/
   `deviceModuleType`/`deviceVariant`/`deviceIp`/`deviceFirmware` exist in
-  all four languages; the serial row in `soundtouch.ts` and the `deviceSerial` key are
-  vestigial — the parser never produces the value). The `info` snapshot is re-requested on
+  all four languages). The `info` snapshot is re-requested on
   each successful (re)connection check.
 - **Hosting**: `docs/` is committed deploy output for GitHub Pages; `dist/` and `.DS_Store`
   are gitignored. `public/` is copied to the dist/docs root by Vite; the favicon uses a
