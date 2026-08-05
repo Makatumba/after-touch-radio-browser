@@ -622,8 +622,8 @@ artwork (the Radio Browser `favicon` field) behind skeleton placeholders, loaded
 non-blocking and cached per station; the Remote panel's now-playing view shows the station
 artwork with the device-reported `art`/`containerArt` fallback. The artwork send with play
 (FR-4 integration) is pinned to the wire form below — the send itself is the next
-implementation item; whether the device display honors the sent artwork is pending live
-verification against a real speaker.
+implementation item; the wire form is live-verified against a SoundTouch 10 (2026-08-05),
+see the FR-6 spec bullet.
 
 ### FR-6 Station artwork
 
@@ -660,10 +660,13 @@ skeleton placeholder covers every load.
   (`omitempty` semantics). The send is best-effort: the app's Remote panel shows the station
   artwork in the now-playing view with the same skeleton pattern, falling back to the
   device-reported `art`/`containerArt` when the station artwork is unavailable. The exact
-  wire form is pinned in [API-NOTES.md](API-NOTES.md) ("Commands — HTTP API, POST `/select`");
-  whether the AfterTouch `RADIO_BROWSER` source displays the sent artwork on the device
-  display is pending live verification against a real speaker (the checklist item records
-  the real behavior — the send never affects playback).
+  wire form is pinned in [API-NOTES.md](API-NOTES.md) ("Commands — HTTP API, POST `/select`")
+  and live-verified against a SoundTouch 10 (2026-08-05): the device accepts the body with
+  children, echoes `<itemName>`/`<containerArt>` back verbatim in the now-playing
+  `ContentItem`, and the app's Remote panel shows the artwork through the
+  `ContentItem.containerArt` fallback; the device's own `<art>` field stays
+  `SHOW_DEFAULT_IMAGE` — the RADIO_BROWSER source does not propagate the sent art into it, so
+  the send never affects playback.
 - **Degradation**: an empty, dead, or CORS/mixed-content-blocked artwork URL (the app is
   hosted on HTTPS; many station favicons are plain http) degrades silently — the skeleton
   gives way to an empty slot, the text state stays intact, never fatal.
