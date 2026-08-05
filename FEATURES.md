@@ -140,7 +140,8 @@ translation key.
 In-browser preview via the existing persistent-`<audio>` pattern, behind the `enablePreview`
 setting (default off). When on, a secondary **"Preview"** action on each station card plays the
 station in the browser without touching device state; the in-browser player bar renders only
-while preview is enabled. Disabling preview stops preview audio. The preview path is fully
+while preview is enabled. Disabling preview stops preview audio (as does resetting to
+defaults — wave 5). The preview path is fully
 independent of the play-on-speaker confirmation (FR-4 extension): preview never arms a pending
 send and never reads device state.
 
@@ -716,6 +717,71 @@ skeleton placeholder covers every load.
   discarded; a stale image must never land in a card that now shows a different station.
 - The speaker reports no `art`/`containerArt` and the station has no `favicon` — the Remote
   panel renders without artwork; everything else stays intact.
+
+## Implemented (wave 5)
+
+### FR-10 polish: settings popup fixes
+
+- **Reset stops preview audio (FR-5 consistency)**: "Reset to defaults" behaves exactly like
+  switching the preview toggle off — when preview was enabled, the in-browser preview stops
+  with the restore. (Previously the player bar disappeared while the persistent `<audio>`
+  kept playing invisibly.)
+- **No-blink settings popup (FR-10)**: opening the popup, interacting inside it, and closing
+  it never rebuild the page behind it and never replay the popup's entrance animation:
+  - Opening (gear button) mounts only the popup — the station list, artwork, and player bar
+    are untouched (no page flicker, no artwork skeleton flash).
+  - Interactions inside the popup (preview toggle, reset) re-render only what must change —
+    the in-browser player bar for preview on/off — while the popup node persists; the
+    fade-in/slide-up entrance animation plays only when the popup opens.
+  - Closing (×, backdrop click, Esc) unmounts only the popup.
+  - Background page renders while the popup is open (artwork settle, device state updates)
+    neither close, rebuild, nor re-animate it.
+  - All functional behavior is preserved: the gear opens, ×/backdrop/Esc close, the toggle
+    persists and toggles the player bar, reset restores and persists defaults.
+- **Settings button icon matches the player controls**: the unicode gear glyph is replaced by
+  an inline Material-style SVG icon matching the remote-control icon pattern (24×24 viewBox,
+  `currentColor` fill, `aria-hidden`, `focusable="false"`); the button's id, title, and
+  behavior are unchanged.
+- The settings model itself is unchanged: one `enablePreview` toggle, the
+  `radio-browser-settings` key, defaults in `src/settings.ts`, legacy keys ignored.
+
+#### User flows (wave 5)
+
+1. **Open settings** — tap the gear → the popup opens with its entrance animation; the
+   station list behind it neither flickers nor reloads.
+2. **Toggle preview** — flip the switch → the in-browser player bar appears/disappears while
+   the popup stays put (no dim-flash); the choice persists across sessions.
+3. **Reset** — tap "Reset to defaults" → defaults are restored and persisted; if preview was
+   playing it stops, mirroring the toggle-off behavior.
+4. **Close** — ×, a click on the backdrop, or Esc → the popup closes; the page behind it is
+   unchanged.
+
+#### Acceptance criteria (wave 5)
+
+- Opening the popup does not replace the station-list node (no full-page rebuild, no artwork
+  skeleton flash).
+- Toggling the preview switch inside the popup preserves the popup node (no entrance-animation
+  replay); the player bar still appears/disappears and the setting persists.
+- Reset restores and persists the default settings and stops preview playback when preview
+  was enabled (identical to toggling the switch off).
+- ×, backdrop click, and Esc close the popup without rebuilding the page.
+- The gear button renders the Material-style SVG icon (no unicode glyph), keeping its id and
+  title.
+- Background renders (artwork settle, device state updates) while the popup is open leave it
+  open and un-animated.
+- No new i18n keys — the icon swap drops a glyph and keeps the existing title string.
+- `npm test`, `npx tsc --noEmit --skipLibCheck`, and `npm run build` pass.
+
+#### Edge cases (wave 5)
+
+- The popup is open while a background render happens (artwork load settling, device WS
+  snapshot) — it stays mounted; no entrance-animation replay.
+- Toggle preview on → the player bar appears with the popup still open; toggle off → the
+  player bar disappears and preview audio stops.
+- Reset while preview audio is playing — the audio stops (the fixed bug).
+- Rapid open/close/open — no double mounts, no stale popup state.
+- Esc with the popup closed — unchanged no-op.
+- A backdrop click must close only when the click lands on the backdrop, never on the panel.
 
 ## Non-goals (v1)
 
