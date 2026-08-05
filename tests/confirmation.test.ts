@@ -195,6 +195,14 @@ beforeEach(() => {
     wsState.deviceNowPlayingDetail = null;
     // a known device name makes the pending-message interpolation deterministic
     wsState.soundtouchDevice = { id: '689E19B8BB8A', name: 'Bose SoundTouch B9B8BC' };
+    // jsdom's StorageImpl schedules a 0ms setTimeout for every mutating
+    // storage call (setItem/removeItem/clear) to fire a cross-window storage
+    // event; under vi.useFakeTimers() those become phantom timers that break
+    // the exact vi.getTimerCount() assertions below. No test here reads
+    // stored values back, so stub the writes out (restored by afterEach).
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {});
+    vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {});
+    vi.spyOn(Storage.prototype, 'clear').mockImplementation(() => {});
     for (const key of [LS_LANGUAGE, LS_SOUNDTOUCH, LS_FAVORITES, LS_SETTINGS]) {
         localStorage.removeItem(key);
     }
