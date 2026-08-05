@@ -8,8 +8,9 @@ software that keeps these speakers alive: [AfterTouch — Bose SoundTouch Toolki
 (https://gesellix.github.io/Bose-SoundTouch/). Not affiliated with Bose Corporation.
 
 Features shipped in this release and planned for the next are specified in
-[FEATURES.md](FEATURES.md) — wave-1 features and the wave-2 live device-state remote (FR-3)
-are implemented.
+[FEATURES.md](FEATURES.md) — waves 1-4 are implemented: the wave-1 station picker and
+setup, the wave-2 live device-state remote (FR-3), the wave-3 now-playing confirmation
+(FR-4 extension), and the wave-4 station artwork (FR-6).
 
 ## SoundTouch remote control
 
@@ -150,10 +151,11 @@ A full codebase map — structure, key files, module dependency graph, and conve
   chips; `getLabels()` maps `'uk'` → `'ukr'`, and `<html lang>` is set to `uk` for Ukrainian.
 - **localStorage keys** — `radio-browser-language`, `radio-browser-soundtouch-host`,
   `radio-browser-favorites`, `radio-browser-settings` (settings stored as JSON; a single
-  `enablePreview` toggle, default off; defaults in `src/settings.ts`), and
+  `enablePreview` toggle, default off; defaults in `src/settings.ts`),
   `radio-browser-languages-cache` / `radio-browser-countries-cache` (raw JSON fallback copies of
   the last successful Language/Country dropdown option lists, used when the Radio Browser API
-  fetch fails or returns empty).
+  fetch fails or returns empty), and `radio-browser-art-<uuid>` (per-station artwork URL,
+  last-known-good cache backing the Remote panel fallback and the send-with-play art).
 - **SoundTouch ports** — 8090: the device Web API for the reachability check (GET `/info`),
   play commands (POST `/select`, `no-cors`, `text/plain;charset=UTF-8`, body is a
   `<ContentItem source="RADIO_BROWSER" type="stationurl" location="/stations/byuuid/{uuid}">`

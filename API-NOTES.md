@@ -242,7 +242,8 @@ live-verification checklist at the end of this section pins them against a real 
 
 The app reads the whole payload; the Remote panel uses the title fallback (`track` →
 `stationName` → `ContentItem.itemName`), the artist fallback (`artist` → `description`),
-and the artwork (`art`, falling back to `ContentItem.containerArt`). The skip flags are
+and the artwork (WS-first: `ContentItem.containerArt`, then the device `art`, then the
+app-side station `favicon` — see the POST `/select` note below). The skip flags are
 presence-based per the reference: `skipEnabled` present → Next enabled, absent → disabled
 (`skipPreviousEnabled` likewise for Prev); the checklist confirms the real speaker's
 semantics. The remaining fields are stored for future features. Every element is optional
@@ -485,7 +486,8 @@ fire-and-forget and reconciles from WebSocket events (no echo loops).
       echoes `<containerArt>` (and `<itemName>`) back verbatim in the now-playing
       `ContentItem`, but the top-level `<art>` remains `SHOW_DEFAULT_IMAGE` — the source does
       not propagate the sent art into the device art field. The app keeps sending best-effort;
-      the Remote panel artwork comes from the echoed `containerArt` fallback.
+      the Remote panel reads the echoed `containerArt` as its primary now-playing artwork
+      (WS-first, with the device `art` and the app-side station `favicon` as fallbacks).
 - [x] After `POST /select` of a Radio Browser station, the pushed `nowPlayingUpdated` echoes the
       sent `ContentItem.location` verbatim (`/stations/byuuid/<uuid>`) — verified 2026-08-05,
       with `playStatus` `PLAY_STATE` observed within ~5 seconds of the send (`BUFFERING_STATE`
