@@ -3,8 +3,7 @@
 This document is the feature spec for AfterTouch Radio Browser: what the app does today and
 what it should do once the planned features land. It is the contract for the implementation
 pipeline (behavior spec → impl plan → tests → implementation → QA). Features in the
-**Implemented** section are shipped; features in the **Planned** section are not yet
-implemented. The current state is described in [README.md](README.md) and
+**Implemented** sections are shipped. The current state is described in [README.md](README.md) and
 [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Product statement
@@ -579,35 +578,6 @@ pushed event.
   FR-11 banner explains the situation (existing limitation).
 - Multiple browser tabs — last-write-wins, accepted limitation.
 - Device reboot — the WebSocket drops and reconnects; events re-establish the state.
-
-## Planned (wave 2+)
-
-Not yet implemented. These features finish the live remote on top of the shipped wave-1 base
-and the shipped wave-2 features: media-session / lock-screen controls and confirmation of
-play actions from live device state.
-
-### FR-6 Media-session / lock-screen controls
-
-While connected, publish now-playing metadata plus play/pause/next/prev actions (→ device
-commands). Graceful no-op where unsupported.
-
-- User flow: lock the phone → see now-playing metadata on the lock screen and control
-  playback from there (supported browsers only).
-- Acceptance criterion: lock screen shows metadata + actions while connected on supported
-  browsers.
-
-### FR-4/FR-5 extension: now-playing confirmation
-
-Once FR-3 ships the live state (the Remote panel mirrors it in real time), play-on-speaker
-and preview confirmations can come from live device state (WebSocket) instead of the current
-optimistic "Playing on speaker…" message.
-
-Edge cases planned with this feature:
-
-- Speaker reachable but the Radio Browser source is inactive (`INVALID_SOURCE`) — show a
-  plain-language hint to check the AfterTouch Health tab.
-- Station stream fails on the device — surface the device error event (the WebSocket
-  now-playing events make the error state observable).
 
 ## Non-goals (v1)
 

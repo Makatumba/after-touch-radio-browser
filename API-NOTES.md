@@ -350,6 +350,26 @@ they uniquely identify the physical unit and are excluded for privacy (the wire 
 above are documented for completeness and live verification, but the app never reads
 them).
 
+#### Now-playing confirmation signals (FR-4 extension)
+
+The app derives its play-on-speaker confirmation from the now-playing payload; the signals it
+relies on:
+
+- The `source` attribute on `<nowPlaying>`: the app treats `RADIO_BROWSER` (the source it
+  sends) and `INVALID_SOURCE` (the source is unavailable on the device — the AfterTouch Radio
+  Browser source is inactive) specially. `INVALID_SOURCE` payloads are assumed to carry no
+  `ContentItem`/track and a `STOP_STATE` play status; pending live confirmation.
+- `ContentItem.location`: the app matches the echoed location against the exact
+  `/stations/byuuid/<uuid>` it POSTed in `/select`. The documented payload example above shows
+  a `/v1/play/...` form, so the echo behavior is unverified — if the device transforms the
+  location, the app falls back to source + `PLAY_STATE` matching (only when the device was not
+  already playing a Radio Browser station at send time). The `type` attribute is ignored for
+  matching (the app sends `stationurl`; the device may echo `STATION`).
+- Station-start play-status sequence: `BUFFERING_STATE` → `PLAY_STATE` is assumed, and only
+  `PLAY_STATE` confirms (silently — the Remote panel mirrors the state); a matching payload
+  with `STOP_STATE` is the stream-failure signal; a device that emits nothing fails the app's
+  15-second confirmation timeout. All pending live confirmation.
+
 ### Commands — HTTP API (port 8090)
 
 Both endpoints are `no-cors` POSTs with `text/plain;charset=UTF-8` bodies, like `/select`.
@@ -404,3 +424,14 @@ The app sends them fire-and-forget and reconciles from WebSocket events (no echo
       firmware actually sends, and Next/Prev render accordingly.
 - [ ] The `art` URL resolves (or degrades silently when unreachable or
       CORS/mixed-content-blocked on the HTTPS-hosted app).
+- [ ] After `POST /select` of a Radio Browser station, the pushed `nowPlayingUpdated` echoes the
+      sent `ContentItem.location` verbatim (`/stations/byuuid/<uuid>`) or transforms it (record
+      the real form; the app's source + `PLAY_STATE` fallback depends on it), and carries
+      `playStatus` `PLAY_STATE` after `BUFFERING_STATE`.
+- [ ] With the Radio Browser source inactive, the device emits `source="INVALID_SOURCE"` on the
+      `<nowPlaying>` element (with or without `ContentItem`/track) and its `playStatus` value.
+- [ ] With a dead station URL, the device's observable behavior: matching `ContentItem` with
+      `STOP_STATE`, `INVALID_SOURCE`, or silence (which shape drives which hint).
+- [ ] Typical start latency (`BUFFERING_STATE` → `PLAY_STATE`) fits the 15-second confirmation
+      timeout; re-sending the already-playing station re-emits a matching `nowPlayingUpdated`
+      (or emits nothing — the app's pre-send short-circuit covers the silent case).

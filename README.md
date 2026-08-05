@@ -9,7 +9,7 @@ software that keeps these speakers alive: [AfterTouch — Bose SoundTouch Toolki
 
 Features shipped in this release and planned for the next are specified in
 [FEATURES.md](FEATURES.md) — wave-1 features and the wave-2 live device-state remote (FR-3)
-are implemented; lock-screen controls remain planned.
+are implemented.
 
 ## SoundTouch remote control
 
@@ -18,7 +18,7 @@ The speaker plays the radio; the phone picks what plays on it — and can previe
 browser instead. The app connects straight to the speaker's own Web API — no account, cloud, or
 service in the app itself. Live state from the speaker (now playing, volume, mute) and the
 transport commands ship as the FR-3 live remote (see
-[FEATURES.md](FEATURES.md)); lock-screen controls remain planned for a later wave.
+[FEATURES.md](FEATURES.md)).
 
 Because Bose shut down the SoundTouch cloud on May 6, 2026, the speaker must be migrated to
 [AfterTouch](https://gesellix.github.io/Bose-SoundTouch/) with the **Radio Browser** source
