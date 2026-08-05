@@ -424,9 +424,10 @@ fire-and-forget and reconciles from WebSocket events (no echo loops).
   `ContentItem` (both in the snapshot and the pushed `nowPlayingUpdated`), adding
   `isPresetable="true"` itself. The top-level `<art>` element stays
   `artImageStatus="SHOW_DEFAULT_IMAGE"` with no URL — the RADIO_BROWSER source does not
-  propagate the sent artwork into the device's art field, so the app's Remote panel artwork
-  relies on the echoed `ContentItem.containerArt` fallback. The artwork send is best-effort
-  and never affects playback.
+  propagate the sent artwork into the device's art field, so the app's Remote panel reads
+  the echoed `ContentItem.containerArt` as its primary now-playing artwork (WS-first, with
+  the device `art` and the app-side station `favicon` as fallbacks). The artwork send is
+  best-effort and never affects playback.
 - **POST `/key`** — transport commands. Each command is a press+release pair (two POSTs) with
   the `sender` attribute set to `"Gabbo"` — the standard sender from the Bose documentation,
   used by this app. `sender` is mandatory: non-standard senders (`GoClient`, `"SoundTouch
