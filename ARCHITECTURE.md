@@ -223,10 +223,11 @@ graph TD
   so the hook's `render()` re-scan cannot loop). `setRenderHook(render)` is wired once at
   `app.ts` module load. The cache mirrors FR-1 filter-cache semantics: the URL is stored per
   station as a JSON string under `radio-browser-art-<uuid>` (last-known-good, best-effort;
-  `saveArtworkCache` is a silent no-op for an empty URL or uuid and never clobbers a saved
-  URL; a malformed/unavailable cache reads as `null`). `rememberStationArtwork(uuid, url)`
-  persists the URL and starts background verification (registry-only for an empty
-  uuid; a saved URL is never clobbered), and never resurrects a settled error — an
+  `saveArtworkCache` is a silent no-op for an empty URL or uuid and otherwise overwrites
+  with the latest URL; a malformed/unavailable cache reads as `null`).
+  `rememberStationArtwork(uuid, url)` persists the URL and starts background verification
+  (registry-only for an empty uuid; write-once — a saved URL is never clobbered), and never
+  resurrects a settled error — an
   in-flight or dead entry is left untouched. `resetArtworkState()` is a test seam
   clearing registry, in-flight requests, and the hook.
 - **SoundTouch ports**: 8090 = the device Web API for reachability (GET `/info` as a `no-cors`

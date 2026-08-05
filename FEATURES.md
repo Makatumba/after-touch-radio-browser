@@ -453,9 +453,10 @@ The Remote panel uses the extra data:
 - **Next/Prev gating** (presence-based per the gesellix reference): Next is disabled while
   `skipEnabled` is absent, Prev disabled while `skipPreviousEnabled` is absent; enabled
   when present — the live-verification checklist confirms the real speaker's semantics.
-- **Artwork**: when `art` carries a URL (falling back to `ContentItem.containerArt`), the
-  panel renders it best-effort; a broken or CORS/mixed-content-blocked image degrades
-  silently and the text state stays intact.
+- **Artwork**: WS-first — `ContentItem.containerArt` (the device-emitted logo), then the
+  device `art`, then the app-side station `favicon` (see the wave-4 "Remote panel reads the
+  device logo" bullet). The panel renders it best-effort; a broken or
+  CORS/mixed-content-blocked image degrades silently and the text state stays intact.
 
 The remaining fields are stored in state for future features (time/shuffle/repeat/seek/
 favorite/stream type/station location) — no UI beyond the above.
@@ -649,10 +650,12 @@ skeleton placeholder covers every load.
   stations that scrolled out of view or were replaced by a re-render are discarded.
 - **Cache**: the artwork URL is cached per station under the localStorage key
   `radio-browser-art-<stationuuid>` (last-known-good, best-effort — the same convention as
-  the language/country option caches in FR-1): repeat renders, paging, re-searches, and the
-  favorites list reuse the cached URL without refetching the station, and the browser's own
-  HTTP cache serves the image bytes. A malformed or unavailable cache is ignored and rebuilt
-  from the next successful fetch; caching is never fatal.
+  the language/country option caches in FR-1): the station card renders its own `favicon`
+  field directly, while the cache backs the Remote panel's fallback (`playingStationArtUrl`)
+  and the send-with-play `containerArt` when a station has no favicon — repeat sessions
+  reuse the cached URL, and the browser's own HTTP cache serves the image bytes. A
+  malformed or unavailable cache is ignored and rebuilt from the next successful fetch;
+  caching is never fatal.
 - **Send with play (FR-4 integration)**: playing a station on the speaker sends its artwork
   with it, so the speaker's own display shows the station logo: the `/select` body carries
   the station name (`<itemName>`) and the station artwork URL (`<containerArt>`, the
@@ -690,8 +693,10 @@ skeleton placeholder covers every load.
 - A skeleton placeholder covers every artwork load and never shifts the layout; no
   broken-image icons appear.
 - Artwork loads asynchronously; list rendering and interaction are never blocked.
-- The artwork URL is cached per `stationuuid` and reused across paging, mode changes,
-  re-searches, favorites, and sessions; a malformed cache is ignored, never fatal.
+- The artwork URL is cached per `stationuuid` and persisted across sessions (write-once —
+  a saved URL is never clobbered); the cache backs the Remote panel fallback and the
+  send-with-play art when a station has no favicon; a malformed cache is ignored, never
+  fatal.
 - Playing a station includes its artwork (and name, when known) in the send
   (best-effort, XML-escaped, `omitempty`-style).
 - The Remote panel shows the now-playing artwork with the skeleton pattern, reading the

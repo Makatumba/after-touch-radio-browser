@@ -40,8 +40,8 @@ export function loadArtworkCache(uuid: string): string | null {
     }
 }
 
-/** Best-effort per-station cache write; an empty uuid or URL is a no-op that
- * never clobbers a previously saved URL. */
+/** Best-effort per-station cache write; an empty uuid or URL is a silent no-op,
+ * otherwise the URL is stored (last-known-good overwrite). */
 export function saveArtworkCache(uuid: string, url: string): void {
     if (!uuid || !url) return;
     try {
