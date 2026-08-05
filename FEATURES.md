@@ -124,20 +124,25 @@ the info widget shows the device ID, name, and type.
 
 Primary action on every station card — **"Play on speaker"** — sends the station to the device;
 favorites play straight to the speaker too. The action is disabled with a clear message when
-the device is offline or no address is saved. On send, a plain-language confirmation appears
-("Playing on speaker…"); a failed send surfaces a plain-language error and marks the device
-unreachable. The separate **"Send to SoundTouch"** button has been removed — the primary action
-replaces it, including dropping the obsolete `send` translation key. Live now-playing state
-ships with FR-3 (the Remote panel mirrors it in real time); replacing the optimistic
-"Playing on speaker…" message with a live-state-based confirmation remains planned (see the
-FR-4/FR-5 extension).
+the device is offline or no address is saved. Tapping play on a station shows a pending
+"Sending {station} to {device}…" message; the app then confirms the send from the device's LIVE
+now-playing state over the WebSocket — silent on success (the message clears, the Remote panel
+mirrors the state), with a plain-language failure hint on a matching stop (`streamFailedHint`),
+an invalid-source hint when the Radio Browser source is unavailable on the device
+(`invalidSourceHint`), and a 15-second timeout hint (`confirmTimeoutHint`). A tap for a station
+the device already plays short-circuits: no POST, no message. A failed send surfaces a
+plain-language error and marks the device unreachable. The separate **"Send to SoundTouch"**
+button has been removed — the primary action replaces it, including dropping the obsolete `send`
+translation key.
 
 ### FR-5 Preview playback (disabled by default)
 
 In-browser preview via the existing persistent-`<audio>` pattern, behind the `enablePreview`
 setting (default off). When on, a secondary **"Preview"** action on each station card plays the
 station in the browser without touching device state; the in-browser player bar renders only
-while preview is enabled. Disabling preview stops preview audio.
+while preview is enabled. Disabling preview stops preview audio. The preview path is fully
+independent of the play-on-speaker confirmation (FR-4 extension): preview never arms a pending
+send and never reads device state.
 
 ### FR-7 Favorites
 
@@ -578,6 +583,37 @@ pushed event.
   FR-11 banner explains the situation (existing limitation).
 - Multiple browser tabs — last-write-wins, accepted limitation.
 - Device reboot — the WebSocket drops and reconnects; events re-establish the state.
+
+## Implemented (wave 3)
+
+### FR-4 extension: now-playing confirmation
+
+The play-on-speaker action is confirmed from the device's live now-playing state instead of
+an optimistic message.
+
+- **Lifecycle**: tapping play on a station arms a pending send — the
+  `sendingToSpeaker` message with the station/device interpolations plus a single
+  15-second timer — before the `/select` POST. The pending record lives module-local in
+  `src/confirmation.ts` (no state fields).
+- **Silent success**: a pushed `nowPlayingUpdated` (or snapshot RESPONSE) whose
+  `ContentItem.location` matches the sent `/stations/byuuid/<uuid>` with `PLAY_STATE`
+  confirms the send: the pending message is cleared with no extra "now playing"
+  message, because the Remote panel already mirrors the live state.
+- **Short-circuit**: tapping play for a station the device is already playing
+  (`PLAY_STATE` + matching location) never re-sends — no POST, no message.
+- **Failure signals**: a matching station with `STOP_STATE` is the stream-failed hint;
+  `source="INVALID_SOURCE"` (checked first) is the invalid-source hint; the timer firing
+  without a confirming payload is the timeout hint.
+- **Source fallback (M5)**: if the device transforms the location, the app falls back
+  to `RADIO_BROWSER` + `PLAY_STATE` — only when radio was not already playing at send
+  time AND the echoed location is not a canonical `/stations/byuuid/` path (a canonical
+  location different from the pending one belongs to a different station — never
+  confirms). `BUFFERING_STATE` and anything else keep waiting.
+- **Cancellation**: remote commands, the volume slider, an address save/clear, and the
+  offline/probe-failure paths cancel the pending send.
+- **No echo loops**: the watcher only reads state and writes the device message — it
+  never POSTs, fetches, or requests snapshots; live state itself is written only from
+  WebSocket events.
 
 ## Non-goals (v1)
 

@@ -362,8 +362,10 @@ relies on:
 - `ContentItem.location`: the app matches the echoed location against the exact
   `/stations/byuuid/<uuid>` it POSTed in `/select`. The documented payload example above shows
   a `/v1/play/...` form, so the echo behavior is unverified — if the device transforms the
-  location, the app falls back to source + `PLAY_STATE` matching (only when the device was not
-  already playing a Radio Browser station at send time). The `type` attribute is ignored for
+  location, the app falls back to source + `PLAY_STATE` matching, only when the device was not
+  already playing a Radio Browser station at send time AND the echoed location is not a
+  canonical `/stations/byuuid/` path (a canonical location different from the pending one
+  belongs to a different station). The `type` attribute is ignored for
   matching (the app sends `stationurl`; the device may echo `STATION`).
 - Station-start play-status sequence: `BUFFERING_STATE` → `PLAY_STATE` is assumed, and only
   `PLAY_STATE` confirms (silently — the Remote panel mirrors the state); a matching payload
