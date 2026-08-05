@@ -255,6 +255,30 @@ describe('setup view (FR-2)', () => {
         expect(init.mode).toBe('no-cors');
     });
 
+    it('persists a NEW address when a saved one is changed', async () => {
+        // Regression pin: the save handler used to persist only on first
+        // setup or clearing, so changing a previously saved address left the
+        // old host in storage. Saving must always persist the new host.
+        const fetchMock = vi.fn().mockResolvedValue({} as Response);
+        vi.stubGlobal('fetch', fetchMock);
+
+        state.soundtouchAddress = '192.168.1.42';
+        state.skippedSetup = false;
+        localStorage.setItem(LS_SOUNDTOUCH, '192.168.1.42');
+        render();
+        setupEvents();
+
+        const input = document.querySelector<HTMLInputElement>('#soundtouch')!;
+        input.value = 'http://192.168.1.43/';
+        document.querySelector<HTMLButtonElement>('#saveSoundtouch')!.click();
+
+        expect(state.soundtouchAddress).toBe('192.168.1.43');
+        expect(localStorage.getItem(LS_SOUNDTOUCH)).toBe('192.168.1.43');
+        // the probe runs to completion so the reachability check settles
+        expect(state.soundtouchStatus).toBe('checking');
+        await vi.waitFor(() => expect(state.soundtouchStatus).toBe('available'), { timeout: 500 });
+    });
+
     it('marks the device unreachable and shows the banner when the check fails', async () => {
         const fetchMock = vi.fn().mockRejectedValue(new Error('offline'));
         vi.stubGlobal('fetch', fetchMock);
