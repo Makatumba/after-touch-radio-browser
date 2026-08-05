@@ -565,6 +565,32 @@ describe('preview playback (FR-5)', () => {
         expect(getAudioElement().hasAttribute('src')).toBe(false);
         expect(document.querySelector('.player')).toBeNull();
     });
+
+    it('reset stops preview audio when preview was enabled', async () => {
+        vi.spyOn(HTMLAudioElement.prototype, 'play').mockResolvedValue(undefined);
+        vi.spyOn(HTMLAudioElement.prototype, 'pause').mockImplementation(() => {});
+        vi.spyOn(HTMLAudioElement.prototype, 'load').mockImplementation(() => {});
+
+        state.settings.enablePreview = true;
+        state.stations = [STATION];
+        render();
+        setupEvents();
+
+        const previewBtn = document.querySelector<HTMLButtonElement>('[data-preview]');
+        expect(previewBtn).not.toBeNull();
+        previewBtn!.click();
+        await vi.waitFor(() => expect(getAudioElement().getAttribute('src')).not.toBeNull(), { timeout: 500 });
+
+        document.querySelector<HTMLButtonElement>('#openSettings')!.click();
+        const resetBtn = document.querySelector<HTMLButtonElement>('#resetSettings');
+        expect(resetBtn).not.toBeNull();
+        resetBtn!.click();
+
+        expect(state.settings).toEqual({ enablePreview: false });
+        expect(JSON.parse(localStorage.getItem(LS_SETTINGS)!)).toEqual({ enablePreview: false });
+        expect(getAudioElement().hasAttribute('src')).toBe(false);
+        expect(document.querySelector('.player')).toBeNull();
+    });
 });
 
 describe('settings (FR-10)', () => {
@@ -803,5 +829,23 @@ describe('sortable search results & favorites (FR-1 extension)', () => {
             expect(compareFavorites({ votes: 7 }, { votes: 7 }, 'votes', 'en')).toBe(0);
             expect(compareFavorites({ name: 'same' }, { name: 'same' }, 'name_asc', 'en')).toBe(0);
         });
+    });
+});
+
+describe('settings popup fixes (wave 5)', () => {
+    it('renders the gear as a Material-style SVG icon with the unchanged title', () => {
+        render();
+        const gear = document.getElementById('openSettings');
+        expect(gear).not.toBeNull();
+        const svg = gear!.querySelector('svg');
+        expect(svg).not.toBeNull();
+        expect(svg!.getAttribute('viewBox')).toBe('0 0 24 24');
+        expect(svg!.getAttribute('fill')).toBe('currentColor');
+        expect(svg!.getAttribute('aria-hidden')).toBe('true');
+        expect(svg!.getAttribute('focusable')).toBe('false');
+        expect(gear!.innerHTML).not.toContain('⚙');
+        expect(gear!.innerHTML).not.toContain('&#9881;');
+        expect(gear!.id).toBe('openSettings');
+        expect(gear!.getAttribute('title')).toBe(getLabels(state).settingsTitle);
     });
 });
