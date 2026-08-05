@@ -118,6 +118,24 @@ Note the "The " prefixes, the "Of" in the US name, the comma in "Taiwan, Republi
 and the umlaut in "Türkiye" — all must be typed exactly (case-sensitive substring). This is why
 the app uses dropdowns instead of free text.
 
+## Station object — artwork fields
+
+The station objects returned by `/stations/search`, `/stations/topvote`, and
+`/stations/lastclick` carry the station artwork in the `favicon` field — the station's logo
+URL (verified live against the 0.7.44 mirror on 2026-08-05). There is no separate large
+`art` field in these list responses.
+
+| Field | Type | Semantics (verified) |
+|---|---|---|
+| `favicon` | string | Station logo URL (http/https), often empty for stations that provided none. Example (live): `https://mangoradio.de/wp-content/uploads/cropped-Logo-192x192.webp` |
+| `has_extended_info` | bool | `true` when a richer station record exists; the artwork feature (FR-6) uses `favicon` only and does not depend on it. |
+
+The app treats `favicon` as the station artwork source (FR-6): the URL is cached per
+`stationuuid` under the localStorage key `radio-browser-art-<stationuuid>` (last-known-good,
+best-effort — the same convention as the language/country option caches), and the image
+renders behind a skeleton placeholder, degrading silently when the URL is empty, dead, or
+CORS/mixed-content-blocked on the HTTPS-hosted app.
+
 ## App contract
 
 - Language filter: send `language=<canonical lowercase name>` with `languageExact=true`.
@@ -426,6 +444,10 @@ The app sends them fire-and-forget and reconciles from WebSocket events (no echo
       firmware actually sends, and Next/Prev render accordingly.
 - [ ] The `art` URL resolves (or degrades silently when unreachable or
       CORS/mixed-content-blocked on the HTTPS-hosted app).
+- [ ] How a `RADIO_BROWSER` station's artwork reaches the speaker's display: whether
+      `POST /select` accepts an art URL (and in which element), or whether art is
+      exclusively source-derived — record the real form so the app's station-artwork send
+      (FR-6) matches it.
 - [ ] After `POST /select` of a Radio Browser station, the pushed `nowPlayingUpdated` echoes the
       sent `ContentItem.location` verbatim (`/stations/byuuid/<uuid>`) or transforms it (record
       the real form; the app's source + `PLAY_STATE` fallback depends on it), and carries
