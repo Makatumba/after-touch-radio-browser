@@ -115,11 +115,17 @@ export function setupEvents(): void {
             case 'openSettings': state.showSettings = true; render(); break;
             case 'closeSettings': state.showSettings = false; render(); break;
             case 'settingsOverlay': state.showSettings = false; render(); break;
-            case 'resetSettings':
+            case 'resetSettings': {
+                // FR-5 consistency: resetting stops preview audio exactly like
+                // toggling the switch off (previously the player bar vanished
+                // while the persistent <audio> kept playing invisibly).
+                const wasPreviewEnabled = state.settings.enablePreview;
                 state.settings = {...defaultSettings};
                 saveSettings(state.settings);
+                if (wasPreviewEnabled) stopPlayback(state);
                 render();
                 break;
+            }
             case 'prevResults': loadPreviousResultSet(); break;
             case 'nextResults': loadNextResultSet(); break;
         }
