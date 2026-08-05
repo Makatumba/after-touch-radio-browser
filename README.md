@@ -60,8 +60,9 @@ appears and the controls are disabled.
 ### Play stations on the speaker
 
 - **Play on speaker** — the primary action on every station card sends the station straight to
-  the speaker; favorites play to the speaker too. A confirmation ("Playing on speaker…") shows
-  when the station was sent.
+  the speaker; favorites play to the speaker too. The send is confirmed from the speaker's live
+  now-playing state over the WebSocket — silent on success, with plain-language failure/timeout
+  hints; the speaker's own Remote panel mirrors the live state.
 - **Preview instead (optional)** — with in-browser preview enabled in Settings, a Preview action
   on each card plays the station in the phone's browser without touching the speaker (see
   below).
