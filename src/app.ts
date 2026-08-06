@@ -234,6 +234,17 @@ export function syncRemotePanel(): void {
     scanArtwork();
 }
 
+/** Wave 6: toggling the in-browser preview (or resetting it) must also show
+ * or hide the station cards' preview buttons — the player bar alone is not
+ * the whole preview UI. Re-renders only the .station-list children in place:
+ * the list node and the open popup keep their identity (no-blink contract). */
+export function syncStationCards(): void {
+    const list = document.querySelector<HTMLElement>('.station-list');
+    if (!list) return;
+    list.innerHTML = renderStationList(state, getLabels(state));
+    scanArtwork();
+}
+
 // artwork settle → re-render once, wired a single time at module load (the
 // hook's render() re-scan is a no-op for settled URLs, so no loop)
 setRenderHook(render);
