@@ -2,11 +2,18 @@ import {getLabels} from './i18n';
 import type {Language} from './i18n';
 import type {Mode, SortKey, Station} from './state';
 import {state} from './app';
-import {render, refresh, searchFromInputs, reset, loadNextResultSet, loadPreviousResultSet} from './app';
+import {render, refresh, searchFromInputs, reset, loadNextResultSet, loadPreviousResultSet, syncPlayerBar} from './app';
 import {playStation, stopPlayback, toggleFavorite, sendToSoundtouch, setLanguage, pingSoundtouch, sanitizeHost, sendKeyPress, sendMute, scheduleVolumeSend, REMOTE_KEYS} from './actions';
 import {connectSoundtouchWs, closeSoundtouchWs, requestSnapshot} from './soundtouch-ws';
 import {armSendConfirmation, cancelSendConfirmation, confirmStationAlreadyPlaying} from './confirmation';
 import {defaultSettings, saveSettings} from './settings';
+import {mountSettingsModal, unmountSettingsModal, syncSettingsModalState} from './settings-modal';
+
+// The settings popup lives inside #app, but Esc must close it from anywhere
+// (focus inside the modal, or a keydown dispatched on document/body). Bound
+// once per page lifetime so repeated setupEvents() calls never stack
+// listeners; inert while the popup is closed.
+let escapeKeydownBound = false;
 
 export function setupEvents(): void {
     const app = document.querySelector('#app')!;
@@ -112,9 +119,9 @@ export function setupEvents(): void {
             case 'search': searchFromInputs(); break;
             case 'reset': reset(); break;
             case 'refresh': refresh(state.mode); break;
-            case 'openSettings': state.showSettings = true; render(); break;
-            case 'closeSettings': state.showSettings = false; render(); break;
-            case 'settingsOverlay': state.showSettings = false; render(); break;
+            case 'openSettings': mountSettingsModal(state); break;
+            case 'closeSettings': unmountSettingsModal(); break;
+            case 'settingsOverlay': unmountSettingsModal(); break;
             case 'resetSettings': {
                 // FR-5 consistency: resetting stops preview audio exactly like
                 // toggling the switch off (previously the player bar vanished
@@ -123,7 +130,12 @@ export function setupEvents(): void {
                 state.settings = {...defaultSettings};
                 saveSettings(state.settings);
                 if (wasPreviewEnabled) stopPlayback(state);
-                render();
+                // Wave 5: only the player bar changes; the shell behind the
+                // popup and the popup node itself stay untouched.
+                syncPlayerBar();
+                // the preserved popup's checkbox syncs to the restored default
+                // instead of being rebuilt
+                syncSettingsModalState(state);
                 break;
             }
             case 'prevResults': loadPreviousResultSet(); break;
@@ -134,16 +146,20 @@ export function setupEvents(): void {
     app.addEventListener('keydown', (e) => {
         const ke = e as KeyboardEvent;
         const target = e.target as HTMLElement;
-        if (ke.key === 'Escape' && state.showSettings) {
-            state.showSettings = false;
-            render();
-            return;
-        }
         if (ke.key !== 'Enter') return;
         if (['query', 'tag'].includes(target.id)) {
             searchFromInputs();
         }
     });
+
+    if (!escapeKeydownBound) {
+        escapeKeydownBound = true;
+        document.addEventListener('keydown', (e) => {
+            if ((e as KeyboardEvent).key === 'Escape' && state.showSettings) {
+                unmountSettingsModal();
+            }
+        });
+    }
 
     app.addEventListener('change', (e) => {
         const target = e.target as HTMLElement;
@@ -171,7 +187,9 @@ export function setupEvents(): void {
             state.settings.enablePreview = (target as HTMLInputElement).checked;
             if (!state.settings.enablePreview) stopPlayback(state);
             saveSettings(state.settings);
-            render();
+            // Wave 5: only the player bar appears/disappears — the popup and
+            // the station list behind it are preserved (no-blink contract).
+            syncPlayerBar();
             return;
         }
     });

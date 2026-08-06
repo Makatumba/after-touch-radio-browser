@@ -17,7 +17,6 @@ import {renderFilters} from './components/filters';
 import {renderFooter} from './components/footer';
 import {renderStationCard} from './components/station-card';
 import {renderPlayerBar} from './components/player-bar';
-import {renderSettings} from './components/settings';
 
 const LS_LANGUAGE = 'radio-browser-language';
 const LS_SOUNDTOUCH = 'radio-browser-soundtouch-host';
@@ -81,7 +80,6 @@ function App() {
     const t = getLabels(state);
     if (!state.soundtouchAddress && !state.skippedSetup) return renderSetup(state, t);
     const playerHtml = state.settings.enablePreview ? renderPlayerBar(state, t) : '';
-    const settingsHtml = state.showSettings ? renderSettings(state) : '';
     const bannerHtml = state.soundtouchStatus === 'unreachable' ? renderOfflineBanner(state, t) : '';
     const prevDisabled = state.offset === 0 ? ' disabled' : '';
     const nextDisabled = state.stations.length < state.limit ? ' disabled' : '';
@@ -114,7 +112,6 @@ function App() {
         ${playerHtml}
     </main>
     ${renderFooter(state, t)}
-    ${settingsHtml}
 </div>`;
 }
 
@@ -152,6 +149,12 @@ export async function refresh(mode: Mode = state.mode) {
 export function render() {
     const audio = getAudioElement();
     if (audio.parentElement) audio.remove();
+    // Wave 5: the settings popup is mounted explicitly (settings-modal.ts);
+    // detach it before the shell re-render and re-insert the same node so a
+    // background render neither rebuilds it nor replays its entrance
+    // animation (no-blink contract).
+    const modal = document.querySelector<HTMLElement>('.modal-overlay');
+    if (modal) modal.remove();
 
     document.querySelector<HTMLDivElement>('#app')!.innerHTML = App();
 
@@ -159,10 +162,31 @@ export function render() {
         const section = document.querySelector<HTMLElement>('.player');
         if (section) section.appendChild(audio);
     }
+    if (state.showSettings && modal) {
+        document.querySelector<HTMLDivElement>('#app')!.appendChild(modal);
+    }
 
     // kick off background artwork fetches for any skeleton slots; requestArtwork
     // is idempotent, so re-scanning settled/in-flight slots is a no-op
     scanArtwork();
+}
+
+/** Wave 5: toggling preview on/off (or resetting) must change only the
+ * in-browser player bar — never rebuild the shell behind the open settings
+ * popup (no-blink contract). Mirrors render()'s audio re-attachment for the
+ * surgical path: the persistent <audio> stays inside the bar while preview
+ * is on and stays alive (detached) when the bar is removed. */
+export function syncPlayerBar(): void {
+    const player = document.querySelector<HTMLElement>('.player');
+    if (state.settings.enablePreview) {
+        if (player) return;
+        const main = document.querySelector<HTMLElement>('main#main');
+        if (!main) return;
+        main.insertAdjacentHTML('beforeend', renderPlayerBar(state, getLabels(state)));
+        document.querySelector<HTMLElement>('.player')?.appendChild(getAudioElement());
+    } else if (player) {
+        player.remove();
+    }
 }
 
 // artwork settle → re-render once, wired a single time at module load (the
