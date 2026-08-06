@@ -2,7 +2,7 @@ import {getLabels} from './i18n';
 import type {Language} from './i18n';
 import type {Mode, SortKey, Station} from './state';
 import {state} from './app';
-import {render, refresh, searchFromInputs, reset, loadNextResultSet, loadPreviousResultSet, syncPlayerBar, syncShellLanguage, syncRemotePanel} from './app';
+import {render, refresh, searchFromInputs, reset, loadNextResultSet, loadPreviousResultSet, syncPlayerBar, syncShellLanguage, syncRemotePanel, syncStationCards} from './app';
 import {playStation, stopPlayback, toggleFavorite, sendToSoundtouch, setLanguage, pingSoundtouch, sanitizeHost, sendKeyPress, sendMute, scheduleVolumeSend, REMOTE_KEYS} from './actions';
 import {connectSoundtouchWs, closeSoundtouchWs, requestSnapshot} from './soundtouch-ws';
 import {armSendConfirmation, cancelSendConfirmation, confirmStationAlreadyPlaying} from './confirmation';
@@ -132,9 +132,13 @@ export function setupEvents(): void {
                 state.settings = {...defaultSettings};
                 saveSettings(state.settings);
                 if (wasPreviewEnabled) stopPlayback(state);
-                // Wave 5: only the player bar changes; the shell behind the
+                // Wave 5/6: only the preview UI (player bar + cards' preview
+                // buttons) and the Remote panel change; the shell behind the
                 // popup and the popup node itself stay untouched.
                 syncPlayerBar();
+                // Wave 6: the station cards re-render their preview buttons in
+                // place (the popup's controls sync below).
+                syncStationCards();
                 // Wave 6: the restored skip-hiding default re-renders only the
                 // Remote panel (the popup's controls sync below).
                 syncRemotePanel();
@@ -192,9 +196,11 @@ export function setupEvents(): void {
             state.settings.enablePreview = (target as HTMLInputElement).checked;
             if (!state.settings.enablePreview) stopPlayback(state);
             saveSettings(state.settings);
-            // Wave 5: only the player bar appears/disappears — the popup and
-            // the station list behind it are preserved (no-blink contract).
+            // Wave 5/6: only the preview UI (player bar + cards' preview
+            // buttons) appears/disappears — the popup and the station list
+            // node behind it are preserved (no-blink contract).
             syncPlayerBar();
+            syncStationCards();
             return;
         }
         if (target.id === 'settingLanguage') {
