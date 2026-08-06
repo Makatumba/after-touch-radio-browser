@@ -46,7 +46,7 @@ button {
     padding: calc(1rem + env(safe-area-inset-top)) env(safe-area-inset-right) calc(4rem + env(safe-area-inset-bottom)) env(safe-area-inset-left)
 }
 
-.topbar, .layout, .panel, .controls, .results-panel, .player, .lang-switcher-inline {
+.topbar, .layout, .panel, .controls, .results-panel, .player {
     display: grid;
     gap: 1rem
 }
@@ -178,11 +178,6 @@ button {
     min-height: 40px;
     padding: 0 1rem;
     border-radius: 9999px
-}
-
-.chip.active {
-    background: var(--primary-soft);
-    color: var(--primary)
 }
 
 .results-panel {
@@ -493,6 +488,14 @@ button {
     width: 1.2rem;
     height: 1.2rem;
     flex-shrink: 0
+}
+
+.setting-language {
+    padding: .75rem .5rem
+}
+
+.setting-language .select {
+    min-height: 44px
 }
 
 .modal-footer {

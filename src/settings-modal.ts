@@ -1,5 +1,6 @@
 import {state} from './app';
 import type {State} from './state';
+import {getLabels} from './i18n';
 import {renderSettings} from './components/settings';
 
 const OVERLAY_SELECTOR = '.modal-overlay';
@@ -30,4 +31,21 @@ export function unmountSettingsModal(): void {
 export function syncSettingsModalState(s: State): void {
     const toggle = document.querySelector<HTMLInputElement>('#settingEnablePreview');
     if (toggle) toggle.checked = s.settings.enablePreview;
+}
+
+/** Wave 6: re-labels the preserved popup in place after a language change
+ * (NO node replacement — the popup keeps its node and never replays its
+ * entrance animation). No-op while the popup is closed. */
+export function relabelSettingsModal(s: State): void {
+    const overlay = document.querySelector(OVERLAY_SELECTOR);
+    if (!overlay) return;
+    const t = getLabels(s);
+    const title = document.querySelector('.modal-header h2');
+    if (title) title.textContent = t.settingsTitle;
+    const langLabel = document.querySelector('label[for="settingLanguage"]');
+    if (langLabel) langLabel.textContent = t.settingLanguage;
+    const previewLabel = document.getElementById('settingEnablePreviewLabel');
+    if (previewLabel) previewLabel.textContent = t.settingEnablePreview;
+    const resetBtn = document.getElementById('resetSettings');
+    if (resetBtn) resetBtn.textContent = t.resetDefaults;
 }
