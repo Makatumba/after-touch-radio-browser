@@ -849,6 +849,52 @@ describe('language auto-detect (FR-9)', () => {
         expect(document.querySelector<HTMLElement>('.modal-header h2')!.textContent).toBe(getLabels({ language: 'ru' }).settingsTitle);
     });
 
+    it('a fresh settings popup open has no no-anim class (entrance animation plays)', () => {
+        state.stations = [STATION];
+        render();
+        setupEvents();
+        document.querySelector<HTMLButtonElement>('#openSettings')!.click();
+        const overlay = document.querySelector('.modal-overlay');
+        expect(overlay).not.toBeNull();
+        // a fresh mount must NOT carry the class — only preserved re-insertions
+        // get it, so the entrance animation still plays on open
+        expect(overlay!.classList.contains('modal-overlay--no-anim')).toBe(false);
+    });
+
+    it('a language change marks the preserved popup as no-anim (never replays its entrance animation)', () => {
+        state.stations = [STATION];
+        render();
+        setupEvents();
+        document.querySelector<HTMLButtonElement>('#openSettings')!.click();
+        const overlay = document.querySelector('.modal-overlay');
+        expect(overlay).not.toBeNull();
+        const select = document.querySelector<HTMLSelectElement>('#settingLanguage');
+        expect(select).not.toBeNull();
+
+        select!.value = 'de';
+        select!.dispatchEvent(new Event('change', { bubbles: true }));
+
+        expect(state.language).toBe('de');
+        expect(document.querySelector('.modal-overlay')).toBe(overlay);
+        expect(document.querySelector('.modal-overlay')!.classList.contains('modal-overlay--no-anim')).toBe(true);
+    });
+
+    it('a background render while the popup is open marks the preserved popup as no-anim and keeps the node', () => {
+        state.stations = [STATION];
+        render();
+        setupEvents();
+        document.querySelector<HTMLButtonElement>('#openSettings')!.click();
+        const overlay = document.querySelector('.modal-overlay');
+        expect(overlay).not.toBeNull();
+
+        // direct render() simulates the artwork-settle hook path
+        // (setRenderHook(render) in src/app.ts)
+        render();
+
+        expect(document.querySelector('.modal-overlay')).toBe(overlay);
+        expect(document.querySelector('.modal-overlay')!.classList.contains('modal-overlay--no-anim')).toBe(true);
+    });
+
     it('adds settingLanguage and settingHideRemoteSkipButtons in all languages and drops active', () => {
         const tView = translations as unknown as Record<string, Record<string, string>>;
         for (const lang of ['en', 'de', 'ru', 'ukr'] as const) {
