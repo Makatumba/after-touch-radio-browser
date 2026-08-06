@@ -438,6 +438,15 @@ button {
     animation: slideUp .25s ease
 }
 
+/* A preserved popup re-inserted by render() while it is open must never
+   replay its entrance animation (no-blink contract): removing a node from
+   the DOM and re-inserting it restarts CSS animations. Fresh mounts create
+   a new node without this class, so the entrance still plays on open. */
+.modal-overlay--no-anim,
+.modal-overlay--no-anim .modal-panel {
+    animation: none
+}
+
 .modal-header {
     display: flex;
     justify-content: space-between;

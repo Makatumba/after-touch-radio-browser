@@ -172,6 +172,7 @@ export function render() {
         if (section) section.appendChild(audio);
     }
     if (state.showSettings && modal) {
+        modal.classList.add('modal-overlay--no-anim');
         document.querySelector<HTMLDivElement>('#app')!.appendChild(modal);
     }
 
