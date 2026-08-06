@@ -85,6 +85,12 @@ export function setupEvents(): void {
             return;
         }
 
+        // the gear is a button whose whole content is an SVG — a real click
+        // lands on the <path>/<svg> (target.id === ''), so resolve it like
+        // the remote-control buttons instead of switching on target.id
+        const gearBtn = target.closest('#openSettings') as HTMLElement | null;
+        if (gearBtn) { mountSettingsModal(state); return; }
+
         switch (target.id) {
             case 'saveSoundtouch': {
                 const raw = document.querySelector<HTMLInputElement>('#soundtouch')?.value || '';
@@ -119,7 +125,6 @@ export function setupEvents(): void {
             case 'search': searchFromInputs(); break;
             case 'reset': reset(); break;
             case 'refresh': refresh(state.mode); break;
-            case 'openSettings': mountSettingsModal(state); break;
             case 'closeSettings': unmountSettingsModal(); break;
             case 'settingsOverlay': unmountSettingsModal(); break;
             case 'resetSettings': {
