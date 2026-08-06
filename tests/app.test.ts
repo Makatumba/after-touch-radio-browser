@@ -61,6 +61,9 @@ async function loadSettingsModal(): Promise<SettingsModalApi> {
 
 beforeEach(() => {
     document.body.innerHTML = '<div id="app"></div>';
+    // the language-select E2E tests write documentElement.lang via setLanguage;
+    // reset it so the value never leaks into other tests
+    document.documentElement.lang = 'en';
     state.language = 'en';
     state.showSettings = false;
     state.skippedSetup = false;
@@ -88,9 +91,14 @@ afterEach(() => {
 
 describe('app', () => {
     it('exports App and renders buttons', () => {
-        const html = App();
-        expect(html).toContain('data-lang="de"');
-        expect(html).toContain('Search stations');
+        render();
+        expect(App()).toContain('Search stations');
+        // Wave 6: the header is brand + gear only — the inline language
+        // switcher (chips + "Active language" label) moved into the popup.
+        expect(document.querySelector('.lang-switcher-inline')).toBeNull();
+        expect(document.querySelector('[data-lang]')).toBeNull();
+        expect(document.querySelector('#app')!.textContent).not.toContain('Active language');
+        expect(document.getElementById('openSettings')).not.toBeNull();
     });
     it('includes translations', () => {
         expect(translations.ru.search).toContain('Искать');
@@ -737,12 +745,111 @@ describe('language auto-detect (FR-9)', () => {
         expect(localStorage.getItem(LS_LANGUAGE)).toBe('de');
     });
 
-    it('switches the language from the chip', () => {
+    it('switches the language from the settings-popup select', () => {
+        state.stations = [STATION];
         render();
         setupEvents();
-        document.querySelector<HTMLButtonElement>('[data-lang="de"]')!.click();
+        document.querySelector<HTMLButtonElement>('#openSettings')!.click();
+        const overlay = document.querySelector('.modal-overlay');
+        const panel = document.querySelector('.modal-panel');
+        const list = document.querySelector('.station-list');
+        expect(overlay).not.toBeNull();
+        expect(panel).not.toBeNull();
+        expect(list).not.toBeNull();
+        const select = document.querySelector<HTMLSelectElement>('#settingLanguage');
+        expect(select).not.toBeNull();
+
+        select!.value = 'de';
+        select!.dispatchEvent(new Event('change', { bubbles: true }));
+
+        // the whole UI re-labels, exactly like the old chips did
         expect(state.language).toBe('de');
         expect(localStorage.getItem(LS_LANGUAGE)).toBe('de');
+        expect(document.documentElement.lang).toBe('de');
+        expect(document.querySelector('header h1')!.textContent).toBe(getLabels({ language: 'de' }).title);
+        // the open popup re-labels in place (relabelSettingsModal), node preserved
+        expect(document.querySelector<HTMLElement>('.modal-header h2')!.textContent).toBe(getLabels({ language: 'de' }).settingsTitle);
+        const previewLabel = document.getElementById('settingEnablePreviewLabel');
+        expect(previewLabel).not.toBeNull();
+        expect(previewLabel!.textContent).toBe(getLabels({ language: 'de' }).settingEnablePreview);
+        expect(document.getElementById('resetSettings')!.textContent).toBe(getLabels({ language: 'de' }).resetDefaults);
+        // no-blink contract: the popup and the station list keep their nodes
+        expect(document.querySelector('.modal-overlay')).toBe(overlay);
+        expect(document.querySelector('.modal-panel')).toBe(panel);
+        expect(document.querySelector('.station-list')).toBe(list);
+        expect(document.activeElement).toBe(document.getElementById('settingLanguage'));
+    });
+
+    it('a language change never writes the settings JSON', () => {
+        state.stations = [STATION];
+        render();
+        setupEvents();
+        document.querySelector<HTMLButtonElement>('#openSettings')!.click();
+        const select = document.querySelector<HTMLSelectElement>('#settingLanguage');
+        expect(select).not.toBeNull();
+        const before = localStorage.getItem(LS_SETTINGS);
+
+        select!.value = 'de';
+        select!.dispatchEvent(new Event('change', { bubbles: true }));
+
+        expect(state.language).toBe('de');
+        expect(localStorage.getItem(LS_LANGUAGE)).toBe('de');
+        // the language persists under its own key — never inside the settings JSON
+        expect(localStorage.getItem(LS_SETTINGS)).toBe(before);
+    });
+
+    it('reset restores both settings defaults and leaves the language untouched', () => {
+        state.stations = [STATION];
+        render();
+        setupEvents();
+        document.querySelector<HTMLButtonElement>('#openSettings')!.click();
+        const select = document.querySelector<HTMLSelectElement>('#settingLanguage');
+        expect(select).not.toBeNull();
+        select!.value = 'de';
+        select!.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(state.language).toBe('de');
+
+        document.querySelector<HTMLButtonElement>('#resetSettings')!.click();
+
+        // the language is never part of reset
+        expect(state.language).toBe('de');
+        expect(localStorage.getItem(LS_LANGUAGE)).toBe('de');
+        expect(select!.value).toBe('de');
+        // both settings restore their defaults
+        expect(state.settings).toEqual({ enablePreview: false, hideRemoteSkipButtons: true });
+        const hideToggle = document.querySelector<HTMLInputElement>('#settingHideRemoteSkipButtons');
+        expect(hideToggle).not.toBeNull();
+        expect(hideToggle!.checked).toBe(true);
+    });
+
+    it('rapid language switching keeps the popup node and the last selection wins', () => {
+        state.stations = [STATION];
+        render();
+        setupEvents();
+        document.querySelector<HTMLButtonElement>('#openSettings')!.click();
+        const overlay = document.querySelector('.modal-overlay');
+        expect(overlay).not.toBeNull();
+        const select = document.querySelector<HTMLSelectElement>('#settingLanguage');
+        expect(select).not.toBeNull();
+
+        select!.value = 'de';
+        select!.dispatchEvent(new Event('change', { bubbles: true }));
+        select!.value = 'ru';
+        select!.dispatchEvent(new Event('change', { bubbles: true }));
+
+        expect(state.language).toBe('ru');
+        expect(localStorage.getItem(LS_LANGUAGE)).toBe('ru');
+        expect(document.querySelector('.modal-overlay')).toBe(overlay);
+        expect(document.querySelector<HTMLElement>('.modal-header h2')!.textContent).toBe(getLabels({ language: 'ru' }).settingsTitle);
+    });
+
+    it('adds settingLanguage and settingHideRemoteSkipButtons in all languages and drops active', () => {
+        const tView = translations as unknown as Record<string, Record<string, string>>;
+        for (const lang of ['en', 'de', 'ru', 'ukr'] as const) {
+            expect(tView[lang].settingLanguage?.trim()).toBeTruthy();
+            expect(tView[lang].settingHideRemoteSkipButtons?.trim()).toBeTruthy();
+            expect(tView[lang].active).toBeUndefined();
+        }
     });
 });
 
