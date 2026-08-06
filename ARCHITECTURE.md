@@ -30,22 +30,22 @@ AfterTouch-RadioBrowser/
 │   ├── api.ts                  # Radio Browser API client (axios): search/top/recent + languages/countries lists
 │   ├── i18n.ts                 # Translations en/de/ru/ukr (as const) + locale helpers (getLocale, localizeFilterOptions, filterLabelOverrides)
 │   ├── player.ts               # Persistent <audio> singleton
-│   ├── settings.ts             # Settings defaults + localStorage persistence
+│   ├── settings.ts             # Settings defaults + localStorage persistence (enablePreview, hideRemoteSkipButtons)
 │   ├── filter-cache.ts         # Filter option list localStorage cache (raw {value,label,code} lists)
 │   ├── artwork.ts              # FR-6 station artwork: per-station favicon cache, background Image fetch, skeleton/empty slot rendering
 │   ├── state.ts                # Shared types (Station, Settings, State, Mode, FilterOption, DeviceInfo, DeviceNowPlayingVerbose)
 │   ├── styles.css              # All styling
 │   └── components/             # Pure render functions returning HTML strings
-│       ├── header.ts           # Logo branding, title, language chips, settings gear
+│       ├── header.ts           # Logo branding, title, settings gear
 │       ├── footer.ts           # Site footer with Radio Browser attribution
 │       ├── filters.ts          # Search inputs, language/country dropdowns, limit select, mode chips
 │       ├── station-card.ts     # Primary play-on-speaker + preview + favorite card actions
 │       ├── player-bar.ts       # Now-playing info
 │       ├── soundtouch.ts       # Host input + reachability status + hints + WebSocket-fed device-info widget
-│       ├── remote.ts           # Live remote panel: now playing, transport, volume, mute
+│       ├── remote.ts           # Live remote panel: now playing, transport (skip buttons toggleable), volume, mute
 │       ├── setup.ts            # Full-screen first-run setup view
 │       ├── banner.ts           # Device-offline banner
-│       └── settings.ts         # Settings modal (enablePreview toggle + reset)
+│       └── settings.ts         # Settings modal (language select + preview/hide-skip toggles + reset)
 ├── tests/
 │   ├── app.test.ts             # Vitest suite (jsdom)
 │   ├── pagination.test.ts      # List-pagination tests (jsdom)
@@ -145,8 +145,9 @@ graph TD
 
 - **No framework** — vanilla TS + Vite; components are pure string-returning functions; no
   virtual DOM.
-- **Event delegation**: all interaction handled by exactly 3 listeners on `#app` (click,
-  keydown, change) — no per-element bindings.
+- **Event delegation**: all interaction handled by exactly 3 delegated listeners on `#app`
+  (click, keydown, change) — plus a single document-level Escape listener for the settings popup
+  (bound once, inert while closed); no per-element bindings.
 - **Audio widget**: single persistent `<audio>` from `player.ts`; `render()` detaches it before
   `innerHTML` and re-inserts it into `.player` while preview is enabled (breaking this kills
   playback).
@@ -200,8 +201,10 @@ graph TD
   the last successful Language/Country dropdown options), and
   `radio-browser-art-<stationuuid>` (JSON-string station artwork URL — see the Station
   artwork convention).
-- **Settings**: single `enablePreview` toggle (default off); legacy settings keys are ignored on
-  load.
+- **Settings**: `enablePreview` (default off) + `hideRemoteSkipButtons` (default on — hides the
+  Remote panel's next/prev buttons); legacy settings keys are ignored on load. The language
+  control lives in the settings popup but persists under `radio-browser-language` (not part of
+  the settings JSON); reset never touches it.
 - **Station artwork (FR-6)**: `src/artwork.ts` owns all artwork loading/rendering. Station
   cards render the `favicon` URL (new optional `Station.favicon` field, from the Radio
   Browser API) as a fixed-size `.artwork-slot` in a new `.station-head` area; the Remote

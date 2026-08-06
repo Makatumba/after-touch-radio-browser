@@ -13,7 +13,7 @@
 - **Entry**: `src/main.ts` → render app, wire events, fetch initial data.
 - **Global mutable state** (`src/app.ts` → `state` export). Components read/write it directly.
 - **Components** (`src/components/*.ts`): Pure functions returning HTML strings. No virtual DOM.
-- **Event delegation**: All user interaction handled by 3 listeners on `#app` (click, keydown, change) in `src/events.ts`. No per-element `.addEventListener` bindings.
+- **Event delegation**: All user interaction handled by 3 delegated listeners on `#app` (click, keydown, change) in `src/events.ts` — plus a single document-level Escape listener for the settings popup (bound once, inert while closed). No per-element `.addEventListener` bindings.
 - **Audio widget**: Single persistent `<audio>` element from `player.ts`. `render()` in `app.ts` detaches it before `innerHTML`, then re-inserts into `.player`. Breaking this pattern kills audio playback.
 
 ## Key conventions
@@ -21,7 +21,7 @@
 - **Language codes**: `en`, `de`, `ru`, `ukr` (not `uk`). `getLabels()` maps `'uk'` → `'ukr'`.
 - **Translations**: `as const` object in `i18n.ts`. Add new keys to all 4 languages when extending.
 - **localStorage keys**: `radio-browser-language`, `radio-browser-soundtouch-host`, `radio-browser-favorites`, `radio-browser-settings`, `radio-browser-languages-cache`, `radio-browser-countries-cache`, `radio-browser-art-<uuid>` (per-station artwork URL, FR-6)
-- **Settings** (1 toggle, stored as JSON): `enablePreview` (default off). Defaults in `src/settings.ts`.
+- **Settings** (2 toggles, stored as JSON): `enablePreview` (default off), `hideRemoteSkipButtons` (default on — hides the Remote panel's next/prev buttons). Defaults in `src/settings.ts`. The language control lives in the settings popup too, but persists under `radio-browser-language` (not part of the settings JSON); reset never touches it.
 - **SoundTouch**: Reachability probes the device Web API — `GET http://<host>:8090/info` as a `no-cors` request (opaque response: it only proves the port answers; 5s timeout per attempt). Station send is `POST http://<host>:8090/select` (`no-cors`, `text/plain;charset=UTF-8` body). An explicit port in the saved host is honored (no `:8090` appended). Live state comes from the port-8080 WebSocket feed — `ws://<host>:8080/`, "gabbo" subprotocol, XML `<updates>` messages (`nowPlayingUpdated`, `volumeUpdated`; unknown/signal-only events keep the last-known state; the explicit-port rule applies there too). Transport/volume/mute commands are `no-cors` POSTs on 8090: `/key` press+release pairs with `sender="Gabbo"` and `/volume`. **No echo loops**: live device state (now playing, play status, volume, mute) is written only from WebSocket events, never from command POSTs or optimistic updates. On WS loss: keep last-known state, reconnect with capped exponential backoff, probe via `/info`; only repeated probe failures trigger the offline banner. Wire contracts are pinned in `API-NOTES.md`.
 - **Git artifacts**: `docs/` is tracked (GitHub Pages hosting output — commit it after deploys); `dist/` and `.DS_Store` are gitignored.
 
