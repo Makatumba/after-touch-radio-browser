@@ -24,6 +24,10 @@ export function renderSettings(state: State): string {
                 <input type="checkbox" id="settingEnablePreview" ${s.enablePreview ? 'checked' : ''}>
                 <span id="settingEnablePreviewLabel">${t.settingEnablePreview}</span>
             </label>
+            <label class="setting-row">
+                <input type="checkbox" id="settingHideRemoteSkipButtons" ${s.hideRemoteSkipButtons ? 'checked' : ''}>
+                <span id="settingHideRemoteSkipButtonsLabel">${t.settingHideRemoteSkipButtons}</span>
+            </label>
         </div>
         <div class="modal-footer">
             <button class="btn btn-secondary" id="resetSettings">${t.resetDefaults}</button>

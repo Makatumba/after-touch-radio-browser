@@ -694,6 +694,15 @@ button {
     flex: 1 1 120px
 }
 
+.remote-transport--solo {
+    justify-content: center;
+    flex-wrap: nowrap
+}
+
+.remote-transport--solo .btn {
+    flex: 0 1 auto
+}
+
 .remote-volume {
     display: flex;
     gap: .75rem;
