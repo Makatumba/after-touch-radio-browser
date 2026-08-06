@@ -783,6 +783,73 @@ skeleton placeholder covers every load.
 - Esc with the popup closed — unchanged no-op.
 - A backdrop click must close only when the click lands on the backdrop, never on the panel.
 
+## Implemented (wave 6)
+
+### Settings expansion: language selection in the popup + hidden remote skip buttons
+
+- **Language selection moves into the settings popup**: the header's inline language switcher
+  (chips + "Active language" label) is gone; the popup gains a **Language** row — a labeled
+  `<select>` with the four supported languages shown in their native names (English, Deutsch,
+  Русский, Українська). Picking a language switches the whole UI instantly — `state.language`,
+  `radio-browser-language`, `<html lang>`, and every label including the open popup's own — and
+  persists exactly like the chips did. First-run auto-detection is unchanged; the select is the
+  manual override.
+- **Remote skip buttons hidden by default**: the popup gains a **"Hide skip buttons in the
+  remote"** toggle (`hideRemoteSkipButtons`, default **on**) — the Remote panel's next/prev
+  buttons are hidden unless the toggle is switched off. When hidden, the transport row collapses
+  to a centered play/pause button; when shown, the buttons behave exactly as before (including
+  the `skipEnabled` / `skipPreviousEnabled` presence gating). Play/pause, volume, and mute are
+  never affected.
+- Both controls live in the existing settings popup and follow the wave-5 no-blink contract:
+  opening, toggling, changing the language, and closing never rebuild the page behind the popup
+  and never replay its entrance animation. Reset to defaults restores both settings defaults
+  (preview off, skip-hiding on) and leaves the language untouched.
+- The settings model becomes `{ enablePreview, hideRemoteSkipButtons }` (both booleans, stored
+  as JSON under `radio-browser-settings`); legacy and corrupt values fall back to the defaults.
+  The language stays outside the settings JSON under `radio-browser-language`.
+
+#### User flows (wave 6)
+
+1. **Switch language** — open the popup → pick a language in the Language select → the whole
+   app (and the popup itself) re-labels in that language; the choice persists.
+2. **Hide/show remote skip buttons** — open the popup → flip the "Hide skip buttons in the
+   remote" toggle → the Remote panel's next/prev buttons disappear/appear behind the popup; the
+   choice persists.
+3. **Reset** — tap "Reset to defaults" → both settings restore their defaults (preview off,
+   skip-hiding on) and the open popup's controls sync; the language stays as chosen.
+
+#### Acceptance criteria (wave 6)
+
+- The header renders no `data-lang` chips and no "Active language" text (brand + gear only).
+- The popup renders exactly one language `<select>` (four native-name options, current one
+  selected) and exactly two toggles (`settingEnablePreview`, `settingHideRemoteSkipButtons`).
+- Changing the language updates `state.language`, `radio-browser-language`, `<html lang>`, and
+  re-labels the whole UI — the popup stays open and re-labeled, the station-list node is
+  preserved.
+- First-run language auto-detection is unchanged; `'uk'` → `'ukr'` mapping unchanged.
+- The Remote panel renders next/prev only when `hideRemoteSkipButtons` is false; hidden → a
+  single centered play/pause button. The skip gating applies only while the buttons are shown.
+- Toggling either setting persists to `radio-browser-settings` and updates only what must
+  change (player bar / remote transport) — no full-page rebuild, popup node preserved.
+- Reset restores and persists both defaults and syncs the open popup's controls; the language
+  is not reset.
+- New i18n keys (`settingLanguage`, `settingHideRemoteSkipButtons`) ship in all four languages;
+  the obsolete `active` key is dropped in all four (key parity preserved).
+- `npm test`, `npx tsc --noEmit --skipLibCheck`, and `npm run build` pass.
+
+#### Edge cases (wave 6)
+
+- Rapid language switching — each change applies immediately; the last selection wins.
+- Language change while preview audio plays — playback is unaffected (language is presentation
+  only).
+- A background render (artwork settle, device WS snapshot) while the popup is open after a
+  language change — the popup stays mounted and shows the new language; no animation replay.
+- Skip buttons hidden while the device is connected/playing — nothing breaks; the remote stays
+  fully functional via play/pause + volume/mute.
+- Stored settings without `hideRemoteSkipButtons` (pre-wave-6) — the default applies (hidden).
+- Reset while preview audio plays — the audio stops (unchanged wave-5 behavior); the
+  skip-hiding toggle restores to on.
+
 ## Non-goals (v1)
 
 - Device discovery (SSDP/mDNS — impossible from a browser; needs a future bridge).

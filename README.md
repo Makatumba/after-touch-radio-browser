@@ -50,7 +50,8 @@ screen:
 
 - **Now playing** — what's playing on the speaker (station/track, artist, source) and whether
   it's playing or paused, updated in real time.
-- **Playback** — play/pause, next, and previous buttons.
+- **Playback** — play/pause, next, and previous buttons (next/prev are hidden by default; show
+  them via Settings → "Hide skip buttons in the remote").
 - **Volume** — a slider that mirrors the speaker's actual volume and sends changes to it,
   plus a mute button.
 
@@ -147,11 +148,13 @@ A full codebase map — structure, key files, module dependency graph, and conve
 ## Key conventions
 
 - **Language codes** — `en`, `de`, `ru`, `ukr` (not `uk`); auto-detected from the browser on
-  first run (`'uk'` → `'ukr'`, unsupported → English), manually overridable via the language
-  chips; `getLabels()` maps `'uk'` → `'ukr'`, and `<html lang>` is set to `uk` for Ukrainian.
+  first run (`'uk'` → `'ukr'`, unsupported → English), manually overridable via the Settings
+  popup's Language select; `getLabels()` maps `'uk'` → `'ukr'`, and `<html lang>` is set to `uk`
+  for Ukrainian.
 - **localStorage keys** — `radio-browser-language`, `radio-browser-soundtouch-host`,
-  `radio-browser-favorites`, `radio-browser-settings` (settings stored as JSON; a single
-  `enablePreview` toggle, default off; defaults in `src/settings.ts`),
+  `radio-browser-favorites`, `radio-browser-settings` (settings stored as JSON;
+  `enablePreview` default off, `hideRemoteSkipButtons` default on — hides the remote's next/prev
+  buttons; defaults in `src/settings.ts`),
   `radio-browser-languages-cache` / `radio-browser-countries-cache` (raw JSON fallback copies of
   the last successful Language/Country dropdown option lists, used when the Radio Browser API
   fetch fails or returns empty), and `radio-browser-art-<uuid>` (per-station artwork URL,
