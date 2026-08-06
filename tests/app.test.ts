@@ -1107,6 +1107,63 @@ describe('settings popup fixes (wave 5)', () => {
         expect(JSON.parse(localStorage.getItem(LS_SETTINGS)!)).toEqual({ enablePreview: false, hideRemoteSkipButtons: true });
     });
 
+    it('enabling preview shows the cards preview buttons without rebuilding the shell', () => {
+        state.stations = [STATION];
+        render();
+        setupEvents();
+        document.querySelector<HTMLButtonElement>('#openSettings')!.click();
+        const overlay = document.querySelector('.modal-overlay');
+        const panel = document.querySelector('.modal-panel');
+        const list = document.querySelector('.station-list');
+        expect(overlay).not.toBeNull();
+        expect(panel).not.toBeNull();
+        expect(list).not.toBeNull();
+        // preview is off by default — the cards carry no data-preview buttons
+        expect(document.querySelector('[data-preview]')).toBeNull();
+
+        const toggle = document.querySelector<HTMLInputElement>('#settingEnablePreview');
+        expect(toggle).not.toBeNull();
+        toggle!.checked = true;
+        toggle!.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(document.querySelector('.player')).not.toBeNull();
+        expect(document.querySelector('[data-preview]')).not.toBeNull();
+        expect(document.querySelector<HTMLElement>('[data-preview]')!.dataset.preview).toBe(STATION.stationuuid);
+        // the popup and the station list keep their nodes (no-blink contract)
+        expect(document.querySelector('.modal-overlay')).toBe(overlay);
+        expect(document.querySelector('.modal-panel')).toBe(panel);
+        expect(document.querySelector('.station-list')).toBe(list);
+
+        toggle!.checked = false;
+        toggle!.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(document.querySelector('.player')).toBeNull();
+        // no stale buttons left on the cards
+        expect(document.querySelector('[data-preview]')).toBeNull();
+        expect(document.querySelector('.station-list')).toBe(list);
+    });
+
+    it('reset removes the preview buttons when preview was enabled', () => {
+        state.stations = [STATION];
+        render();
+        setupEvents();
+        document.querySelector<HTMLButtonElement>('#openSettings')!.click();
+        const overlay = document.querySelector('.modal-overlay');
+        expect(overlay).not.toBeNull();
+        const toggle = document.querySelector<HTMLInputElement>('#settingEnablePreview');
+        expect(toggle).not.toBeNull();
+        toggle!.checked = true;
+        toggle!.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(document.querySelector('[data-preview]')).not.toBeNull();
+        expect(document.querySelector('.player')).not.toBeNull();
+
+        document.querySelector<HTMLButtonElement>('#resetSettings')!.click();
+
+        expect(document.querySelector('[data-preview]')).toBeNull();
+        expect(document.querySelector('.player')).toBeNull();
+        expect(state.settings).toEqual({ enablePreview: false, hideRemoteSkipButtons: true });
+        // reset must not rebuild the popup
+        expect(document.querySelector('.modal-overlay')).toBe(overlay);
+    });
+
     it('closes via ×, backdrop click, and Escape without rebuilding the page', () => {
         state.stations = [STATION];
         render();
