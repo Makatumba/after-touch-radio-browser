@@ -85,7 +85,7 @@ function App() {
     const nextDisabled = state.stations.length < state.limit ? ' disabled' : '';
     return `<div class="app-shell">
     <a class="skip-link" href="#main">Skip to content</a>
-    ${renderHeader(state, t)}
+    ${renderHeader(t)}
     <main id="main">
         ${bannerHtml}
         ${renderSoundtouch(state, t)}
@@ -101,7 +101,7 @@ function App() {
                     <button class="pill-btn" id="refresh">↻</button>
                 </div>
                 <div class="station-list">
-                    ${state.stations.length ? state.stations.map(s => renderStationCard(s, state, t)).join('') : `<div class="empty-state"><strong>${t.noResults}</strong></div>`}
+                    ${renderStationList(state, t)}
                 </div>
                 <div class="results-footer">
                     <button class="btn btn-secondary" id="prevResults"${prevDisabled}>${t.previousSet}</button>
@@ -113,6 +113,15 @@ function App() {
     </main>
     ${renderFooter(state, t)}
 </div>`;
+}
+
+/** The station-list content: cards in the current language, or the empty
+ * state — extracted so the language-switch path can re-render it into the
+ * preserved list node. */
+function renderStationList(state: State, t: Record<string, string>): string {
+    return state.stations.length
+        ? state.stations.map(s => renderStationCard(s, state, t)).join('')
+        : `<div class="empty-state"><strong>${t.noResults}</strong></div>`;
 }
 
 async function loadMode(mode: Mode) {
@@ -187,6 +196,21 @@ export function syncPlayerBar(): void {
     } else if (player) {
         player.remove();
     }
+}
+
+/** Wave 6: a language change must re-label the whole shell while preserving
+ * the station-list node and the open settings popup (no-blink contract). The
+ * shell re-renders through render() (which re-inserts the preserved popup;
+ * the caller re-labels it in place), while the captured station-list node is
+ * re-labeled in place and swapped back in — the list is never rebuilt as a
+ * node, so the popup's language row keeps working across rapid switches. */
+export function syncShellLanguage(): void {
+    const list = document.querySelector<HTMLElement>('.station-list');
+    render();
+    if (!list) return;
+    list.innerHTML = renderStationList(state, getLabels(state));
+    document.querySelector<HTMLElement>('.station-list')?.replaceWith(list);
+    scanArtwork();
 }
 
 // artwork settle → re-render once, wired a single time at module load (the

@@ -11,9 +11,18 @@ export function renderSettings(state: State): string {
             <button class="modal-close" id="closeSettings">&times;</button>
         </div>
         <div class="modal-body">
+            <div class="field setting-language">
+                <label for="settingLanguage">${t.settingLanguage}</label>
+                <select class="select" id="settingLanguage">
+                    <option value="en"${state.language === 'en' ? ' selected' : ''}>English</option>
+                    <option value="de"${state.language === 'de' ? ' selected' : ''}>Deutsch</option>
+                    <option value="ru"${state.language === 'ru' ? ' selected' : ''}>Русский</option>
+                    <option value="ukr"${state.language === 'ukr' ? ' selected' : ''}>Українська</option>
+                </select>
+            </div>
             <label class="setting-row">
                 <input type="checkbox" id="settingEnablePreview" ${s.enablePreview ? 'checked' : ''}>
-                <span>${t.settingEnablePreview}</span>
+                <span id="settingEnablePreviewLabel">${t.settingEnablePreview}</span>
             </label>
         </div>
         <div class="modal-footer">

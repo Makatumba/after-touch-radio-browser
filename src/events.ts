@@ -2,12 +2,12 @@ import {getLabels} from './i18n';
 import type {Language} from './i18n';
 import type {Mode, SortKey, Station} from './state';
 import {state} from './app';
-import {render, refresh, searchFromInputs, reset, loadNextResultSet, loadPreviousResultSet, syncPlayerBar} from './app';
+import {render, refresh, searchFromInputs, reset, loadNextResultSet, loadPreviousResultSet, syncPlayerBar, syncShellLanguage} from './app';
 import {playStation, stopPlayback, toggleFavorite, sendToSoundtouch, setLanguage, pingSoundtouch, sanitizeHost, sendKeyPress, sendMute, scheduleVolumeSend, REMOTE_KEYS} from './actions';
 import {connectSoundtouchWs, closeSoundtouchWs, requestSnapshot} from './soundtouch-ws';
 import {armSendConfirmation, cancelSendConfirmation, confirmStationAlreadyPlaying} from './confirmation';
 import {defaultSettings, saveSettings} from './settings';
-import {mountSettingsModal, unmountSettingsModal, syncSettingsModalState} from './settings-modal';
+import {mountSettingsModal, unmountSettingsModal, syncSettingsModalState, relabelSettingsModal} from './settings-modal';
 
 // The settings popup lives inside #app, but Esc must close it from anywhere
 // (focus inside the modal, or a keydown dispatched on document/body). Bound
@@ -20,9 +20,6 @@ export function setupEvents(): void {
 
     app.addEventListener('click', async (e) => {
         const target = e.target as HTMLElement;
-
-        const langBtn = target.closest('[data-lang]') as HTMLElement | null;
-        if (langBtn) { setLanguage(langBtn.dataset.lang as Language, state); render(); return; }
 
         const modeBtn = target.closest('[data-mode]') as HTMLElement | null;
         if (modeBtn) { refresh(modeBtn.dataset.mode as Mode); return; }
@@ -195,6 +192,17 @@ export function setupEvents(): void {
             // Wave 5: only the player bar appears/disappears — the popup and
             // the station list behind it are preserved (no-blink contract).
             syncPlayerBar();
+            return;
+        }
+        if (target.id === 'settingLanguage') {
+            // Wave 6: the popup select replaces the old header chips — the
+            // whole UI re-labels (shell re-render + in-place popup re-label)
+            // while the station list and the popup keep their nodes.
+            const lang = (target as HTMLSelectElement).value as Language;
+            setLanguage(lang, state);
+            syncShellLanguage();
+            relabelSettingsModal(state);
+            document.getElementById('settingLanguage')?.focus();
             return;
         }
     });
