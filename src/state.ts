@@ -25,6 +25,7 @@ export interface Station {
 
 export interface Settings {
     enablePreview: boolean;
+    hideRemoteSkipButtons: boolean;
 }
 
 export interface FilterOption {

@@ -2,7 +2,7 @@ import {getLabels} from './i18n';
 import type {Language} from './i18n';
 import type {Mode, SortKey, Station} from './state';
 import {state} from './app';
-import {render, refresh, searchFromInputs, reset, loadNextResultSet, loadPreviousResultSet, syncPlayerBar, syncShellLanguage} from './app';
+import {render, refresh, searchFromInputs, reset, loadNextResultSet, loadPreviousResultSet, syncPlayerBar, syncShellLanguage, syncRemotePanel} from './app';
 import {playStation, stopPlayback, toggleFavorite, sendToSoundtouch, setLanguage, pingSoundtouch, sanitizeHost, sendKeyPress, sendMute, scheduleVolumeSend, REMOTE_KEYS} from './actions';
 import {connectSoundtouchWs, closeSoundtouchWs, requestSnapshot} from './soundtouch-ws';
 import {armSendConfirmation, cancelSendConfirmation, confirmStationAlreadyPlaying} from './confirmation';
@@ -135,7 +135,10 @@ export function setupEvents(): void {
                 // Wave 5: only the player bar changes; the shell behind the
                 // popup and the popup node itself stay untouched.
                 syncPlayerBar();
-                // the preserved popup's checkbox syncs to the restored default
+                // Wave 6: the restored skip-hiding default re-renders only the
+                // Remote panel (the popup's controls sync below).
+                syncRemotePanel();
+                // the preserved popup's controls sync to the restored defaults
                 // instead of being rebuilt
                 syncSettingsModalState(state);
                 break;
@@ -203,6 +206,14 @@ export function setupEvents(): void {
             syncShellLanguage();
             relabelSettingsModal(state);
             document.getElementById('settingLanguage')?.focus();
+            return;
+        }
+        if (target.id === 'settingHideRemoteSkipButtons') {
+            // Wave 6: only the Remote panel's transport changes — the popup
+            // and the station list behind it are preserved (no-blink contract).
+            state.settings.hideRemoteSkipButtons = (target as HTMLInputElement).checked;
+            saveSettings(state.settings);
+            syncRemotePanel();
             return;
         }
     });

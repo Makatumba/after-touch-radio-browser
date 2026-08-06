@@ -31,6 +31,10 @@ export function unmountSettingsModal(): void {
 export function syncSettingsModalState(s: State): void {
     const toggle = document.querySelector<HTMLInputElement>('#settingEnablePreview');
     if (toggle) toggle.checked = s.settings.enablePreview;
+    const hideToggle = document.querySelector<HTMLInputElement>('#settingHideRemoteSkipButtons');
+    if (hideToggle) hideToggle.checked = s.settings.hideRemoteSkipButtons;
+    const langSelect = document.querySelector<HTMLSelectElement>('#settingLanguage');
+    if (langSelect) langSelect.value = s.language;
 }
 
 /** Wave 6: re-labels the preserved popup in place after a language change
@@ -46,6 +50,8 @@ export function relabelSettingsModal(s: State): void {
     if (langLabel) langLabel.textContent = t.settingLanguage;
     const previewLabel = document.getElementById('settingEnablePreviewLabel');
     if (previewLabel) previewLabel.textContent = t.settingEnablePreview;
+    const hideLabel = document.getElementById('settingHideRemoteSkipButtonsLabel');
+    if (hideLabel) hideLabel.textContent = t.settingHideRemoteSkipButtons;
     const resetBtn = document.getElementById('resetSettings');
     if (resetBtn) resetBtn.textContent = t.resetDefaults;
 }

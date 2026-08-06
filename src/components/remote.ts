@@ -49,6 +49,13 @@ export function renderRemotePanel(state: State, t: Record<string, string>): stri
     // while their skip flag is absent — independent of the wsStatus gate
     const nextDisabled = !connected || !detail?.skipEnabled;
     const prevDisabled = !connected || !detail?.skipPreviousEnabled;
+    // Wave 6: the skip buttons are hidden by default (hideRemoteSkipButtons);
+    // when hidden, the transport row collapses to a single centered
+    // play/pause button. Play/pause, volume, and mute are never affected.
+    const hideSkip = state.settings.hideRemoteSkipButtons;
+    const transportCls = hideSkip ? ' remote-transport--solo' : '';
+    const skipBtn = (id: string, label: string, icon: string, disabled: boolean): string =>
+        `<button class="btn btn-secondary" id="${id}"${disabled ? ' disabled' : ''} aria-label="${label}" title="${label}">${icon}</button>`;
     // artwork: WS-emitted ContentItem.containerArt → device art → app-side
     // station favicon/cached URL by uuid (fallback), rendered through the FR-6
     // slot contract (skeleton while loading, img once ready, empty slot on
@@ -67,10 +74,10 @@ export function renderRemotePanel(state: State, t: Record<string, string>): stri
         ${meta ? `<small>${escapeHtml(meta)}</small>` : ''}
         ${playStatusChip}
     </div>
-    <div class="remote-transport">
-        <button class="btn btn-secondary" id="remotePrev"${prevDisabled ? ' disabled' : ''} aria-label="${t.remotePrev}" title="${t.remotePrev}">${ICONS.prev}</button>
+    <div class="remote-transport${transportCls}">
+        ${hideSkip ? '' : skipBtn('remotePrev', t.remotePrev, ICONS.prev, prevDisabled)}
         <button class="btn btn-primary" id="remotePlayPause"${connected ? '' : ' disabled'} aria-label="${playPauseLabel}" title="${playPauseLabel}">${playPauseIcon}</button>
-        <button class="btn btn-secondary" id="remoteNext"${nextDisabled ? ' disabled' : ''} aria-label="${t.remoteNext}" title="${t.remoteNext}">${ICONS.next}</button>
+        ${hideSkip ? '' : skipBtn('remoteNext', t.remoteNext, ICONS.next, nextDisabled)}
     </div>
     <div class="remote-volume">
         <label for="remoteVolume">${t.remoteVolume}</label>

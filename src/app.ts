@@ -213,6 +213,26 @@ export function syncShellLanguage(): void {
     scanArtwork();
 }
 
+/** Wave 6: toggling skip-hiding (or resetting) must change only the Remote
+ * panel — never rebuild the shell behind the open settings popup (no-blink
+ * contract). Replaces ONLY the .remote-panel node; inserts it before the
+ * layout when absent; then re-primes the panel's artwork slots. */
+export function syncRemotePanel(): void {
+    if (!state.soundtouchAddress) return;
+    const main = document.querySelector<HTMLElement>('main#main');
+    if (!main) return;
+    const html = renderRemotePanel(state, getLabels(state));
+    const panel = document.querySelector<HTMLElement>('.remote-panel');
+    if (panel) {
+        panel.outerHTML = html;
+    } else {
+        const layout = document.querySelector<HTMLElement>('.layout');
+        if (layout) layout.insertAdjacentHTML('beforebegin', html);
+        else main.insertAdjacentHTML('afterbegin', html);
+    }
+    scanArtwork();
+}
+
 // artwork settle → re-render once, wired a single time at module load (the
 // hook's render() re-scan is a no-op for settled URLs, so no loop)
 setRenderHook(render);
