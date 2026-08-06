@@ -81,6 +81,13 @@ const wsState = state as unknown as {
 // then the dictionary is accessed through this typed view.
 const tView = translations as unknown as Record<string, Record<string, string>>;
 
+// Wave 6: Settings gains hideRemoteSkipButtons (default true — the remote's
+// next/prev render only when it is false). Until src/state.ts + src/settings.ts
+// change, the tests that opt out of skip-hiding write through this typed view.
+const settingsView = state as unknown as {
+    settings: { enablePreview: boolean; hideRemoteSkipButtons: boolean };
+};
+
 // jsdom has no WebSocket. The module must resolve `WebSocket` at construction
 // time (plain global lookup) for this stub to be seen — capturing it at module
 // load would make every test here fail.
@@ -1322,6 +1329,7 @@ describe('device info — full payload parsing (FR-3 extension)', () => {
 
 describe('remote control panel', () => {
     it('renders the panel when an address is saved and hides it otherwise', () => {
+        settingsView.settings.hideRemoteSkipButtons = false;
         render();
         for (const id of ['#remotePlayPause', '#remoteNext', '#remotePrev', '#remoteMute', '#remoteVolume']) {
             expect(document.querySelector(id)).not.toBeNull();
@@ -1336,6 +1344,7 @@ describe('remote control panel', () => {
 
     it('disables the controls unless the connection is connected, gating next/prev on the skip flags', () => {
         wsState.wsStatus = 'connecting';
+        settingsView.settings.hideRemoteSkipButtons = false;
         render();
         for (const id of ['#remotePlayPause', '#remoteNext', '#remotePrev', '#remoteMute']) {
             expect((document.querySelector(id) as HTMLButtonElement).disabled).toBe(true);
@@ -1425,6 +1434,7 @@ describe('remote control panel', () => {
     it('renderRemotePanel returns the five remote control ids when connected', () => {
         wsState.wsStatus = 'connected';
         wsState.devicePlayStatus = 'PLAY_STATE';
+        settingsView.settings.hideRemoteSkipButtons = false;
         const html = renderRemotePanel(state, getLabels(state));
 
         expect(html).toContain('id="remotePlayPause"');
@@ -1432,6 +1442,50 @@ describe('remote control panel', () => {
         expect(html).toContain('id="remotePrev"');
         expect(html).toContain('id="remoteMute"');
         expect(html).toContain('id="remoteVolume"');
+    });
+
+    it('hides #remoteNext/#remotePrev by default — transport collapses to a single play/pause', () => {
+        // default settings: hideRemoteSkipButtons is on → the remote renders
+        // no skip buttons; play/pause, volume, and mute are never affected
+        wsState.wsStatus = 'connected';
+        render();
+        expect(document.querySelector('#remoteNext')).toBeNull();
+        expect(document.querySelector('#remotePrev')).toBeNull();
+        expect(document.querySelector('#remotePlayPause')).not.toBeNull();
+        expect(document.querySelector('#remoteMute')).not.toBeNull();
+        expect(document.querySelector('#remoteVolume')).not.toBeNull();
+        expect(document.querySelectorAll('.remote-transport .btn').length).toBe(1);
+    });
+
+    it('renderRemotePanel omits the skip buttons by default', () => {
+        wsState.wsStatus = 'connected';
+        wsState.devicePlayStatus = 'PLAY_STATE';
+        const html = renderRemotePanel(state, getLabels(state));
+
+        expect(html).toContain('id="remotePlayPause"');
+        expect(html).toContain('id="remoteMute"');
+        expect(html).toContain('id="remoteVolume"');
+        expect(html).not.toContain('id="remoteNext"');
+        expect(html).not.toContain('id="remotePrev"');
+    });
+
+    it('shows next/prev when hideRemoteSkipButtons is false, still gated on the skip flags', () => {
+        settingsView.settings.hideRemoteSkipButtons = false;
+        wsState.wsStatus = 'connected';
+        // connected without the skip flags → present but disabled (presence gating)
+        wsState.deviceNowPlayingDetail = detail();
+        render();
+        const next = document.querySelector('#remoteNext') as HTMLButtonElement;
+        const prev = document.querySelector('#remotePrev') as HTMLButtonElement;
+        expect(next).not.toBeNull();
+        expect(prev).not.toBeNull();
+        expect(next.disabled).toBe(true);
+        expect(prev.disabled).toBe(true);
+        // flags present → enabled
+        wsState.deviceNowPlayingDetail = detail({skipEnabled: true, skipPreviousEnabled: true});
+        render();
+        expect((document.querySelector('#remoteNext') as HTMLButtonElement).disabled).toBe(false);
+        expect((document.querySelector('#remotePrev') as HTMLButtonElement).disabled).toBe(false);
     });
 
     it('adds non-empty remote-control labels in all four languages', () => {
@@ -1499,6 +1553,7 @@ describe('remote control panel', () => {
     ])('skip gating: %s', (_name, wsStatus, deviceNowPlayingDetail, expected) => {
         wsState.wsStatus = wsStatus;
         wsState.deviceNowPlayingDetail = deviceNowPlayingDetail;
+        settingsView.settings.hideRemoteSkipButtons = false;
         render();
         expect((document.querySelector('#remoteNext') as HTMLButtonElement).disabled).toBe(expected[0]);
         expect((document.querySelector('#remotePrev') as HTMLButtonElement).disabled).toBe(expected[1]);
@@ -1791,6 +1846,7 @@ describe('remote controls — delegated events', () => {
         wsState.deviceMute = false;
         // skip flags present → Next/Prev are enabled and the handler sends
         wsState.deviceNowPlayingDetail = detail({skipEnabled: true, skipPreviousEnabled: true});
+        settingsView.settings.hideRemoteSkipButtons = false;
         render();
         setupEvents();
 
@@ -1821,6 +1877,7 @@ describe('remote controls — delegated events', () => {
         vi.stubGlobal('fetch', fetchMock);
         wsState.wsStatus = 'connected';
         wsState.deviceNowPlayingDetail = detail({skipEnabled: true, skipPreviousEnabled: true});
+        settingsView.settings.hideRemoteSkipButtons = false;
         render();
         setupEvents();
 
@@ -1862,6 +1919,7 @@ describe('remote controls — delegated events', () => {
         const fetchMock = vi.fn();
         vi.stubGlobal('fetch', fetchMock);
         wsState.wsStatus = 'reconnecting';
+        settingsView.settings.hideRemoteSkipButtons = false;
         render();
         setupEvents();
 
@@ -1882,6 +1940,7 @@ describe('remote controls — delegated events', () => {
         vi.stubGlobal('fetch', fetchMock);
         wsState.wsStatus = 'connected';
         wsState.deviceNowPlayingDetail = detail(); // skipEnabled/skipPreviousEnabled false
+        settingsView.settings.hideRemoteSkipButtons = false;
         render();
         setupEvents();
 
@@ -1899,6 +1958,7 @@ describe('remote controls — delegated events', () => {
         vi.stubGlobal('fetch', fetchMock);
         wsState.wsStatus = 'connected';
         wsState.deviceNowPlayingDetail = detail({skipEnabled: true, skipPreviousEnabled: true});
+        settingsView.settings.hideRemoteSkipButtons = false;
         render();
         setupEvents();
 

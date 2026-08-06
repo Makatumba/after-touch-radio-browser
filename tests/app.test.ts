@@ -34,6 +34,12 @@ type SortableStation = Partial<Station> & { clicktrend?: number };
 // property, access it through this typed view so the tests stay type-clean.
 const sortView = state as unknown as { sort: SortKey };
 
+// Wave 6: Settings gains hideRemoteSkipButtons; until src/state.ts +
+// src/settings.ts change, tests read it through this typed view.
+const settingsView = state as unknown as {
+    settings: { enablePreview: boolean; hideRemoteSkipButtons: boolean };
+};
+
 // The settings-modal API is added with the wave-5 settings-popup feature; the
 // cast keeps this file type-clean while src/settings-modal.ts does not exist
 // yet. A computed specifier (+ @vite-ignore) stops vite:import-analysis from
@@ -1116,5 +1122,58 @@ describe('settings popup fixes (wave 5)', () => {
         expect(document.activeElement).toBe(document.getElementById('closeSettings'));
         document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
         expect(document.activeElement).toBe(document.getElementById('openSettings'));
+    });
+});
+
+describe('settings expansion (wave 6)', () => {
+    it('toggling skip-hiding surgically replaces only the remote panel', () => {
+        state.stations = [STATION];
+        render();
+        setupEvents();
+        document.querySelector<HTMLButtonElement>('#openSettings')!.click();
+        const remotePanel = document.querySelector('.remote-panel');
+        const overlay = document.querySelector('.modal-overlay');
+        const panel = document.querySelector('.modal-panel');
+        const list = document.querySelector('.station-list');
+        expect(remotePanel).not.toBeNull();
+        expect(overlay).not.toBeNull();
+        expect(panel).not.toBeNull();
+
+        const hideToggle = document.querySelector<HTMLInputElement>('#settingHideRemoteSkipButtons');
+        expect(hideToggle).not.toBeNull();
+        expect(hideToggle!.checked).toBe(true);
+        hideToggle!.checked = false;
+        hideToggle!.dispatchEvent(new Event('change', { bubbles: true }));
+
+        expect(settingsView.settings.hideRemoteSkipButtons).toBe(false);
+        expect(JSON.parse(localStorage.getItem(LS_SETTINGS)!)).toEqual({ enablePreview: false, hideRemoteSkipButtons: false });
+        // syncRemotePanel replaces ONLY the remote panel — the popup and the
+        // station list keep their nodes (no-blink contract)
+        expect(document.querySelector('.remote-panel')).not.toBe(remotePanel);
+        expect(document.querySelector('#remoteNext')).not.toBeNull();
+        expect(document.querySelector('#remotePrev')).not.toBeNull();
+        expect(document.querySelector('.modal-overlay')).toBe(overlay);
+        expect(document.querySelector('.modal-panel')).toBe(panel);
+        expect(document.querySelector('.station-list')).toBe(list);
+    });
+
+    it('reset restores skip-hiding in the settings and the remote', () => {
+        state.stations = [STATION];
+        render();
+        setupEvents();
+        document.querySelector<HTMLButtonElement>('#openSettings')!.click();
+        const hideToggle = document.querySelector<HTMLInputElement>('#settingHideRemoteSkipButtons');
+        expect(hideToggle).not.toBeNull();
+        hideToggle!.checked = false;
+        hideToggle!.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(document.querySelector('#remoteNext')).not.toBeNull();
+
+        document.querySelector<HTMLButtonElement>('#resetSettings')!.click();
+
+        expect(settingsView.settings).toEqual({ enablePreview: false, hideRemoteSkipButtons: true });
+        expect(JSON.parse(localStorage.getItem(LS_SETTINGS)!)).toEqual({ enablePreview: false, hideRemoteSkipButtons: true });
+        // the preserved popup's controls sync to the restored defaults
+        expect(document.querySelector<HTMLInputElement>('#settingHideRemoteSkipButtons')!.checked).toBe(true);
+        expect(document.querySelector('#remoteNext')).toBeNull();
     });
 });
