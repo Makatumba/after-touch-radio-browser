@@ -616,8 +616,8 @@ describe('preview playback (FR-5)', () => {
         expect(resetBtn).not.toBeNull();
         resetBtn!.click();
 
-        expect(state.settings).toEqual({ enablePreview: false });
-        expect(JSON.parse(localStorage.getItem(LS_SETTINGS)!)).toEqual({ enablePreview: false });
+        expect(state.settings).toEqual({ enablePreview: false, hideRemoteSkipButtons: true });
+        expect(JSON.parse(localStorage.getItem(LS_SETTINGS)!)).toEqual({ enablePreview: false, hideRemoteSkipButtons: true });
         expect(getAudioElement().hasAttribute('src')).toBe(false);
         expect(document.querySelector('.player')).toBeNull();
     });
@@ -634,33 +634,54 @@ describe('settings (FR-10)', () => {
                 enablePreview: true,
             })
         );
-        expect(loadSettings()).toEqual({ enablePreview: true });
+        expect(loadSettings()).toEqual({ enablePreview: true, hideRemoteSkipButtons: true });
     });
 
     it('defaults enablePreview to false when only legacy keys are stored', () => {
         localStorage.setItem(LS_SETTINGS, JSON.stringify({ disablePlayer: true }));
-        expect(loadSettings()).toEqual({ enablePreview: false });
+        expect(loadSettings()).toEqual({ enablePreview: false, hideRemoteSkipButtons: true });
     });
 
     it('rejects a non-boolean enablePreview value', () => {
         localStorage.setItem(LS_SETTINGS, JSON.stringify({ enablePreview: 'yes' }));
-        expect(loadSettings()).toEqual({ enablePreview: false });
+        expect(loadSettings()).toEqual({ enablePreview: false, hideRemoteSkipButtons: true });
     });
 
     it('falls back to defaults on corrupt JSON', () => {
         localStorage.setItem(LS_SETTINGS, '{corrupt');
-        expect(loadSettings()).toEqual({ enablePreview: false });
+        expect(loadSettings()).toEqual({ enablePreview: false, hideRemoteSkipButtons: true });
     });
 
-    it('renders exactly one toggle in the settings modal', async () => {
+    it('loads hideRemoteSkipButtons=false when stored false', () => {
+        localStorage.setItem(LS_SETTINGS, JSON.stringify({ enablePreview: true, hideRemoteSkipButtons: false }));
+        expect(loadSettings()).toEqual({ enablePreview: true, hideRemoteSkipButtons: false });
+    });
+
+    it('ignores a corrupt hideRemoteSkipButtons value (defaults to true)', () => {
+        localStorage.setItem(LS_SETTINGS, JSON.stringify({ enablePreview: false, hideRemoteSkipButtons: 'false' }));
+        expect(loadSettings()).toEqual({ enablePreview: false, hideRemoteSkipButtons: true });
+    });
+
+    it('renders exactly two toggles and one language select in the settings modal', async () => {
         // Wave 5: the popup is mounted explicitly rather than baked into App().
+        // Wave 6: the popup gains the hideRemoteSkipButtons toggle and the
+        // language select next to the existing enablePreview toggle.
         const { mountSettingsModal } = await loadSettingsModal();
         mountSettingsModal(state);
         const toggles = document.querySelectorAll('.modal-body input[type="checkbox"]');
-        expect(toggles.length).toBe(1);
-        const toggle = document.querySelector<HTMLInputElement>('#settingEnablePreview');
-        expect(toggle).not.toBeNull();
-        expect(toggle!.parentElement!.textContent).toContain(getLabels(state).settingEnablePreview);
+        expect(toggles.length).toBe(2);
+        const previewToggle = document.querySelector<HTMLInputElement>('#settingEnablePreview');
+        expect(previewToggle).not.toBeNull();
+        expect(previewToggle!.parentElement!.textContent).toContain(getLabels(state).settingEnablePreview);
+        expect(document.querySelector('#settingHideRemoteSkipButtons')).not.toBeNull();
+        const select = document.querySelector<HTMLSelectElement>('#settingLanguage');
+        expect(select).not.toBeNull();
+        expect(select!.tagName).toBe('SELECT');
+        expect([...select!.options].map(o => o.value)).toEqual(['en', 'de', 'ru', 'ukr']);
+        expect([...select!.options].map(o => o.textContent)).toEqual(['English', 'Deutsch', 'Русский', 'Українська']);
+        const selected = [...select!.options].filter(o => o.selected);
+        expect(selected.length).toBe(1);
+        expect(selected[0].value).toBe(state.language);
         expect(document.querySelector('#settingDisablePlayer')).toBeNull();
         expect(document.querySelector('#settingDisablePlayButton')).toBeNull();
         expect(document.querySelector('#settingSoundtouchDefault')).toBeNull();
@@ -679,8 +700,8 @@ describe('settings (FR-10)', () => {
         expect(state.settings.enablePreview).toBe(true);
 
         document.querySelector<HTMLButtonElement>('#resetSettings')!.click();
-        expect(state.settings).toEqual({ enablePreview: false });
-        expect(JSON.parse(localStorage.getItem(LS_SETTINGS)!)).toEqual({ enablePreview: false });
+        expect(state.settings).toEqual({ enablePreview: false, hideRemoteSkipButtons: true });
+        expect(JSON.parse(localStorage.getItem(LS_SETTINGS)!)).toEqual({ enablePreview: false, hideRemoteSkipButtons: true });
         // Wave 5: reset also syncs the open popup's checkbox (syncSettingsModalState).
         expect(document.querySelector<HTMLInputElement>('#settingEnablePreview')!.checked).toBe(false);
     });
@@ -914,8 +935,8 @@ describe('settings popup fixes (wave 5)', () => {
         expect(document.querySelector('.modal-panel')).toBe(panel);
         expect(document.querySelector('.station-list')).toBe(list);
         expect(document.querySelector('.player')).not.toBeNull();
-        expect(state.settings).toEqual({ enablePreview: true });
-        expect(JSON.parse(localStorage.getItem(LS_SETTINGS)!)).toEqual({ enablePreview: true });
+        expect(state.settings).toEqual({ enablePreview: true, hideRemoteSkipButtons: true });
+        expect(JSON.parse(localStorage.getItem(LS_SETTINGS)!)).toEqual({ enablePreview: true, hideRemoteSkipButtons: true });
 
         toggle!.checked = false;
         toggle!.dispatchEvent(new Event('change', { bubbles: true }));
@@ -923,8 +944,8 @@ describe('settings popup fixes (wave 5)', () => {
         expect(document.querySelector('.modal-panel')).toBe(panel);
         expect(document.querySelector('.station-list')).toBe(list);
         expect(document.querySelector('.player')).toBeNull();
-        expect(state.settings).toEqual({ enablePreview: false });
-        expect(JSON.parse(localStorage.getItem(LS_SETTINGS)!)).toEqual({ enablePreview: false });
+        expect(state.settings).toEqual({ enablePreview: false, hideRemoteSkipButtons: true });
+        expect(JSON.parse(localStorage.getItem(LS_SETTINGS)!)).toEqual({ enablePreview: false, hideRemoteSkipButtons: true });
     });
 
     it('closes via ×, backdrop click, and Escape without rebuilding the page', () => {
