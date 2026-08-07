@@ -393,12 +393,21 @@ describe('live now-playing confirmation of play actions (FR-4)', () => {
         await flush();
         expect(vi.getTimerCount()).toBe(1); // a pending send exists to cancel
 
-        const input = document.querySelector<HTMLInputElement>('#soundtouch')!;
-        input.value = '192.168.1.43';
-        document.querySelector<HTMLButtonElement>('#saveSoundtouch')!.click();
+        // wave 7: the host field lives in the settings popup's SoundTouch
+        // section, not in a shell bar
+        document.querySelector<HTMLButtonElement>('#openSettings')!.click();
+        const input = document.querySelector<HTMLInputElement>('#settingSoundtouchHost');
+        expect(input).not.toBeNull();
+        input!.value = '192.168.1.43';
+        document.querySelector<HTMLButtonElement>('#settingSoundtouchSave')!.click();
         await flush();
 
         expect(wsState.deviceMessage).toBe('');
+        // jsdom's focus() (the popup mount focuses #closeSettings) schedules a
+        // phantom 0ms setTimeout for a selectionchange event that never fires
+        // here — consume it so the count proves the arm and ping timers were
+        // both cleared by the address change
+        await vi.advanceTimersByTimeAsync(0);
         expect(vi.getTimerCount()).toBe(0);
     });
 
@@ -572,11 +581,28 @@ describe('live now-playing confirmation of play actions (FR-4)', () => {
         const fetchMock = vi.fn().mockResolvedValue({} as Response);
         vi.stubGlobal('fetch', fetchMock);
 
+        // wave 7: the pending message renders in the settings popup's
+        // SoundTouch section — open the popup BEFORE arming the send so the
+        // preserved popup's section picks the message up on the send's
+        // background render (no-blink contract). setupEvents is bound exactly
+        // once here; the arming steps below reuse that binding.
+        render();
+        setupEvents();
+        document.querySelector<HTMLButtonElement>('#openSettings')!.click();
+        const overlay = document.querySelector('.modal-overlay');
+        expect(overlay).not.toBeNull();
+
         const hostile = { ...STATION_A, name: '<img src=x onerror=alert(1)>' };
-        arm(hostile);
+        connectSoundtouchWs('192.168.1.42');
+        FakeWebSocket.instances[0].open();
+        state.stations = [hostile];
+        render();
+        document.querySelector<HTMLButtonElement>(`[data-play="${hostile.stationuuid}"]`)!.click();
         await flush();
 
-        const hint = document.querySelector<HTMLElement>('.soundtouch-hint');
+        // the popup kept its node through the send's background render
+        expect(document.querySelector('.modal-overlay')).toBe(overlay);
+        const hint = document.querySelector<HTMLElement>('.modal-overlay .soundtouch-hint');
         expect(hint).not.toBeNull();
         expect(hint!.innerHTML).toContain('&lt;img');
         expect(hint!.textContent).toContain('<img src=x onerror=alert(1)>');

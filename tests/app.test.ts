@@ -288,39 +288,21 @@ describe('setup view (FR-2)', () => {
         await vi.waitFor(() => expect(state.soundtouchStatus).toBe('available'), { timeout: 500 });
         expect(localStorage.getItem(LS_SOUNDTOUCH)).toBe('192.168.1.42');
         expect(document.querySelector('.setup-view')).toBeNull();
-        await vi.waitFor(
-            () => expect(document.body.textContent).toContain(`✓ ${getLabels(state).reachable}`),
-            { timeout: 500 }
-        );
+        // wave 7: the status no longer renders in the shell — the config moved
+        // into the settings popup, so the shell carries no .soundtouch-bar
+        expect(document.querySelector('.soundtouch-bar')).toBeNull();
+        // reachability is visible only inside the settings popup: open it and
+        // assert the live status text (the state transition itself is pinned
+        // by the waitFor above)
+        document.querySelector<HTMLButtonElement>('#openSettings')!.click();
+        const status = document.querySelector<HTMLElement>('.modal-overlay .soundtouch-status');
+        expect(status).not.toBeNull();
+        expect(status!.textContent).toContain(`✓ ${getLabels(state).reachable}`);
         // Probe-only check: exactly one no-cors GET on the device Web API.
         expect(fetchMock).toHaveBeenCalledTimes(1);
         const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
         expect(url).toBe('http://192.168.1.42:8090/info');
         expect(init.mode).toBe('no-cors');
-    });
-
-    it('persists a NEW address when a saved one is changed', async () => {
-        // Regression pin: the save handler used to persist only on first
-        // setup or clearing, so changing a previously saved address left the
-        // old host in storage. Saving must always persist the new host.
-        const fetchMock = vi.fn().mockResolvedValue({} as Response);
-        vi.stubGlobal('fetch', fetchMock);
-
-        state.soundtouchAddress = '192.168.1.42';
-        state.skippedSetup = false;
-        localStorage.setItem(LS_SOUNDTOUCH, '192.168.1.42');
-        render();
-        setupEvents();
-
-        const input = document.querySelector<HTMLInputElement>('#soundtouch')!;
-        input.value = 'http://192.168.1.43/';
-        document.querySelector<HTMLButtonElement>('#saveSoundtouch')!.click();
-
-        expect(state.soundtouchAddress).toBe('192.168.1.43');
-        expect(localStorage.getItem(LS_SOUNDTOUCH)).toBe('192.168.1.43');
-        // the probe runs to completion so the reachability check settles
-        expect(state.soundtouchStatus).toBe('checking');
-        await vi.waitFor(() => expect(state.soundtouchStatus).toBe('available'), { timeout: 500 });
     });
 
     it('marks the device unreachable and shows the banner when the check fails', async () => {
@@ -342,43 +324,6 @@ describe('setup view (FR-2)', () => {
         expect(document.querySelector('.setup-view')).toBeNull();
         await vi.waitFor(() => expect(document.querySelector('.offline-banner')).not.toBeNull(), { timeout: 500 });
         expect(document.querySelector('.offline-banner')!.textContent).toContain(getLabels(state).offlineBanner);
-    });
-
-    it('ignores a stale ping result after the address changes', async () => {
-        let rejectA!: (reason: Error) => void;
-        // A's probe hangs (never resolves on its own) until the test rejects it.
-        const pendingA = new Promise<Response>((_, reject) => {
-            rejectA = reject;
-        });
-        const fetchMock = vi
-            .fn()
-            .mockImplementationOnce(() => pendingA)
-            .mockImplementationOnce(() => Promise.resolve({} as Response))
-            .mockRejectedValue(new Error('offline'));
-        vi.stubGlobal('fetch', fetchMock);
-
-        state.soundtouchAddress = '';
-        state.skippedSetup = false;
-        render();
-        setupEvents();
-
-        // Save host A — its reachability ping stays pending.
-        let input = document.querySelector<HTMLInputElement>('#soundtouch')!;
-        input.value = 'http://192.168.1.42/';
-        document.querySelector<HTMLButtonElement>('#saveSoundtouch')!.click();
-
-        // Save host B — its probe resolves immediately.
-        input = document.querySelector<HTMLInputElement>('#soundtouch')!;
-        input.value = '192.168.1.99';
-        document.querySelector<HTMLButtonElement>('#saveSoundtouch')!.click();
-
-        await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2), { timeout: 500 });
-        await vi.waitFor(() => expect(state.soundtouchStatus).toBe('available'), { timeout: 500 });
-
-        // A's ping now fails — it must NOT overwrite B's newer result.
-        rejectA(new Error('offline'));
-        await new Promise((r) => setTimeout(r, 0));
-        expect(state.soundtouchStatus).toBe('available');
     });
 });
 
@@ -1278,5 +1223,237 @@ describe('settings expansion (wave 6)', () => {
         // the preserved popup's controls sync to the restored defaults
         expect(document.querySelector<HTMLInputElement>('#settingHideRemoteSkipButtons')!.checked).toBe(true);
         expect(document.querySelector('#remoteNext')).toBeNull();
+    });
+});
+
+describe('soundtouch settings section (wave 7)', () => {
+    it('renders no SoundTouch bar in the shell when an address is saved', () => {
+        state.soundtouchAddress = '192.168.1.42';
+        render();
+        // wave 7: the whole config block moved into the settings popup — the
+        // shell keeps only the Remote panel
+        expect(document.querySelector('.soundtouch-bar')).toBeNull();
+        expect(document.querySelector('.remote-panel')).not.toBeNull();
+    });
+
+    it('persists a NEW address when a saved one is changed', async () => {
+        // Regression pin: the save handler used to persist only on first
+        // setup or clearing, so changing a previously saved address left the
+        // old host in storage. Saving must always persist the new host.
+        const fetchMock = vi.fn().mockResolvedValue({} as Response);
+        vi.stubGlobal('fetch', fetchMock);
+
+        state.soundtouchAddress = '192.168.1.42';
+        state.skippedSetup = false;
+        localStorage.setItem(LS_SOUNDTOUCH, '192.168.1.42');
+        render();
+        setupEvents();
+        document.querySelector<HTMLButtonElement>('#openSettings')!.click();
+
+        const input = document.querySelector<HTMLInputElement>('#settingSoundtouchHost');
+        expect(input).not.toBeNull();
+        input!.value = 'http://192.168.1.43/';
+        document.querySelector<HTMLButtonElement>('#settingSoundtouchSave')!.click();
+
+        expect(state.soundtouchAddress).toBe('192.168.1.43');
+        expect(localStorage.getItem(LS_SOUNDTOUCH)).toBe('192.168.1.43');
+        // the probe runs to completion so the reachability check settles
+        expect(state.soundtouchStatus).toBe('checking');
+        await vi.waitFor(() => expect(state.soundtouchStatus).toBe('available'), { timeout: 500 });
+    });
+
+    it('the settings popup renders the SoundTouch connection section', () => {
+        state.soundtouchAddress = '192.168.1.42';
+        state.stations = [STATION];
+        render();
+        setupEvents();
+        document.querySelector<HTMLButtonElement>('#openSettings')!.click();
+        const overlay = document.querySelector('.modal-overlay');
+        const panel = document.querySelector('.modal-panel');
+        expect(overlay).not.toBeNull();
+        expect(panel).not.toBeNull();
+
+        const hostInput = document.querySelector<HTMLInputElement>('#settingSoundtouchHost');
+        expect(hostInput).not.toBeNull();
+        expect(hostInput!.value).toBe('192.168.1.42');
+        expect(document.querySelector('#settingSoundtouchSave')).not.toBeNull();
+        const status = document.querySelector<HTMLElement>('.soundtouch-status');
+        expect(status).not.toBeNull();
+        expect(status!.textContent).toContain(`✓ ${getLabels(state).reachable}`);
+
+        // a language switch re-labels the section in place while the popup
+        // keeps its nodes (no-blink contract)
+        const select = document.querySelector<HTMLSelectElement>('#settingLanguage');
+        expect(select).not.toBeNull();
+        select!.value = 'de';
+        select!.dispatchEvent(new Event('change', { bubbles: true }));
+
+        const de = getLabels({ language: 'de' });
+        expect(document.querySelector<HTMLInputElement>('#settingSoundtouchHost')!.value).toBe('192.168.1.42');
+        expect(document.querySelector<HTMLButtonElement>('#settingSoundtouchSave')!.textContent).toBe(de.save);
+        expect(document.querySelector<HTMLElement>('.soundtouch-status')!.textContent).toContain(`✓ ${de.reachable}`);
+        expect(document.querySelector('.modal-overlay')).toBe(overlay);
+        expect(document.querySelector('.modal-panel')).toBe(panel);
+    });
+
+    it('saving a host from the popup preserves the popup and updates the status in place', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({} as Response);
+        vi.stubGlobal('fetch', fetchMock);
+
+        state.soundtouchAddress = '';
+        state.skippedSetup = true;
+        state.soundtouchStatus = 'idle';
+        render();
+        setupEvents();
+        document.querySelector<HTMLButtonElement>('#openSettings')!.click();
+        const overlay = document.querySelector('.modal-overlay');
+        const panel = document.querySelector('.modal-panel');
+        expect(overlay).not.toBeNull();
+        expect(panel).not.toBeNull();
+
+        const input = document.querySelector<HTMLInputElement>('#settingSoundtouchHost');
+        expect(input).not.toBeNull();
+        input!.value = 'http://192.168.1.43/';
+        document.querySelector<HTMLButtonElement>('#settingSoundtouchSave')!.click();
+
+        // the popup keeps its nodes and never replays its entrance animation
+        expect(document.querySelector('.modal-overlay')).toBe(overlay);
+        expect(document.querySelector('.modal-panel')).toBe(panel);
+        expect(document.querySelector('.modal-overlay')!.classList.contains('modal-overlay--no-anim')).toBe(true);
+        // the status flips to Checking… live in place
+        expect(state.soundtouchAddress).toBe('192.168.1.43');
+        expect(localStorage.getItem(LS_SOUNDTOUCH)).toBe('192.168.1.43');
+        const status = document.querySelector<HTMLElement>('.soundtouch-status');
+        expect(status).not.toBeNull();
+        expect(status!.textContent).toContain(`⟳ ${getLabels(state).checking}`);
+
+        // the probe resolves → Reachable in place, Remote panel appears behind
+        await vi.waitFor(() => expect(state.soundtouchStatus).toBe('available'), { timeout: 500 });
+        expect(document.querySelector<HTMLElement>('.soundtouch-status')!.textContent).toContain(`✓ ${getLabels(state).reachable}`);
+        expect(document.querySelector('.remote-panel')).not.toBeNull();
+        // the probe hit the device Web API exactly like the old shell bar
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+        expect(url).toBe('http://192.168.1.43:8090/info');
+        expect(init.mode).toBe('no-cors');
+    });
+
+    it('clearing the host from the popup disconnects and keeps the popup open', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({} as Response);
+        vi.stubGlobal('fetch', fetchMock);
+
+        state.soundtouchAddress = '192.168.1.42';
+        state.skippedSetup = true;
+        render();
+        setupEvents();
+        document.querySelector<HTMLButtonElement>('#openSettings')!.click();
+        const overlay = document.querySelector('.modal-overlay');
+        expect(overlay).not.toBeNull();
+        expect(document.querySelector('.remote-panel')).not.toBeNull();
+
+        const input = document.querySelector<HTMLInputElement>('#settingSoundtouchHost');
+        expect(input).not.toBeNull();
+        input!.value = '';
+        document.querySelector<HTMLButtonElement>('#settingSoundtouchSave')!.click();
+
+        expect(state.soundtouchAddress).toBe('');
+        expect(localStorage.getItem(LS_SOUNDTOUCH)).toBe('');
+        expect(document.querySelector<HTMLElement>('.soundtouch-status')!.textContent).toBe('—');
+        // the Remote panel disappears behind the still-open popup
+        expect(document.querySelector('.remote-panel')).toBeNull();
+        expect(document.querySelector('.modal-overlay')).toBe(overlay);
+        expect(state.showSettings).toBe(true);
+    });
+
+    it('reset to defaults keeps the saved host', () => {
+        state.soundtouchAddress = '192.168.1.42';
+        render();
+        setupEvents();
+        document.querySelector<HTMLButtonElement>('#openSettings')!.click();
+        const overlay = document.querySelector('.modal-overlay');
+        expect(overlay).not.toBeNull();
+        const input = document.querySelector<HTMLInputElement>('#settingSoundtouchHost');
+        expect(input).not.toBeNull();
+        expect(input!.value).toBe('192.168.1.42');
+
+        document.querySelector<HTMLButtonElement>('#resetSettings')!.click();
+
+        // reset touches only the two toggles — the host (like the language)
+        // is never reset
+        expect(state.soundtouchAddress).toBe('192.168.1.42');
+        expect(document.querySelector<HTMLInputElement>('#settingSoundtouchHost')!.value).toBe('192.168.1.42');
+        expect(state.settings).toEqual({ enablePreview: false, hideRemoteSkipButtons: true });
+        expect(document.querySelector('.modal-overlay')).toBe(overlay);
+    });
+
+    it('a background render keeps the popup SoundTouch section live without animation replay', () => {
+        state.soundtouchAddress = '192.168.1.42';
+        state.stations = [STATION];
+        render();
+        setupEvents();
+        document.querySelector<HTMLButtonElement>('#openSettings')!.click();
+        const overlay = document.querySelector('.modal-overlay');
+        expect(overlay).not.toBeNull();
+        const section = document.querySelector('.soundtouch-section');
+        expect(section).not.toBeNull();
+
+        // direct render() simulates the artwork-settle hook path
+        state.soundtouchStatus = 'unreachable';
+        render();
+
+        expect(document.querySelector('.modal-overlay')).toBe(overlay);
+        expect(document.querySelector('.modal-overlay')!.classList.contains('modal-overlay--no-anim')).toBe(true);
+        // the section syncs in place — replaced with the fresh status
+        const sectionAfter = document.querySelector('.soundtouch-section');
+        expect(sectionAfter).not.toBeNull();
+        expect(sectionAfter).not.toBe(section);
+        expect(sectionAfter!.querySelector('.soundtouch-status')!.textContent).toContain(`✗ ${getLabels(state).unreachable}`);
+
+        state.deviceMessage = 'test msg';
+        render();
+        expect(document.querySelector('.modal-overlay')).toBe(overlay);
+        const hint = document.querySelector<HTMLElement>('.modal-overlay .soundtouch-hint');
+        expect(hint).not.toBeNull();
+        expect(hint!.textContent).toBe('test msg');
+    });
+
+    it('ignores a stale ping result after the address changes', async () => {
+        let rejectA!: (reason: Error) => void;
+        // A's probe hangs (never resolves on its own) until the test rejects it.
+        const pendingA = new Promise<Response>((_, reject) => {
+            rejectA = reject;
+        });
+        const fetchMock = vi
+            .fn()
+            .mockImplementationOnce(() => pendingA)
+            .mockImplementationOnce(() => Promise.resolve({} as Response))
+            .mockRejectedValue(new Error('offline'));
+        vi.stubGlobal('fetch', fetchMock);
+
+        state.soundtouchAddress = '192.168.1.42';
+        state.skippedSetup = false;
+        render();
+        setupEvents();
+        document.querySelector<HTMLButtonElement>('#openSettings')!.click();
+
+        // Save host A — its reachability ping stays pending.
+        let input = document.querySelector<HTMLInputElement>('#settingSoundtouchHost');
+        expect(input).not.toBeNull();
+        input!.value = 'http://192.168.1.42/';
+        document.querySelector<HTMLButtonElement>('#settingSoundtouchSave')!.click();
+
+        // Save host B — its probe resolves immediately.
+        input = document.querySelector<HTMLInputElement>('#settingSoundtouchHost');
+        expect(input).not.toBeNull();
+        input!.value = '192.168.1.99';
+        document.querySelector<HTMLButtonElement>('#settingSoundtouchSave')!.click();
+
+        await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2), { timeout: 500 });
+        await vi.waitFor(() => expect(state.soundtouchStatus).toBe('available'), { timeout: 500 });
+
+        // A's ping now fails — it must NOT overwrite B's newer result.
+        rejectA(new Error('offline'));
+        await new Promise((r) => setTimeout(r, 0));
+        expect(state.soundtouchStatus).toBe('available');
     });
 });
