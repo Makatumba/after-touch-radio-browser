@@ -898,8 +898,9 @@ skeleton placeholder covers every load.
    change is persisted and applied (clearing disconnects the WebSocket and hides the Remote
    panel).
 3. **Inspect the device** — open the popup → expand ℹ in the SoundTouch section → the rows pop
-   open above the ℹ, fully visible (name, type, module type, variant, IP, firmware, ID,
-   live-updating over the WebSocket) — the rows are never cut off.
+   open above the ℹ, clear of the host input, and scroll into view when the panel's visible area
+   is too small (name, type, module type, variant, IP, firmware, ID, live-updating over the
+   WebSocket).
 4. **Inspect the device from the Remote panel** — click ℹ next to the connection status in the
    panel header → the device info pops open over the now-playing content (the header and the
    rows below never move); click again to collapse.
@@ -919,8 +920,9 @@ skeleton placeholder covers every load.
   languages (language-style placement; the i18n key is `soundtouchNetworkAddress`).
 - The Remote panel header renders the ℹ device-info widget next to the connection status when
   device data exists; expanding it floats the rows over the content — the header row and the
-  panel below never shift, and in the settings popup the rows open upward and are never
-  clipped: the modal panel's overflow stays visible, so they are always fully visible.
+  panel below never shift, and in the settings popup the rows open upward, anchored past the
+  config row (`right: -110px`) and clear of the host input; the modal panel keeps its native
+  scrolling, and expanding the ℹ scrolls the rows into view when the visible area is too small.
 - The dead shell-bar renderer (`renderSoundtouch`) is gone from the codebase.
 - A background render (artwork settle, WS snapshot) while the popup is open keeps the popup
   node and its SoundTouch section live, without animation replay.
@@ -937,9 +939,10 @@ skeleton placeholder covers every load.
 - Device info not yet arrived / device offline — the remote header shows the connection status
   but no ℹ until the info snapshot lands (last-known rows survive reconnects).
 - Expanding device info never shifts layout: the rows float over the content in both contexts
-  (upward in the popup section, downward over the Remote panel's now-playing rows). The modal
-  panel's overflow stays visible, so the popup's rows are never clipped — always fully visible;
-  the Remote panel's ℹ relies on the page scrolling naturally.
+  (upward in the popup section, clear of the host input; downward over the Remote panel's
+  now-playing rows, which the panel's bottom margin keeps clear of the content below). The modal
+  panel keeps its native scrolling, so expanding the popup's ℹ scrolls the rows into view when
+  the visible area is too small; the Remote panel's ℹ relies on the page scrolling naturally.
 
 ## Non-goals (v1)
 

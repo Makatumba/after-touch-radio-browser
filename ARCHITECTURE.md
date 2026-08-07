@@ -216,9 +216,10 @@ graph TD
   part of the settings JSON); reset never touches either. The host field is labeled
   `soundtouchNetworkAddress` ("SoundTouch network address") above the input — the same title
   placement as the Language select — and the Remote panel header carries the ℹ device-info
-  widget next to its connection status. The modal panel's overflow stays visible, so expanding
-  the popup's ℹ never clips the info rows (always fully visible). Saving a host from the popup
-  keeps
+  widget next to its connection status. In the popup the ℹ's rows open upward, anchored past the
+  config row (`right: -110px`), clear of the host input; the modal panel keeps its native
+  scrolling, and expanding the ℹ scrolls the rows into view when the visible area is too small.
+  Saving a host from the popup keeps
   the popup open — the shell behind updates surgically (Remote panel, cards, banner) and the
   popup's live SoundTouch section syncs in place while `render()` re-inserts the preserved
   popup node (no-blink, `modal-overlay--no-anim`).

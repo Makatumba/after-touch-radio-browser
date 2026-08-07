@@ -113,14 +113,15 @@ export function setupEvents(): void {
 
         const infoSummary = target.closest('details.soundtouch-info summary') as HTMLElement | null;
         if (infoSummary) {
-            // wave 7.3/7.4: the popup's device-info popover opens upward and
-            // can extend above the modal panel — after the native details
-            // toggle (which runs after the click dispatch) scroll the rows
-            // into view so they stay fully visible even on short viewports.
-            // The modal panel's overflow stays visible (the primary
-            // safeguard), so this only matters in edge cases. Popup context
-            // only: the Remote header's ℹ has no .soundtouch-section
-            // ancestor and must not scroll.
+            // wave 7.3: the popup's device-info popover opens upward and can
+            // extend above the modal panel's visible area — after the native
+            // details toggle (which runs after the click dispatch) scroll the
+            // rows into view. Wave 7.4: the panel keeps its native scrolling
+            // (overflow-y: auto) and the popover is anchored past the config
+            // row (.modal-panel .soundtouch-info-body { right: -110px }),
+            // clear of the host input. Popup context only: the Remote
+            // header's ℹ has no .soundtouch-section ancestor and must not
+            // scroll.
             const details = infoSummary.closest<HTMLDetailsElement>('details.soundtouch-info');
             if (details?.closest('.soundtouch-section')) {
                 requestAnimationFrame(() => {
