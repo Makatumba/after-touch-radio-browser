@@ -262,7 +262,9 @@ describe('app-like polish (src/styles.css)', () => {
         );
     });
 
-    it('keeps the modal panel overflow visible so the popup device info is never clipped (wave 7.4)', () => {
-        expect(readCss()).toMatch(/\.modal-panel[^{]*\{[^}]*overflow-y:\s*visible/);
+    it('anchors the popup device-info popover past the config row and keeps the modal panel scrolling (wave 7.4)', () => {
+        expect(readCss()).toMatch(/\.modal-panel \.soundtouch-info-body[^{]*\{[^}]*right:\s*-110px/);
+        expect(readCss()).toMatch(/\.modal-panel[^{]*\{[^}]*overflow-y:\s*auto/);
+        expect(readCss()).toMatch(/\.remote-panel[^{]*\{[^}]*margin:\s*0 0 1rem 0/);
     });
 });
