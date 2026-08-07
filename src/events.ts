@@ -111,6 +111,23 @@ export function setupEvents(): void {
             return;
         }
 
+        const infoSummary = target.closest('details.soundtouch-info summary') as HTMLElement | null;
+        if (infoSummary) {
+            // wave 7.3: the popup's device-info popover opens upward and can
+            // extend above the modal panel's visible area — after the native
+            // details toggle (which runs after the click dispatch) scroll the
+            // rows into view so the panel's overflow never clips them. Popup
+            // context only: the Remote header's ℹ has no .soundtouch-section
+            // ancestor and must not scroll.
+            const details = infoSummary.closest<HTMLDetailsElement>('details.soundtouch-info');
+            if (details?.closest('.soundtouch-section')) {
+                requestAnimationFrame(() => {
+                    if (details.open) details.querySelector('.soundtouch-info-body')?.scrollIntoView({ block: 'nearest' });
+                });
+            }
+            return;
+        }
+
         // the gear is a button whose whole content is an SVG — a real click
         // lands on the <path>/<svg> (target.id === ''), so resolve it like
         // the remote-control buttons instead of switching on target.id
