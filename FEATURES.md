@@ -178,8 +178,11 @@ crashes.
 The app shows the logo (`public/logo.png`, 1254×1254 PNG) as the browser tab icon (favicon), as
 header branding next to the title, and as the source asset for the PWA icons (see FR-8). The
 header logo has an `alt` text and scales on small screens; if the image is missing, the text
-branding still renders. The favicon reference resolves under the GitHub Pages subpath hosting;
-a downscaled favicon copy is an implementation detail.
+branding still renders. The header stays a single row at every viewport width — on small screens
+(≤1024px) the settings gear remains top-right on the same row as the brand, and the brand text
+truncates (ellipsis) rather than wrapping under or overlapping the gear. The favicon reference
+resolves under the GitHub Pages subpath hosting; a downscaled favicon copy is an implementation
+detail.
 
 ### FR-8 PWA — installable standalone app
 
@@ -276,7 +279,9 @@ capability are non-goals (see Non-goals).
 - **Settings**: exactly one `enablePreview` toggle (default off); old settings keys are ignored
   on load; reset restores defaults.
 - **Logo**: favicon loads with no console errors; header shows the logo with alt text and no
-  layout shift on small screens; text branding still renders if the image is missing.
+  layout shift on small screens; text branding still renders if the image is missing; on small
+  screens (≤1024px) the settings gear stays top-right on the same row as the brand, with the
+  brand text truncated (ellipsis) instead of overlapping the gear.
 - **PWA**: the manifest is valid and complete (name, short_name ≤ 12, relative
   `id`/`start_url`/`scope`, `display: "standalone"`, theme/background colors, icons 192 + 512
   incl. `maskable`); the hosted URL is installable in Chrome (DevTools installability audit);
