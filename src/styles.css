@@ -659,7 +659,8 @@ button {
     display: flex;
     justify-content: space-between;
     gap: .75rem;
-    align-items: center
+    align-items: center;
+    flex-wrap: wrap
 }
 
 .remote-head h2 {
@@ -679,6 +680,30 @@ button {
 
 .remote-status.status-err {
     color: #c33
+}
+
+/* Wave 7.1: inside the remote header the ℹ device-info widget becomes a
+   static, in-flow full-width row below the status (flex-wrap wraps it); the
+   settings popup's widget keeps its absolute dropdown — the base
+   .soundtouch-info/-body rules stay untouched. */
+.remote-head .remote-status {
+    margin-left: auto
+}
+
+.remote-head .soundtouch-info {
+    position: static;
+    display: block
+}
+
+.remote-head .soundtouch-info[open] {
+    flex-basis: 100%
+}
+
+.remote-head .soundtouch-info-body {
+    position: static;
+    width: 100%;
+    margin-top: .5rem;
+    box-shadow: none
 }
 
 .remote-nowplaying {

@@ -36,39 +36,24 @@ export function renderDeviceInfo(state: State, t: Record<string, string>): strin
 </details>`;
 }
 
-export function renderSoundtouch(state: State, t: Record<string, string>): string {
-    const statusText = state.soundtouchStatus === 'checking' ? `⟳ ${t.checking}` : state.soundtouchStatus === 'available' ? `✓ ${t.reachable}` : state.soundtouchStatus === 'unreachable' ? `✗ ${t.unreachable}` : '—';
-    const cls = state.soundtouchStatus === 'available' ? ' status-ok' : state.soundtouchStatus === 'unreachable' ? ' status-err' : '';
-    const hint = !state.soundtouchAddress ? `<small class="soundtouch-hint">${t.unconfiguredHint}</small>` : '';
-    const msg = state.deviceMessage ? `<small class="soundtouch-hint">${state.deviceMessage}</small>` : '';
-    return `<section class="panel soundtouch-bar">
-    <div class="soundtouch-config">
-        <span>${t.soundtouchCollapsed}</span>
-        <input class="input" id="soundtouch" value="${state.soundtouchAddress}" placeholder="${t.hostPlaceholder}" />
-        <button class="btn btn-secondary" id="saveSoundtouch">${t.save}</button>
-        <span class="soundtouch-status${cls}">${statusText}</span>
-        ${renderDeviceInfo(state, t)}
-    </div>
-    ${hint}
-    ${msg}
-</section>`;
-}
-
 /** Wave 7: the settings popup's SoundTouch connection section — the same
- * config block the shell bar used to carry, keyed for the popup's ids. The
- * statusText/cls/hint/msg derivation mirrors renderSoundtouch verbatim. */
+ * config block the shell bar used to carry, keyed for the popup's ids.
+ * Wave 7.1: the host field sits under a label above the config row, in the
+ * same .field pattern as the Language select. */
 export function renderSoundtouchSettings(state: State, t: Record<string, string>): string {
     const statusText = state.soundtouchStatus === 'checking' ? `⟳ ${t.checking}` : state.soundtouchStatus === 'available' ? `✓ ${t.reachable}` : state.soundtouchStatus === 'unreachable' ? `✗ ${t.unreachable}` : '—';
     const cls = state.soundtouchStatus === 'available' ? ' status-ok' : state.soundtouchStatus === 'unreachable' ? ' status-err' : '';
     const hint = !state.soundtouchAddress ? `<small class="soundtouch-hint">${t.unconfiguredHint}</small>` : '';
     const msg = state.deviceMessage ? `<small class="soundtouch-hint">${state.deviceMessage}</small>` : '';
     return `<section class="soundtouch-section">
-    <div class="soundtouch-config">
-        <span>${t.soundtouchCollapsed}</span>
-        <input class="input" id="settingSoundtouchHost" value="${state.soundtouchAddress}" placeholder="${t.hostPlaceholder}" />
-        <button class="btn btn-secondary" id="settingSoundtouchSave">${t.save}</button>
-        <span class="soundtouch-status${cls}">${statusText}</span>
-        ${renderDeviceInfo(state, t)}
+    <div class="field">
+        <label for="settingSoundtouchHost">${t.soundtouchNetworkAddress}</label>
+        <div class="soundtouch-config">
+            <input class="input" id="settingSoundtouchHost" value="${state.soundtouchAddress}" placeholder="${t.hostPlaceholder}" />
+            <button class="btn btn-secondary" id="settingSoundtouchSave">${t.save}</button>
+            <span class="soundtouch-status${cls}">${statusText}</span>
+            ${renderDeviceInfo(state, t)}
+        </div>
     </div>
     ${hint}
     ${msg}

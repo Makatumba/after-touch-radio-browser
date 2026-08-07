@@ -132,6 +132,7 @@ graph TD
     COMP --> ART
     REMOTE --> ST
     REMOTE --> ART
+    REMOTE --> STC[components/soundtouch.ts]
     EVT --> SM[settings-modal.ts]
     SM --> APP
     SM --> I18N
