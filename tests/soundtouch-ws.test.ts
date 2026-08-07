@@ -1587,6 +1587,9 @@ describe('remote control panel', () => {
                 const key = localStorage.key(i);
                 if (key?.startsWith('radio-browser-art-')) localStorage.removeItem(key);
             }
+            // wave 11: the artwork slot is gated on the play status — every test in
+            // this block asserts a rendered slot, so the device is playing
+            wsState.devicePlayStatus = 'PLAY_STATE';
         });
 
         it('shows a skeleton artwork slot while the art URL is unprimed, then a single img.artwork-slot with escaped src, empty alt, and no inline onerror once ready', () => {
@@ -1789,6 +1792,115 @@ describe('remote control panel', () => {
             render();
             expect(document.querySelector('span.artwork-slot--empty')).not.toBeNull();
             expect(document.querySelector('img.artwork-slot')).toBeNull();
+        });
+    });
+
+    // Wave 11 plays-only gate: the now-playing artwork slot renders only while
+    // the device reports PLAY_STATE or BUFFERING_STATE — nothing for PAUSE,
+    // STOP, or empty/unknown statuses, no matter what artwork URLs are known
+    // (WS-emitted containerArt, device art, highlighted-station favicon).
+    describe('artwork — plays-only gate (wave 11)', () => {
+        beforeEach(() => {
+            FakeImage.instances = [];
+            vi.stubGlobal('Image', FakeImage);
+            // reset the artwork registry and the per-station cache so every test
+            // starts from an unprimed registry (a settled URL or a cached art key
+            // from an earlier test would render an img, not a skeleton). The
+            // file-level beforeEach leaves devicePlayStatus '' — each test sets
+            // the status it exercises.
+            resetArtworkState();
+            for (let i = localStorage.length - 1; i >= 0; i--) {
+                const key = localStorage.key(i);
+                if (key?.startsWith('radio-browser-art-')) localStorage.removeItem(key);
+            }
+        });
+
+        it('renders the artwork slot while PLAY_STATE — skeleton then a single img.artwork-slot (gate open)', () => {
+            wsState.wsStatus = 'connected';
+            wsState.devicePlayStatus = 'PLAY_STATE';
+            const artUrl = 'http://192.168.1.42:8090/v1/gate-open-art.png';
+            wsState.deviceNowPlayingDetail = detail({art: artUrl});
+            render();
+
+            // gate open + unprimed → skeleton carrying the URL for the background fetch
+            const skeleton = document.querySelector('span.artwork-slot.artwork-skeleton');
+            expect(skeleton).not.toBeNull();
+            expect(skeleton!.getAttribute('data-art-url')).toBe(artUrl);
+            expect(document.querySelector('img.artwork-slot')).toBeNull();
+
+            // render()'s background scan requested the URL; settle the load
+            expect(FakeImage.instances).toHaveLength(1);
+            FakeImage.instances[0].onload?.();
+            render();
+
+            const imgs = document.querySelectorAll('.remote-nowplaying img.artwork-slot');
+            expect(imgs).toHaveLength(1);
+            expect(imgs[0].getAttribute('src')).toBe(artUrl);
+            expect(imgs[0].getAttribute('alt')).toBe('');
+            expect(imgs[0].hasAttribute('onerror')).toBe(false);
+        });
+
+        it('renders the artwork slot while BUFFERING_STATE — skeleton then a single img.artwork-slot (gate open)', () => {
+            wsState.wsStatus = 'connected';
+            wsState.devicePlayStatus = 'BUFFERING_STATE';
+            const artUrl = 'http://192.168.1.42:8090/v1/gate-open-buffering.png';
+            wsState.deviceNowPlayingDetail = detail({art: artUrl});
+            render();
+
+            const skeleton = document.querySelector('span.artwork-slot.artwork-skeleton');
+            expect(skeleton).not.toBeNull();
+            expect(skeleton!.getAttribute('data-art-url')).toBe(artUrl);
+            expect(document.querySelector('img.artwork-slot')).toBeNull();
+
+            expect(FakeImage.instances).toHaveLength(1);
+            FakeImage.instances[0].onload?.();
+            render();
+
+            const imgs = document.querySelectorAll('.remote-nowplaying img.artwork-slot');
+            expect(imgs).toHaveLength(1);
+            expect(imgs[0].getAttribute('src')).toBe(artUrl);
+            expect(imgs[0].getAttribute('alt')).toBe('');
+            expect(imgs[0].hasAttribute('onerror')).toBe(false);
+        });
+
+        it.each<string>(['PAUSE_STATE', 'STOP_STATE', ''])('renders no artwork slot for %j even with known containerArt, device art, and a highlighted station favicon (gate closed)', (playStatus) => {
+            wsState.wsStatus = 'connected';
+            wsState.devicePlayStatus = playStatus;
+            state.stations = [{ stationuuid: 'hl-uuid', name: 'Highlighted', favicon: 'http://cdn.example.com/gate-closed-favicon.png' }];
+            state.currentIndex = 0;
+            wsState.deviceNowPlayingDetail = detail({
+                art: 'http://192.168.1.42:8090/v1/gate-closed-art.png',
+                contentItem: contentItem({ containerArt: 'http://192.168.1.42:8090/v1/gate-closed-container-art.png' }),
+            });
+            render();
+
+            // gate closed ⇒ no slot at all, no skeleton ⇒ no background fetch
+            expect(document.querySelector('.remote-nowplaying .artwork-slot')).toBeNull();
+            expect(document.querySelector('img.artwork-slot')).toBeNull();
+            expect(FakeImage.instances).toHaveLength(0);
+        });
+
+        it('keeps the title, meta line, and play-status chip when the logo is gated off', () => {
+            wsState.wsStatus = 'connected';
+            wsState.devicePlayStatus = 'PAUSE_STATE';
+            wsState.deviceNowPlaying = 'Track title';
+            wsState.deviceArtist = 'Artist name';
+            wsState.deviceAlbum = 'Album name';
+            wsState.deviceSource = 'RADIO_BROWSER';
+            state.stations = [{ stationuuid: 'hl-uuid', name: 'Highlighted', favicon: 'http://cdn.example.com/gate-closed-favicon.png' }];
+            state.currentIndex = 0;
+            wsState.deviceNowPlayingDetail = detail({
+                art: 'http://192.168.1.42:8090/v1/gate-closed-art.png',
+                contentItem: contentItem({ containerArt: 'http://192.168.1.42:8090/v1/gate-closed-container-art.png' }),
+            });
+            render();
+
+            expect(document.querySelector('.artwork-slot')).toBeNull();
+            const strong = document.querySelector('.remote-nowplaying strong');
+            expect(strong!.textContent).toBe('Track title');
+            const small = document.querySelector('.remote-nowplaying small');
+            expect(small!.textContent).toBe('Artist name · Album name · RADIO_BROWSER');
+            expect(document.querySelector('.remote-playstatus')!.textContent).toBe(tView.en.remotePaused);
         });
     });
 
