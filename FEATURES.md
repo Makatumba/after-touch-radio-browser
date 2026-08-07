@@ -3,8 +3,9 @@
 This document is the feature spec for AfterTouch Radio Browser: what the app does today and
 what it should do once the planned features land. It is the contract for the implementation
 pipeline (behavior spec → impl plan → tests → implementation → QA). Features in the
-**Implemented** sections are shipped. The current state is described in [README.md](README.md) and
-[ARCHITECTURE.md](ARCHITECTURE.md).
+**Implemented** sections are shipped — or contractually committed to the current unreleased
+wave (the wave sections are written at spec time, ahead of their code). The current state is
+described in [README.md](README.md) and [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Product statement
 
@@ -102,8 +103,8 @@ sanitized (scheme and trailing slash stripped) before use, stored in the existin
 `radio-browser-soundtouch-host` key. Reachability verified after save: "✓ Reachable" /
 "✗ Unreachable", with plain-language errors. A "Browse stations anyway" link lets the user
 skip setup — browsing still works, but play-on-speaker stays disabled until an address is
-saved. Once saved, setup is needed only once; the address stays editable from a compact bar
-(input + Save + status) on the main screen.
+saved. Once saved, setup is needed only once; the address stays editable from the settings
+popup's SoundTouch section (gear → "SoundTouch network address").
 
 #### Reachability check
 
@@ -414,7 +415,8 @@ changed.
 
 #### Device-info widget (WebSocket-fed)
 
-The compact SoundTouch bar's info widget shows the **device ID**, **name**, and **type**.
+The device-info widget (in the settings popup's SoundTouch section and the Remote panel
+header) shows the **device ID**, **name**, and **type**.
 The ID (the MAC address carried by the `deviceID` attribute) is observed from any message
 the app uses; the name and type come from the `info` snapshot response (`<name>` /
 `<type>`, e.g. "SoundTouch 10") fetched on connection open and re-requested on every
@@ -849,6 +851,95 @@ skeleton placeholder covers every load.
 - Stored settings without `hideRemoteSkipButtons` (pre-wave-6) — the default applies (hidden).
 - Reset while preview audio plays — the audio stops (unchanged wave-5 behavior); the
   skip-hiding toggle restores to on.
+
+## Implemented (wave 7)
+
+### SoundTouch configuration moves into the settings popup
+
+- The settings popup gains a **SoundTouch connection** section holding everything the old
+  in-shell bar offered: the host input — labeled **"SoundTouch network address"** above the
+  field, using the same title placement as the Language select — the Save button, live
+  reachability status (Checking… / Reachable / Unreachable), the unconfigured hint, device
+  messages, and the ℹ device-info widget (name, type, module type, variant, IP, firmware, ID).
+  Saving keeps the popup open and shows the status live (Checking… → Reachable / Unreachable)
+  in place.
+- The `.soundtouch-bar` panel is removed from the app shell — the shell now shows only the
+  Remote panel (when configured), the filters, the station list, and the player bar.
+- The Remote panel's header shows the same ℹ device-info widget next to its connection status —
+  clicking it expands name/type/module type/variant/IP/firmware/ID as a floating popup that
+  opens downward over the now-playing content (never shifting the header or the rows below);
+  it appears once the device-info snapshot has arrived.
+- The expanded device-info rows behave as a floating popup in both places — absolute-positioned
+  over the surrounding content, never in-flow: in the settings popup they open upward (above the
+  ℹ, fully visible, clear of the modal's bottom edge); in the Remote panel header they open
+  downward over the now-playing content. The collapsed widget is unchanged, and expanding or
+  collapsing never shifts any layout.
+- The first-run full-screen setup view is unchanged and still owns the `#soundtouch` /
+  `#saveSoundtouch` ids; the popup's host field uses `#settingSoundtouchHost` /
+  `#settingSoundtouchSave`.
+- Saving a host behaves exactly as before under the hood: the address is sanitized and
+  persisted under `radio-browser-soundtouch-host`, reachability is probed (`/info`, 5 s
+  timeout), the port-8080 WebSocket feed starts (or closes when the host is cleared), and the
+  shell behind the popup updates — Remote panel appears/updates, station-card play buttons
+  enable/disable, offline banner toggles.
+- The wave-5/6 no-blink contract holds for every path: opening, saving, status changes,
+  WS-driven device-info updates, and background renders never rebuild the popup node and never
+  replay its entrance animation (`modal-overlay--no-anim`); the popup's SoundTouch section
+  updates in place.
+- Reset to defaults still touches only the two settings toggles — the host (like the language)
+  is never reset.
+
+#### User flows (wave 7)
+
+1. **Configure the speaker from Settings** — open the popup → type the speaker's address in the
+   SoundTouch section → Save → the popup stays open, the status flips Checking… → Reachable (or
+   Unreachable), and the shell behind shows the live Remote panel.
+2. **Edit / clear the address** — open the popup → change or empty the host field → Save → the
+   change is persisted and applied (clearing disconnects the WebSocket and hides the Remote
+   panel).
+3. **Inspect the device** — open the popup → expand ℹ in the SoundTouch section → the rows pop
+   open above the ℹ, fully visible (name, type, module type, variant, IP, firmware, ID,
+   live-updating over the WebSocket) — the rows are never cut off.
+4. **Inspect the device from the Remote panel** — click ℹ next to the connection status in the
+   panel header → the device info pops open over the now-playing content (the header and the
+   rows below never move); click again to collapse.
+
+#### Acceptance criteria (wave 7)
+
+- The popup renders the SoundTouch section (input, Save, status, hint, device info) in all 4
+  languages.
+- Saving from the popup persists `radio-browser-soundtouch-host`, probes reachability, opens
+  the WebSocket, and updates the status in place — the popup node and its no-anim class are
+  preserved throughout.
+- `.soundtouch-bar` never appears in the shell; the Remote panel appears behind the popup when
+  a host is saved.
+- The setup view still saves a host (`#soundtouch` / `#saveSoundtouch`).
+- Reset keeps the host and the language; only the two toggles restore.
+- The popup's host field renders a "SoundTouch network address" label above the input in all 4
+  languages (language-style placement; the i18n key is `soundtouchNetworkAddress`).
+- The Remote panel header renders the ℹ device-info widget next to the connection status when
+  device data exists; expanding it floats the rows over the content — the header row and the
+  panel below never shift, and in the settings popup the rows open upward and are never
+  clipped: the modal panel's overflow stays visible, so they are always fully visible.
+- The dead shell-bar renderer (`renderSoundtouch`) is gone from the codebase.
+- A background render (artwork settle, WS snapshot) while the popup is open keeps the popup
+  node and its SoundTouch section live, without animation replay.
+
+#### Edge cases (wave 7)
+
+- Saving an empty host — the address clears, the WebSocket closes, the Remote panel disappears.
+- Sanitization (scheme/path stripping) applies to the popup input exactly like the shell bar
+  did.
+- Save while a ping/WS session is in flight — the stale-host guard (`state.soundtouchAddress
+  === host`) and WS close/reconnect handle it.
+- The popup is open when the device goes offline — the offline banner appears behind the popup
+  and the status flips to Unreachable in place.
+- Device info not yet arrived / device offline — the remote header shows the connection status
+  but no ℹ until the info snapshot lands (last-known rows survive reconnects).
+- Expanding device info never shifts layout: the rows float over the content in both contexts
+  (upward in the popup section, downward over the Remote panel's now-playing rows). The modal
+  panel's overflow stays visible, so the popup's rows are never clipped — always fully visible;
+  the Remote panel's ℹ relies on the page scrolling naturally.
 
 ## Non-goals (v1)
 

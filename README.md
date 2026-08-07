@@ -8,9 +8,12 @@ software that keeps these speakers alive: [AfterTouch — Bose SoundTouch Toolki
 (https://gesellix.github.io/Bose-SoundTouch/). Not affiliated with Bose Corporation.
 
 Features shipped in this release and planned for the next are specified in
-[FEATURES.md](FEATURES.md) — waves 1-4 are implemented: the wave-1 station picker and
+[FEATURES.md](FEATURES.md) — waves 1-7 are implemented: the wave-1 station picker and
 setup, the wave-2 live device-state remote (FR-3), the wave-3 now-playing confirmation
-(FR-4 extension), and the wave-4 station artwork (FR-6).
+(FR-4 extension), the wave-4 station artwork (FR-6), the wave-5 settings popup fixes, the
+wave-6 settings expansion (language select in the popup, hidden remote skip buttons), and
+the wave-7 settings refinement (speaker config in the popup's labeled SoundTouch section,
+device info in the Remote panel header).
 
 ## SoundTouch remote control
 
@@ -40,7 +43,7 @@ to AfterTouch, and the AfterTouch Health tab shows **Radio Browser** as active.
    also skip setup and browse stations first — the play-on-speaker action stays disabled until
    an address is saved.
 3. The app remembers the speaker — setup is needed only once. The address stays editable in the
-   compact SoundTouch bar on the main screen.
+   Settings popup's SoundTouch section (gear → "SoundTouch network address").
 
 ### Remote control
 
@@ -50,6 +53,8 @@ screen:
 
 - **Now playing** — what's playing on the speaker (station/track, artist, source) and whether
   it's playing or paused, updated in real time.
+- **Device info** — a ℹ icon next to the connection status in the panel header expands the
+  speaker's details (name, type, module type, variant, IP, firmware, ID).
 - **Playback** — play/pause, next, and previous buttons (next/prev are hidden by default; show
   them via Settings → "Hide skip buttons in the remote").
 - **Volume** — a slider that mirrors the speaker's actual volume and sends changes to it,
@@ -134,7 +139,8 @@ A full codebase map — structure, key files, module dependency graph, and conve
 - **Components** — pure functions in `src/components/*.ts` that return HTML strings; no virtual
   DOM.
 - **Event handling** — all user interaction is handled by three delegated listeners (click,
-  keydown, change) on `#app` in `src/events.ts`.
+  keydown, change) on `#app` in `src/events.ts` — plus a single document-level Escape listener
+  for the settings popup (bound once, inert while closed).
 - **Audio** — a single persistent `<audio>` element created in `src/player.ts`; `render()`
   detaches it before replacing the DOM and re-inserts it into `.player` afterwards (required for
   uninterrupted playback).
