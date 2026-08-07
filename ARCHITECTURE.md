@@ -173,7 +173,7 @@ graph TD
   and render `disabled` at the edges (first set / short final set).
 - **Sorting**: search results and the favorites list are sortable via the "Sort by" select in
   the filters panel. `state.sort` (`name_asc`/`name_desc`/`clickcount`/`clicktrend`/`votes`,
-  default `clickcount`) selects the order; `SORT_API_PARAMS` in `app.ts` maps it to the API's
+  default `votes`) selects the order; `SORT_API_PARAMS` in `app.ts` maps it to the API's
   `order`/`reverse` (`name` with no `reverse` for A–Z / `reverse=true` for Z–A;
   `clickcount`/`clicktrend`/`votes` with `reverse=true`), passed to `searchStations`, while
   favorites sort client-side via `compareFavorites` in `actions.ts` by the same key (names via
