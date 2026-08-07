@@ -11,7 +11,7 @@ import {compareFavorites} from './actions';
 import {renderHeader} from './components/header';
 import {renderRemotePanel} from './components/remote';
 import {renderSetup} from './components/setup';
-import {renderOfflineBanner} from './components/banner';
+import {renderOfflineBanner, renderServiceBanner} from './components/banner';
 import {renderFilters} from './components/filters';
 import {renderFooter} from './components/footer';
 import {renderStationCard} from './components/station-card';
@@ -49,6 +49,7 @@ export const state: State = {
     status: 'Idle',
     soundtouchAddress: localStorage.getItem(LS_SOUNDTOUCH) || '',
     soundtouchStatus: 'idle',
+    serviceUnavailable: false,
     wsStatus: 'idle',
     deviceNowPlaying: '',
     deviceArtist: '',
@@ -89,7 +90,7 @@ function App() {
     const t = getLabels(state);
     if (!state.soundtouchAddress && !state.skippedSetup) return renderSetup(state, t);
     const playerHtml = state.settings.enablePreview ? renderPlayerBar(state, t) : '';
-    const bannerHtml = state.soundtouchStatus === 'unreachable' ? renderOfflineBanner(state, t) : '';
+    const bannerHtml = `${state.soundtouchStatus === 'unreachable' ? renderOfflineBanner(state, t) : ''}${state.serviceUnavailable ? renderServiceBanner(state, t) : ''}`;
     const prevDisabled = state.offset === 0 ? ' disabled' : '';
     const nextDisabled = state.stations.length < state.limit ? ' disabled' : '';
     return `<div class="app-shell">
@@ -148,11 +149,13 @@ async function loadMode(mode: Mode) {
             ...SORT_API_PARAMS[state.sort]
         });
         state.status = `${state.stations.length} loaded` + (mode === 'search' || mode === 'favorites' ? ` · ${t[SORT_LABEL_KEYS[state.sort]]}` : '');
+        state.serviceUnavailable = false;
         state.currentIndex = state.stations.length ? 0 : -1;
     } catch (e) {
         console.error(e);
         state.stations = [];
-        state.status = 'Service unavailable';
+        state.serviceUnavailable = true;
+        state.status = t.serviceUnavailable;
         state.currentIndex = -1;
     }
     render();

@@ -45,7 +45,7 @@ AfterTouch-RadioBrowser/
 │       ├── soundtouch.ts       # Settings-popup SoundTouch section (labeled host input + status + hints + device-info widget)
 │       ├── remote.ts           # Live remote panel: now playing, transport (skip buttons toggleable), volume, mute, header ℹ device info
 │       ├── setup.ts            # Full-screen first-run setup view
-│       ├── banner.ts           # Device-offline banner
+│       ├── banner.ts           # Device-offline and service-unavailable banners
 │       └── settings.ts         # Settings modal (SoundTouch config + language select + preview/hide-skip toggles + reset)
 ├── tests/
 │   ├── app.test.ts             # Vitest suite (jsdom)

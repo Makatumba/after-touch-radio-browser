@@ -159,6 +159,7 @@ export function setupEvents(): void {
             case 'search': searchFromInputs(); break;
             case 'reset': reset(); break;
             case 'refresh': refresh(state.mode); break;
+            case 'reloadService': refresh(state.mode); break;
             case 'closeSettings': unmountSettingsModal(); break;
             case 'settingsOverlay': unmountSettingsModal(); break;
             case 'resetSettings': {
