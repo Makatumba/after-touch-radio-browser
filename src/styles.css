@@ -633,6 +633,10 @@ button {
     gap: .35rem
 }
 
+.modal-panel .soundtouch-info-body {
+    right: -110px;
+}
+
 .soundtouch-info-row {
     display: grid;
     gap: .1rem
@@ -652,7 +656,8 @@ button {
 
 .remote-panel {
     display: grid;
-    gap: .75rem
+    gap: .75rem;
+    margin: 0 0 1rem 0
 }
 
 .remote-head {
