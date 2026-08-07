@@ -1604,3 +1604,74 @@ describe('soundtouch settings section (wave 7)', () => {
         expect(document.querySelector('.modal-overlay')).toBe(overlay);
     });
 });
+
+describe('popup device info auto-scroll (wave 7.3)', () => {
+    // the file's shared beforeEach does not reset soundtouchDevice (AGENTS.md
+    // convention) — every test starts from a known-good null device so widget
+    // presence is pinned per test, never leaked from an earlier one
+    let scrollIntoView: ReturnType<typeof vi.fn>;
+    beforeEach(() => {
+        state.soundtouchDevice = null;
+        // jsdom 25 does not implement Element.prototype.scrollIntoView — not
+        // even under pretendToBeVisual — so the auto-scroll can only be pinned
+        // through a stub assigned onto the prototype (vi.spyOn would throw on
+        // the missing method); the afterEach deletes it again
+        scrollIntoView = vi.fn();
+        (Element.prototype as unknown as { scrollIntoView?: typeof scrollIntoView }).scrollIntoView = scrollIntoView;
+    });
+
+    afterEach(() => {
+        delete (Element.prototype as unknown as { scrollIntoView?: unknown }).scrollIntoView;
+    });
+
+    it("opening the popup's ℹ auto-scrolls the expanded rows into view", async () => {
+        state.soundtouchDevice = { id: '689E19B8BB8A', name: 'Bose SoundTouch B9B8BC', type: 'SoundTouch 10' };
+        render();
+        setupEvents();
+        document.querySelector<HTMLButtonElement>('#openSettings')!.click();
+
+        const summary = document.querySelector<HTMLElement>('.modal-overlay .soundtouch-info summary');
+        expect(summary).not.toBeNull();
+        summary!.click();
+
+        // real-timer frame: the popup-context click schedules an rAF; once it
+        // fires after the native toggle, the expanded body scrolls into view
+        await new Promise((r) => requestAnimationFrame(r));
+
+        expect(scrollIntoView).toHaveBeenCalledTimes(1);
+        expect(scrollIntoView.mock.calls[0][0]).toEqual({ block: 'nearest' });
+        expect((scrollIntoView.mock.instances[0] as HTMLElement).classList.contains('soundtouch-info-body')).toBe(true);
+    });
+
+    it('closing the ℹ does not scroll', async () => {
+        state.soundtouchDevice = { id: '689E19B8BB8A', name: 'Bose SoundTouch B9B8BC', type: 'SoundTouch 10' };
+        render();
+        setupEvents();
+        document.querySelector<HTMLButtonElement>('#openSettings')!.click();
+
+        const summary = document.querySelector<HTMLElement>('.modal-overlay .soundtouch-info summary');
+        expect(summary).not.toBeNull();
+        summary!.click();
+        await new Promise((r) => requestAnimationFrame(r));
+        expect(scrollIntoView).toHaveBeenCalledTimes(1);
+
+        // the close click schedules its own frame too, but with the details
+        // already closed it must NOT scroll again
+        summary!.click();
+        await new Promise((r) => requestAnimationFrame(r));
+        expect(scrollIntoView).toHaveBeenCalledTimes(1);
+    });
+
+    it('the remote header ℹ never auto-scrolls', async () => {
+        state.soundtouchDevice = { id: '689E19B8BB8A', name: 'Bose SoundTouch B9B8BC', type: 'SoundTouch 10' };
+        render();
+        setupEvents();
+
+        const summary = document.querySelector<HTMLElement>('.remote-head .soundtouch-info summary');
+        expect(summary).not.toBeNull();
+        summary!.click();
+        await new Promise((r) => requestAnimationFrame(r));
+
+        expect(scrollIntoView).not.toHaveBeenCalled();
+    });
+});
