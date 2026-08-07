@@ -82,7 +82,7 @@ beforeEach(() => {
     state.stations = [];
     state.favorites = [];
     state.mode = 'top';
-    sortView.sort = 'clickcount';
+    sortView.sort = 'votes';
     for (const key of [LS_LANGUAGE, LS_SOUNDTOUCH, LS_FAVORITES, LS_SETTINGS]) {
         localStorage.removeItem(key);
     }
@@ -907,13 +907,19 @@ describe('sortable search results & favorites (FR-1 extension)', () => {
         render();
         let selected = [...document.querySelector<HTMLSelectElement>('#sort')!.options].filter(o => o.selected);
         expect(selected.length).toBe(1);
-        expect(selected[0].value).toBe('clickcount');
+        expect(selected[0].value).toBe('votes');
 
-        sortView.sort = 'votes';
+        sortView.sort = 'clickcount';
         render();
         selected = [...document.querySelector<HTMLSelectElement>('#sort')!.options].filter(o => o.selected);
         expect(selected.length).toBe(1);
-        expect(selected[0].value).toBe('votes');
+        expect(selected[0].value).toBe('clickcount');
+    });
+
+    it('initializes state.sort to votes on a fresh module load', async () => {
+        vi.resetModules();
+        const fresh = (await import('../src/app')) as unknown as { state: { sort: SortKey } };
+        expect(fresh.state.sort).toBe('votes');
     });
 
     it('localizes the five sort option labels in all languages', () => {

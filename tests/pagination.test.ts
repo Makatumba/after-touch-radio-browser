@@ -74,7 +74,7 @@ beforeEach(() => {
     // The offset of the currently shown set (0 = first set). Added with the
     // list-pagination feature; reset here so tests stay isolated.
     state.offset = 0;
-    sortView.sort = 'clickcount';
+    sortView.sort = 'votes';
     for (const key of [LS_LANGUAGE, LS_SOUNDTOUCH, LS_FAVORITES, LS_SETTINGS]) {
         localStorage.removeItem(key);
     }
@@ -406,8 +406,8 @@ describe('sortable search results (FR-1 extension)', () => {
     it('appends the localized sort label to the status line in search mode', async () => {
         vi.mocked(searchStations).mockResolvedValueOnce(PAGE1);
         await refresh('search');
-        expect(state.status).toBe('24 loaded · Popular (1 day)');
-        expect(document.querySelector('.toolbar small')!.textContent).toBe('24 loaded · Popular (1 day)');
+        expect(state.status).toBe('24 loaded · Top all time');
+        expect(document.querySelector('.toolbar small')!.textContent).toBe('24 loaded · Top all time');
     });
 
     it('shows the localized label of the active sort in the status line', async () => {
@@ -427,14 +427,14 @@ describe('sortable search results (FR-1 extension)', () => {
         state.favorites = FAVS;
         state.mode = 'favorites';
         await refresh('favorites');
-        expect(state.status).toBe('24 loaded · Popular (1 day)');
+        expect(state.status).toBe('24 loaded · Top all time');
     });
 
     it('reset restores the default sort', async () => {
         vi.mocked(topStations).mockResolvedValueOnce(PAGE1);
         sortView.sort = 'name_asc';
         reset();
-        expect(sortView.sort).toBe('clickcount');
+        expect(sortView.sort).toBe('votes');
     });
 
     it('keeps the sort choice session-only (no localStorage writes)', async () => {
