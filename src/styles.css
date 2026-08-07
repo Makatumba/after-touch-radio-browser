@@ -158,10 +158,11 @@ button {
 }
 
 .btn {
-    min-height: 48px;
+    height: 48px;
     padding: 0 1.25rem;
     border-radius: 9999px;
     font-weight: 600;
+    white-space: nowrap;
     border: 1px solid transparent;
     display: inline-flex;
     align-items: center;
@@ -186,6 +187,16 @@ button {
     min-height: 40px;
     padding: 0 1rem;
     border-radius: 9999px
+}
+
+/* Wave 8: chrome icon buttons are fixed 2.25rem squares. */
+.pill-btn {
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 9999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center
 }
 
 .results-panel {
@@ -351,8 +362,10 @@ button {
         width: 100%
     }
 
-    .actions > *, .station-actions > * {
-        flex: 1 1 140px
+    /* Wave 8: the volume label wraps to its own line, keeping the slider,
+       value and mute button on one row. */
+    .remote-volume label {
+        flex-basis: 100%
     }
 }
 
@@ -364,10 +377,6 @@ button {
     margin-top: 1rem;
     padding-top: 1rem;
     border-top: 1px solid color-mix(in srgb, var(--text) 8%, transparent)
-}
-
-.results-footer .btn {
-    flex: 1 1 180px
 }
 
 .footer {
@@ -475,12 +484,18 @@ button {
     font-size: 1.15rem
 }
 
+/* Wave 8: the modal close button is a fixed 2.25rem square. */
 .modal-close {
     font-size: 1.5rem;
     line-height: 1;
     padding: .25rem .5rem;
     border-radius: 9999px;
-    color: var(--muted)
+    color: var(--muted);
+    width: 2.25rem;
+    height: 2.25rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center
 }
 
 .modal-close:hover {
@@ -732,20 +747,21 @@ button {
 .remote-transport {
     display: flex;
     flex-wrap: wrap;
-    gap: .5rem
+    gap: .5rem;
+    justify-content: center
 }
 
-.remote-transport .btn {
-    flex: 1 1 120px
+/* Wave 8: transport and mute buttons are fixed 48px squares. */
+.remote-transport .btn, .remote-volume .btn {
+    width: 3rem;
+    height: 3rem;
+    padding: 0;
+    flex-shrink: 0
 }
 
 .remote-transport--solo {
     justify-content: center;
     flex-wrap: nowrap
-}
-
-.remote-transport--solo .btn {
-    flex: 0 1 auto
 }
 
 .remote-volume {
@@ -756,14 +772,15 @@ button {
 }
 
 .remote-volume .range {
-    flex: 1;
-    min-width: 180px
+    flex: 1 1 100px;
+    min-width: 100px
 }
 
 .remote-volume-value {
     min-width: 2.5rem;
     text-align: right;
-    font-weight: 700
+    font-weight: 700;
+    flex-shrink: 0
 }
 
 .remote-transport .btn svg,
