@@ -39,7 +39,7 @@ export const state: State = {
     tag: '',
     limit: 24,
     hideBroken: true,
-    sort: 'clickcount',
+    sort: 'votes',
     mode: 'top',
     stations: [],
     offset: 0,
@@ -267,7 +267,7 @@ export function searchFromInputs() {
     state.tag = document.querySelector<HTMLInputElement>('#tag')?.value || '';
     state.limit = Number(document.querySelector<HTMLSelectElement>('#limit')?.value || 24);
     state.hideBroken = !!document.querySelector<HTMLInputElement>('#hideBroken')?.checked;
-    state.sort = (document.querySelector<HTMLSelectElement>('#sort')?.value as SortKey) || 'clickcount';
+    state.sort = (document.querySelector<HTMLSelectElement>('#sort')?.value as SortKey) || 'votes';
     refresh('search');
 }
 
@@ -307,7 +307,7 @@ export function reset() {
     state.tag = '';
     state.limit = 24;
     state.hideBroken = true;
-    state.sort = 'clickcount';
+    state.sort = 'votes';
     refresh('top');
 }
 
