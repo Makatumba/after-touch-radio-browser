@@ -682,28 +682,19 @@ button {
     color: #c33
 }
 
-/* Wave 7.1: inside the remote header the ℹ device-info widget becomes a
-   static, in-flow full-width row below the status (flex-wrap wraps it); the
-   settings popup's widget keeps its absolute dropdown — the base
-   .soundtouch-info/-body rules stay untouched. */
+/* Wave 7.2: the ℹ device-info popover floats in both contexts — upward in
+   the settings popup (clear of the modal's bottom edge), downward over the
+   now-playing rows in the remote header; the base .soundtouch-info/-body
+   rules stay untouched. */
 .remote-head .remote-status {
     margin-left: auto
 }
 
-.remote-head .soundtouch-info {
-    position: static;
-    display: block
-}
-
-.remote-head .soundtouch-info[open] {
-    flex-basis: 100%
-}
-
-.remote-head .soundtouch-info-body {
-    position: static;
-    width: 100%;
-    margin-top: .5rem;
-    box-shadow: none
+.soundtouch-section .soundtouch-info-body {
+    bottom: 100%;
+    top: auto;
+    margin-top: 0;
+    margin-bottom: .4rem
 }
 
 .remote-nowplaying {
