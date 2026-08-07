@@ -38,7 +38,7 @@ export function renderFilters(state: State, t: Record<string, string>): string {
         </label>
         <label class="field">${t.sortBy}
             <select class="select" id="sort">
-                ${SORT_KEYS.map(k => `<option ${(state.sort ?? 'clickcount') === k ? 'selected' : ''} value="${k}">${t[SORT_LABEL_KEYS[k]]}</option>`).join('')}
+                ${SORT_KEYS.map(k => `<option ${(state.sort ?? 'votes') === k ? 'selected' : ''} value="${k}">${t[SORT_LABEL_KEYS[k]]}</option>`).join('')}
             </select>
         </label>
         <label class="checkbox-row">
