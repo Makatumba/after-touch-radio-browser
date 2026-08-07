@@ -1804,6 +1804,80 @@ describe('remote control panel', () => {
         expect(document.querySelector('.remote-playstatus')!.textContent).toBe(tView.en.remotePlaying);
         expect(document.querySelector('#app')!.textContent).not.toContain(tView.en.noStationPlaying);
     });
+
+    it('renders the standby button in the header after the ℹ device-info widget with the localized label (wave 10)', () => {
+        wsState.soundtouchDevice = { id: '689E19B8BB8A' };
+        wsState.wsStatus = 'connected';
+        render();
+
+        const power = document.querySelector('#remotePower');
+        expect(power).not.toBeNull();
+        const head = document.querySelector('.remote-head');
+        expect(head).not.toBeNull();
+        expect(head!.contains(power)).toBe(true);
+        // upper-right corner: the button is the header's last child, right
+        // after the ℹ device-info widget
+        const children = Array.from(head!.children);
+        expect(children[children.length - 1]).toBe(power);
+        expect(children[children.length - 2]!.classList.contains('soundtouch-info')).toBe(true);
+
+        const btn = power as HTMLButtonElement;
+        expect(btn.getAttribute('aria-label')).toBe(tView.en.remoteStandby);
+        expect(btn.getAttribute('title')).toBe(tView.en.remoteStandby);
+        const svg = btn.querySelector('svg');
+        expect(svg).not.toBeNull();
+        expect(svg!.getAttribute('viewBox')).toBe('0 0 24 24');
+        expect(svg!.getAttribute('fill')).toBe('currentColor');
+        expect(svg!.getAttribute('aria-hidden')).toBe('true');
+        expect(svg!.getAttribute('focusable')).toBe('false');
+    });
+
+    it('disables the standby button unless the WebSocket is connected (wave 10)', () => {
+        for (const status of ['idle', 'connecting', 'reconnecting']) {
+            wsState.wsStatus = status;
+            render();
+            const btn = document.querySelector('#remotePower') as HTMLButtonElement;
+            expect(btn).not.toBeNull();
+            expect(btn!.disabled).toBe(true);
+        }
+
+        wsState.wsStatus = 'connected';
+        render();
+        const btn = document.querySelector('#remotePower') as HTMLButtonElement;
+        expect(btn).not.toBeNull();
+        expect(btn!.disabled).toBe(false);
+    });
+
+    it('keeps the standby button while the skip buttons are hidden (wave 10)', () => {
+        // default settings: hideRemoteSkipButtons is on → next/prev are hidden,
+        // the header standby button is a primary control and stays
+        wsState.wsStatus = 'connected';
+        render();
+        expect(document.querySelector('#remotePower')).not.toBeNull();
+        expect(document.querySelector('#remoteNext')).toBeNull();
+
+        settingsView.settings.hideRemoteSkipButtons = false;
+        render();
+        expect(document.querySelector('#remotePower')).not.toBeNull();
+        expect(document.querySelector('#remoteNext')).not.toBeNull();
+    });
+
+    it('renderRemotePanel includes the header standby button (wave 10)', () => {
+        wsState.wsStatus = 'connected';
+        const html = renderRemotePanel(state, getLabels(state));
+
+        expect(html).toContain('id="remotePower"');
+        expect(html).toContain(tView.en.remoteStandby);
+    });
+
+    it('hides the standby button together with the remote panel when no address is saved (wave 10)', () => {
+        state.soundtouchAddress = '';
+        state.skippedSetup = true;
+        render();
+
+        expect(document.querySelector('#remotePower')).toBeNull();
+        expect(document.querySelector('.remote-panel')).toBeNull();
+    });
 });
 
 describe('remote controls — delegated events', () => {
@@ -1979,5 +2053,75 @@ describe('remote controls — delegated events', () => {
         await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
         expect(String(fetchMock.mock.calls[2][1].body)).toBe('<key state="press" sender="Gabbo">PREV_TRACK</key>');
         expect(String(fetchMock.mock.calls[3][1].body)).toBe('<key state="release" sender="Gabbo">PREV_TRACK</key>');
+    });
+
+    it('sends POWER press+release when the standby button is clicked (wave 10)', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({} as Response);
+        vi.stubGlobal('fetch', fetchMock);
+        wsState.wsStatus = 'connected';
+        wsState.devicePlayStatus = 'PLAY_STATE';
+        wsState.deviceVolume = 42;
+        wsState.deviceMute = false;
+        render();
+        setupEvents();
+
+        const power = document.querySelector('#remotePower');
+        expect(power).not.toBeNull();
+        (power as HTMLButtonElement).click();
+        await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+
+        const press = fetchMock.mock.calls[0] as [string, RequestInit];
+        const release = fetchMock.mock.calls[1] as [string, RequestInit];
+        for (const [url, init] of [press, release]) {
+            expect(url).toBe('http://192.168.1.42:8090/key');
+            expect(init.method).toBe('POST');
+            expect(init.mode).toBe('no-cors');
+            expect(new Headers(init.headers as HeadersInit).get('Content-Type')).toBe('text/plain;charset=UTF-8');
+        }
+        expect(String(press[1].body)).toBe('<key state="press" sender="Gabbo">POWER</key>');
+        expect(String(release[1].body)).toBe('<key state="release" sender="Gabbo">POWER</key>');
+        // no echo loop: the command POSTs never write live device state
+        expect(wsState.devicePlayStatus).toBe('PLAY_STATE');
+        expect(wsState.deviceVolume).toBe(42);
+        expect(wsState.deviceMute).toBe(false);
+    });
+
+    it('sends POWER when the click target is the inner svg or path of #remotePower (wave 10)', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({} as Response);
+        vi.stubGlobal('fetch', fetchMock);
+        wsState.wsStatus = 'connected';
+        render();
+        setupEvents();
+
+        const svg = document.querySelector('#remotePower svg');
+        expect(svg).not.toBeNull();
+        svg!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+        expect(String(fetchMock.mock.calls[0][1].body)).toBe('<key state="press" sender="Gabbo">POWER</key>');
+        expect(String(fetchMock.mock.calls[1][1].body)).toBe('<key state="release" sender="Gabbo">POWER</key>');
+
+        const path = document.querySelector('#remotePower path');
+        expect(path).not.toBeNull();
+        path!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
+        expect(String(fetchMock.mock.calls[2][1].body)).toBe('<key state="press" sender="Gabbo">POWER</key>');
+        expect(String(fetchMock.mock.calls[3][1].body)).toBe('<key state="release" sender="Gabbo">POWER</key>');
+    });
+
+    it('ignores the standby button while reconnecting (zero POSTs) (wave 10)', async () => {
+        const fetchMock = vi.fn();
+        vi.stubGlobal('fetch', fetchMock);
+        wsState.wsStatus = 'reconnecting';
+        render();
+        setupEvents();
+
+        // dispatchEvent bypasses the disabled attribute — the delegated
+        // handler itself must guard on the connection state.
+        const power = document.querySelector('#remotePower');
+        expect(power).not.toBeNull();
+        power!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await flush();
+
+        expect(fetchMock).not.toHaveBeenCalled();
     });
 });

@@ -384,6 +384,24 @@ describe('live now-playing confirmation of play actions (FR-4)', () => {
         expect(vi.getTimerCount()).toBe(0);
     });
 
+    it('cancels the pending confirmation on a standby press (wave 10)', async () => {
+        vi.useFakeTimers();
+        const fetchMock = vi.fn().mockResolvedValue({} as Response);
+        vi.stubGlobal('fetch', fetchMock);
+
+        arm(STATION_A);
+        await flush();
+        expect(vi.getTimerCount()).toBe(1); // a pending send exists to cancel
+
+        const power = document.querySelector('#remotePower');
+        expect(power).not.toBeNull();
+        (power as HTMLButtonElement).click();
+        await flush();
+
+        expect(wsState.deviceMessage).toBe('');
+        expect(vi.getTimerCount()).toBe(0);
+    });
+
     it('cancels the pending confirmation on address change', async () => {
         vi.useFakeTimers();
         const fetchMock = vi.fn().mockResolvedValue({} as Response);
