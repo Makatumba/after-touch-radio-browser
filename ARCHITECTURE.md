@@ -31,6 +31,7 @@ AfterTouch-RadioBrowser/
 │   ├── i18n.ts                 # Translations en/de/ru/ukr (as const) + locale helpers (getLocale, localizeFilterOptions, filterLabelOverrides)
 │   ├── player.ts               # Persistent <audio> singleton
 │   ├── settings.ts             # Settings defaults + localStorage persistence (enablePreview, hideRemoteSkipButtons)
+│   ├── settings-modal.ts       # Settings popup mount/unmount + in-place state sync + no-blink re-label/live sync
 │   ├── filter-cache.ts         # Filter option list localStorage cache (raw {value,label,code} lists)
 │   ├── artwork.ts              # FR-6 station artwork: per-station favicon cache, background Image fetch, skeleton/empty slot rendering
 │   ├── state.ts                # Shared types (Station, Settings, State, Mode, FilterOption, DeviceInfo, DeviceNowPlayingVerbose)
@@ -41,11 +42,11 @@ AfterTouch-RadioBrowser/
 │       ├── filters.ts          # Search inputs, language/country dropdowns, limit select, mode chips
 │       ├── station-card.ts     # Primary play-on-speaker + preview + favorite card actions
 │       ├── player-bar.ts       # Now-playing info
-│       ├── soundtouch.ts       # Host input + reachability status + hints + WebSocket-fed device-info widget
-│       ├── remote.ts           # Live remote panel: now playing, transport (skip buttons toggleable), volume, mute
+│       ├── soundtouch.ts       # Settings-popup SoundTouch section (labeled host input + status + hints + device-info widget)
+│       ├── remote.ts           # Live remote panel: now playing, transport (skip buttons toggleable), volume, mute, header ℹ device info
 │       ├── setup.ts            # Full-screen first-run setup view
 │       ├── banner.ts           # Device-offline banner
-│       └── settings.ts         # Settings modal (language select + preview/hide-skip toggles + reset)
+│       └── settings.ts         # Settings modal (SoundTouch config + language select + preview/hide-skip toggles + reset)
 ├── tests/
 │   ├── app.test.ts             # Vitest suite (jsdom)
 │   ├── pagination.test.ts      # List-pagination tests (jsdom)
@@ -78,6 +79,7 @@ AfterTouch-RadioBrowser/
 | `src/confirmation.ts` | Passive FR-4 play-confirmation watcher: module-local pending record (station name, exact location, pre-send radio-playing flag), single 15 s timer, writes only `deviceMessage` (XSS-escapes interpolations); armed/cancelled by `events.ts`, evaluated by `soundtouch-ws.ts` |
 | `src/i18n.ts` | 4-language translation dictionary + locale helpers (`getLocale`, `localizeFilterOptions`, `filterLabelOverrides`) |
 | `src/settings.ts` | Settings defaults + persistence |
+| `src/settings-modal.ts` | Settings popup mount/unmount + in-place state sync (syncSettingsModalState, relabelSettingsModal, live SoundTouch-section sync) |
 | `src/filter-cache.ts` | Filter option list localStorage persistence (raw `{value, label, code}` lists with validation) |
 | `src/artwork.ts` | FR-6 station artwork: per-station favicon cache (`radio-browser-art-<uuid>`, last-known-good JSON string), idempotent background `Image` fetch with a stale-guarded render hook, skeleton/empty slot rendering, and the playing-station art URL fallback chain |
 | `vite.config.ts` | Build/test configuration |
@@ -130,6 +132,10 @@ graph TD
     COMP --> ART
     REMOTE --> ST
     REMOTE --> ART
+    EVT --> SM[settings-modal.ts]
+    SM --> APP
+    SM --> I18N
+    SM --> COMP
 ```
 
 ## Entry Points
@@ -152,7 +158,8 @@ graph TD
   `innerHTML` and re-inserts it into `.player` while preview is enabled (breaking this kills
   playback).
 - **Setup view**: rendered (instead of the app shell) when no address is saved and setup was not
-  skipped; the same `#soundtouch`/`#saveSoundtouch` ids are reused by the compact bar.
+  skipped; it is the only user of the `#soundtouch`/`#saveSoundtouch` ids (the settings popup's
+  host field uses `#settingSoundtouchHost`/`#settingSoundtouchSave`).
 - **Host sanitization**: `sanitizeHost()` in `actions.ts` strips scheme, path/query and invalid
   characters; a non-hostname result is rejected (empty string).
 - **Station card**: primary action is play-on-speaker (`data-play`, disabled with a hint when
@@ -203,8 +210,17 @@ graph TD
   artwork convention).
 - **Settings**: `enablePreview` (default off) + `hideRemoteSkipButtons` (default on — hides the
   Remote panel's next/prev buttons); legacy settings keys are ignored on load. The language
-  control lives in the settings popup but persists under `radio-browser-language` (not part of
-  the settings JSON); reset never touches it.
+  control and the SoundTouch host config live in the settings popup: the language persists
+  under `radio-browser-language` and the host under `radio-browser-soundtouch-host` (neither is
+  part of the settings JSON); reset never touches either. The host field is labeled
+  `soundtouchNetworkAddress` ("SoundTouch network address") above the input — the same title
+  placement as the Language select — and the Remote panel header carries the ℹ device-info
+  widget next to its connection status. The modal panel's overflow stays visible, so expanding
+  the popup's ℹ never clips the info rows (always fully visible). Saving a host from the popup
+  keeps
+  the popup open — the shell behind updates surgically (Remote panel, cards, banner) and the
+  popup's live SoundTouch section syncs in place while `render()` re-inserts the preserved
+  popup node (no-blink, `modal-overlay--no-anim`).
 - **Station artwork (FR-6)**: `src/artwork.ts` owns all artwork loading/rendering. Station
   cards render the `favicon` URL (new optional `Station.favicon` field, from the Radio
   Browser API) as a fixed-size `.artwork-slot` in a new `.station-head` area; the Remote
@@ -264,7 +280,10 @@ graph TD
   exponential backoff (1s→2s→4s→8s→16s→30s) while probing reachability via `/info`; only
   repeated probe failures show the offline banner (FR-11) and disable the controls. The
   remote panel (`src/components/remote.ts`) renders now playing, transport, volume, and mute,
-  and the SoundTouch widget shows the WebSocket-fed device info. The now-playing parser
+  and the SoundTouch widget shows the WebSocket-fed device info; the remote panel header also
+  carries the ℹ device-info widget next to its connection status (expanding the same curated
+  rows as a floating popover — upward in the settings popup, downward over the panel content in
+  the remote header — never in-flow, so expanding never shifts layout). The now-playing parser
   stores the full verbose payload (`deviceNowPlayingDetail` in `state.ts`: stationName, art,
   ContentItem, skip/favorite presence flags, seekSupported, shuffle/repeat, streamType,
   trackID, position, description, stationLocation) — the panel derives the title
