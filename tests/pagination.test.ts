@@ -12,6 +12,10 @@ type SortKey = 'name_asc' | 'name_desc' | 'clickcount' | 'clicktrend' | 'votes';
 // property, access it through this typed view so the tests stay type-clean.
 const sortView = state as unknown as { sort: SortKey };
 
+// Wave 9: state gains a serviceUnavailable flag; until src/state.ts changes,
+// tests read it through this typed view (defensive reset below).
+const serviceBannerView = state as unknown as { serviceUnavailable: boolean };
+
 // SORT_API_PARAMS (sort key → API order/reverse mapping) is added with the
 // same feature; the cast keeps this file type-clean while the export does not
 // exist yet. It is imported from the app module (not src/api, which this file
@@ -75,6 +79,8 @@ beforeEach(() => {
     // list-pagination feature; reset here so tests stay isolated.
     state.offset = 0;
     sortView.sort = 'votes';
+    // Wave 9: the service-banner flag starts clear for every test.
+    serviceBannerView.serviceUnavailable = false;
     for (const key of [LS_LANGUAGE, LS_SOUNDTOUCH, LS_FAVORITES, LS_SETTINGS]) {
         localStorage.removeItem(key);
     }

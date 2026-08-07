@@ -1,12 +1,24 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // @ts-expect-error the repo has no @types/node; node:fs is available at runtime via vitest
 import fs from 'node:fs';
-import { App, render, state } from '../src/app';
+import { App, render, state, refresh, loadNextResultSet, loadFilterOptions } from '../src/app';
 import { getLabels, translations } from '../src/i18n';
 import { defaultSettings, loadSettings } from '../src/settings';
 import { setupEvents } from '../src/events';
+import { topStations, recentStations, searchStations, fetchLanguages, fetchCountries } from '../src/api';
 import { getAudioElement } from '../src/player';
 import type { State, Station } from '../src/state';
+
+// Wave 9: the app module imports all five api functions at load; the mock
+// (identical to pagination.test.ts) keeps station-list and option-list loads
+// off the network so the service-unavailable banner is pinned in isolation.
+vi.mock('../src/api', () => ({
+    topStations: vi.fn(),
+    recentStations: vi.fn(),
+    searchStations: vi.fn(),
+    fetchLanguages: vi.fn(),
+    fetchCountries: vi.fn(),
+}));
 
 const LS_LANGUAGE = 'radio-browser-language';
 const LS_SOUNDTOUCH = 'radio-browser-soundtouch-host';
@@ -39,6 +51,10 @@ const sortView = state as unknown as { sort: SortKey };
 const settingsView = state as unknown as {
     settings: { enablePreview: boolean; hideRemoteSkipButtons: boolean };
 };
+
+// Wave 9: state gains a serviceUnavailable flag; until src/state.ts changes,
+// tests read it through this typed view.
+const serviceBannerView = state as unknown as { serviceUnavailable: boolean };
 
 // The settings-modal API is added with the wave-5 settings-popup feature; the
 // cast keeps this file type-clean while src/settings-modal.ts does not exist
@@ -83,6 +99,8 @@ beforeEach(() => {
     state.favorites = [];
     state.mode = 'top';
     sortView.sort = 'votes';
+    // Wave 9: the service-banner flag starts clear for every test.
+    serviceBannerView.serviceUnavailable = false;
     for (const key of [LS_LANGUAGE, LS_SOUNDTOUCH, LS_FAVORITES, LS_SETTINGS]) {
         localStorage.removeItem(key);
     }
@@ -1679,5 +1697,153 @@ describe('popup device info auto-scroll (wave 7.3)', () => {
         await new Promise((r) => requestAnimationFrame(r));
 
         expect(scrollIntoView).not.toHaveBeenCalled();
+    });
+});
+
+describe('service unavailable banner (wave 9)', () => {
+    // A full station set so loadNextResultSet() advances (it no-ops unless
+    // stations.length === state.limit).
+    const FULL_PAGE: Station[] = Array.from({ length: 24 }, (_, i) => ({
+        stationuuid: `wave9-${i}`,
+        name: `Wave 9 Station ${i}`,
+    }));
+
+    beforeEach(() => {
+        // The file's shared beforeEach leaves implementations/calls from prior
+        // tests on the api mocks; wave 9 pins call counts and rejection chains,
+        // so each test starts from a clean mock (pagination.test.ts precedent).
+        vi.resetAllMocks();
+        // The failed loads under test log through console.error; keep the
+        // suite output readable without touching the assertions.
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+    });
+
+    it('renders no service banner when the flag is clear', async () => {
+        // The pristine module state must carry the flag initialized to false
+        // (the typed-view reset in beforeEach only shields the shared object).
+        vi.resetModules();
+        const fresh = (await import('../src/app')) as unknown as {
+            state: { serviceUnavailable: boolean };
+        };
+        expect(fresh.state.serviceUnavailable).toBe(false);
+        render();
+        expect(serviceBannerView.serviceUnavailable).toBe(false);
+        expect(document.querySelector('.service-banner')).toBeNull();
+        expect(document.querySelector('#reloadService')).toBeNull();
+    });
+
+    it('a failed station-list fetch sets the flag, clears the list, and shows the localized banner and status', async () => {
+        vi.mocked(topStations).mockRejectedValue(new Error('service down'));
+        await refresh('top');
+        expect(serviceBannerView.serviceUnavailable).toBe(true);
+        const banner = document.querySelector('.service-banner');
+        expect(banner).not.toBeNull();
+        expect(banner!.getAttribute('role')).toBe('status');
+        expect(banner!.textContent).toContain(getLabels(state).serviceUnavailable);
+        const reloadBtn = document.querySelector<HTMLButtonElement>('#reloadService');
+        expect(reloadBtn).not.toBeNull();
+        expect(reloadBtn!.textContent).toContain(getLabels(state).reload);
+        expect(document.querySelector('.toolbar small')!.textContent).toContain(getLabels(state).serviceUnavailable);
+        expect(state.stations).toEqual([]);
+    });
+
+    it.each(['recent', 'search'] as const)('failed loads in %s mode also raise the banner', async (mode) => {
+        const fetcher = mode === 'recent' ? vi.mocked(recentStations) : vi.mocked(searchStations);
+        fetcher.mockRejectedValue(new Error('service down'));
+        await refresh(mode);
+        expect(serviceBannerView.serviceUnavailable).toBe(true);
+        expect(document.querySelector('.service-banner')).not.toBeNull();
+    });
+
+    it("the Reload button re-fetches the current mode's first set and clears the banner on success", async () => {
+        vi.mocked(topStations)
+            .mockRejectedValueOnce(new Error('service down'))
+            .mockResolvedValueOnce([STATION]);
+        render();
+        setupEvents();
+        await refresh('top');
+        expect(serviceBannerView.serviceUnavailable).toBe(true);
+        const reloadBtn = document.querySelector<HTMLButtonElement>('#reloadService');
+        expect(reloadBtn).not.toBeNull();
+        reloadBtn!.click();
+        await vi.waitFor(() => expect(serviceBannerView.serviceUnavailable).toBe(false), { timeout: 500 });
+        expect(vi.mocked(topStations)).toHaveBeenLastCalledWith(state.limit, state.hideBroken, 0);
+        expect(document.querySelector('.service-banner')).toBeNull();
+        expect(state.stations).toEqual([STATION]);
+    });
+
+    it('repeated failed reloads keep the banner and never auto-retry', async () => {
+        vi.mocked(topStations).mockRejectedValue(new Error('service down'));
+        render();
+        setupEvents();
+        await refresh('top');
+        const reloadBtn = document.querySelector<HTMLButtonElement>('#reloadService');
+        expect(reloadBtn).not.toBeNull();
+        reloadBtn!.click();
+        reloadBtn!.click();
+        // exactly the two manual reloads — no timers, no auto-retry storm
+        await vi.waitFor(() => expect(vi.mocked(topStations)).toHaveBeenCalledTimes(3), { timeout: 500 });
+        expect(serviceBannerView.serviceUnavailable).toBe(true);
+        expect(document.querySelector('.service-banner')).not.toBeNull();
+    });
+
+    it('switching to Favorites clears the flag', async () => {
+        serviceBannerView.serviceUnavailable = true;
+        state.favorites = [STATION];
+        await refresh('favorites');
+        expect(serviceBannerView.serviceUnavailable).toBe(false);
+        expect(document.querySelector('.service-banner')).toBeNull();
+    });
+
+    it('a pagination failure raises the banner', async () => {
+        vi.mocked(topStations)
+            .mockResolvedValueOnce(FULL_PAGE)
+            .mockRejectedValueOnce(new Error('service down'));
+        await refresh('top');
+        await loadNextResultSet();
+        expect(serviceBannerView.serviceUnavailable).toBe(true);
+        expect(document.querySelector('.service-banner')).not.toBeNull();
+    });
+
+    it('Language/Country option-list failures never raise the banner', async () => {
+        vi.mocked(fetchLanguages).mockRejectedValue(new Error('down'));
+        vi.mocked(fetchCountries).mockRejectedValue(new Error('down'));
+        await loadFilterOptions();
+        expect(serviceBannerView.serviceUnavailable).toBe(false);
+        expect(document.querySelector('.service-banner')).toBeNull();
+    });
+
+    it('the setup view never shows the banner', () => {
+        serviceBannerView.serviceUnavailable = true;
+        state.soundtouchAddress = '';
+        state.skippedSetup = false;
+        render();
+        expect(document.querySelector('.app-shell')).toBeNull();
+        expect(document.querySelector('.service-banner')).toBeNull();
+    });
+
+    it('the device-offline and service banners coexist', () => {
+        serviceBannerView.serviceUnavailable = true;
+        state.soundtouchStatus = 'unreachable';
+        render();
+        expect(document.querySelector('.offline-banner')).not.toBeNull();
+        expect(document.querySelector('.service-banner')).not.toBeNull();
+    });
+
+    it('the hardcoded English status string is gone', async () => {
+        vi.mocked(topStations).mockRejectedValue(new Error('service down'));
+        await refresh('top');
+        expect(state.status).toBe(getLabels(state).serviceUnavailable);
+        expect(document.querySelector('.toolbar small')!.textContent).not.toContain('Service unavailable');
+    });
+
+    it('ships serviceUnavailable and reload in all four languages and keeps the dead reloadWidget key', () => {
+        const tView = translations as unknown as Record<string, Record<string, string>>;
+        for (const lang of ['en', 'de', 'ru', 'ukr'] as const) {
+            expect(tView[lang].serviceUnavailable?.trim()).toBeTruthy();
+            expect(tView[lang].reload?.trim()).toBeTruthy();
+            expect(tView[lang].reloadWidget).toBeTruthy();
+        }
+        expect(tView.en.serviceUnavailable).toBe('Radio Browser service is unavailable — check your connection and reload.');
     });
 });

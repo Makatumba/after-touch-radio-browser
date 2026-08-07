@@ -323,4 +323,8 @@ describe('app-like polish (src/styles.css)', () => {
         expect(readCss()).toMatch(/\.remote-volume \.range[^{]*\{[^}]*min-width:\s*100px/);
         expect(readCss()).toMatch(/\.remote-volume-value[^{]*\{[^}]*flex-shrink:\s*0/);
     });
+
+    it('styles the service-unavailable banner with the error pattern (wave 9)', () => {
+        expect(readCss()).toMatch(/\.service-banner[^{]*\{[^}]*display:\s*flex/);
+    });
 });
