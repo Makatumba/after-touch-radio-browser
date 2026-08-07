@@ -640,3 +640,12 @@ describe('device info widget — curated verbose rows (FR-3 extension)', () => {
         }
     });
 });
+
+describe('shell-bar cleanup (wave 7.1)', () => {
+    it('no longer exports the shell renderSoundtouch component', async () => {
+        // dynamic import + optional-property cast keep this file type-clean
+        // both before (the export still exists) and after the removal
+        const mod = (await import('../src/components/soundtouch')) as unknown as { renderSoundtouch?: unknown };
+        expect(mod.renderSoundtouch).toBeUndefined();
+    });
+});
