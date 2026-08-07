@@ -286,4 +286,41 @@ describe('app-like polish (src/styles.css)', () => {
         expect(readCss()).toMatch(/\.brand h1[^{]*\{[^}]*overflow:\s*hidden[^}]*text-overflow:\s*ellipsis[^}]*white-space:\s*nowrap/);
         expect(readCss()).toMatch(/\.brand p[^{]*\{[^}]*overflow:\s*hidden[^}]*text-overflow:\s*ellipsis[^}]*white-space:\s*nowrap/);
     });
+
+    it('sizes text buttons at a fixed 48px height with non-wrapping labels (wave 8)', () => {
+        expect(readCss()).toMatch(/\.btn\s*\{[^}]*height:\s*48px/);
+        expect(readCss()).toMatch(/\.btn\s*\{[^}]*white-space:\s*nowrap/);
+    });
+
+    it('keeps the mode chips at their fixed 40px height (wave 8)', () => {
+        expect(readCss()).toMatch(/\.chip\s*\{[^}]*min-height:\s*40px/);
+    });
+
+    it('drops the flex-grow stretch rules from all button rows (wave 8)', () => {
+        expect(readCss()).not.toMatch(/flex:\s*1\s*1\s*140px/);
+        expect(readCss()).not.toMatch(/flex:\s*1\s*1\s*120px/);
+        expect(readCss()).not.toMatch(/flex:\s*1\s*1\s*180px/);
+    });
+
+    it('renders the remote transport and mute as fixed 48px squares (wave 8)', () => {
+        expect(readCss()).toMatch(/\.remote-transport \.btn[^{]*\{[^}]*width:\s*3rem[^}]*height:\s*3rem/);
+        expect(readCss()).toMatch(/\.remote-volume \.btn[^{]*\{[^}]*width:\s*3rem[^}]*height:\s*3rem[^}]*padding:\s*0/);
+    });
+
+    it('centers the remote transport row in both skip states (wave 8)', () => {
+        expect(readCss()).toMatch(/\.remote-transport\s*\{[^}]*justify-content:\s*center/);
+        expect(readCss()).toMatch(/\.remote-transport--solo\s*\{[^}]*justify-content:\s*center[^}]*flex-wrap:\s*nowrap/);
+    });
+
+    it('renders the chrome icon buttons as fixed squares (wave 8)', () => {
+        expect(readCss()).toMatch(/\.pill-btn\s*\{[^}]*width:\s*2\.25rem[^}]*height:\s*2\.25rem/);
+        expect(readCss()).toMatch(/\.modal-close\s*\{[^}]*width:\s*2\.25rem[^}]*height:\s*2\.25rem/);
+        expect(readCss()).toMatch(/\.gear-btn\s*\{[^}]*width:\s*2\.25rem[^}]*height:\s*2\.25rem/);
+    });
+
+    it('keeps slider + value + mute on one line with the label wrapping above (wave 8)', () => {
+        expect(readCss()).toMatch(/\.remote-volume label[^{]*\{[^}]*flex-basis:\s*100%/);
+        expect(readCss()).toMatch(/\.remote-volume \.range[^{]*\{[^}]*min-width:\s*100px/);
+        expect(readCss()).toMatch(/\.remote-volume-value[^{]*\{[^}]*flex-shrink:\s*0/);
+    });
 });
