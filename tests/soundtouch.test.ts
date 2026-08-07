@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, state } from '../src/app';
+import { setupEvents } from '../src/events';
 import { pingSoundtouch, sendToSoundtouch } from '../src/actions';
 import { getLabels, translations } from '../src/i18n';
 import { defaultSettings } from '../src/settings';
@@ -549,13 +550,20 @@ describe('device info widget (FR-3, WebSocket-fed)', () => {
     it('keeps the widget visible while reconnecting or unreachable', () => {
         wsState.soundtouchDevice = { id: '689E19B8BB8A' };
 
+        // wave 7: the info widget lives in the settings popup's SoundTouch
+        // section — open the popup and assert it there
+        render();
+        setupEvents();
+        document.querySelector<HTMLButtonElement>('#openSettings')!.click();
+        expect(document.querySelector('.modal-overlay .soundtouch-info')).not.toBeNull();
+
         wsState.wsStatus = 'reconnecting';
         render();
-        expect(document.querySelector('.soundtouch-info')).not.toBeNull();
+        expect(document.querySelector('.modal-overlay .soundtouch-info')).not.toBeNull();
 
         state.soundtouchStatus = 'unreachable';
         render();
-        expect(document.querySelector('.soundtouch-info')).not.toBeNull();
+        expect(document.querySelector('.modal-overlay .soundtouch-info')).not.toBeNull();
     });
 
     it('adds non-empty device-info labels in all four languages', () => {

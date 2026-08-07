@@ -911,9 +911,13 @@ describe('state snapshot — re-requested on (re)connection check', () => {
         render();
         setupEvents();
 
-        const input = document.querySelector<HTMLInputElement>('#soundtouch')!;
-        input.value = '192.168.1.42';
-        document.querySelector<HTMLButtonElement>('#saveSoundtouch')!.click();
+        // wave 7: the host field lives in the settings popup's SoundTouch
+        // section, not in a shell bar
+        document.querySelector<HTMLButtonElement>('#openSettings')!.click();
+        const input = document.querySelector<HTMLInputElement>('#settingSoundtouchHost');
+        expect(input).not.toBeNull();
+        input!.value = '192.168.1.42';
+        document.querySelector<HTMLButtonElement>('#settingSoundtouchSave')!.click();
 
         const ws = FakeWebSocket.instances[0];
         ws.open();
@@ -1047,8 +1051,12 @@ describe('state snapshot — RESPONSE parsing', () => {
         expect(wsState.soundtouchDevice).not.toHaveProperty('type');
 
         render();
-        expect(document.querySelectorAll('.soundtouch-info-row')).toHaveLength(1);
-        expect(document.querySelector('.soundtouch-info-body')!.textContent).toContain('689E19B8BB8A');
+        // wave 7: the info widget lives in the settings popup's SoundTouch
+        // section — open the popup and assert the row there
+        setupEvents();
+        document.querySelector<HTMLButtonElement>('#openSettings')!.click();
+        expect(document.querySelectorAll('.modal-overlay .soundtouch-info-row')).toHaveLength(1);
+        expect(document.querySelector('.modal-overlay .soundtouch-info-body')!.textContent).toContain('689E19B8BB8A');
     });
 
     it('applies three RESPONSEs on one connection independently', () => {
