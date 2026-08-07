@@ -9,7 +9,6 @@ import type {FilterCacheKind} from './filter-cache';
 import {scanArtwork, setRenderHook} from './artwork';
 import {compareFavorites} from './actions';
 import {renderHeader} from './components/header';
-import {renderSoundtouch} from './components/soundtouch';
 import {renderRemotePanel} from './components/remote';
 import {renderSetup} from './components/setup';
 import {renderOfflineBanner} from './components/banner';
@@ -76,6 +75,16 @@ export const SORT_API_PARAMS: Record<SortKey, { order: string; reverse?: boolean
     votes: { order: 'votes', reverse: true },
 };
 
+/** Wave 7: after render() re-inserts the preserved settings popup, the popup
+ * module re-syncs its SoundTouch section in place (status, hints, device info)
+ * with the freshest state — the popup node itself keeps its identity and never
+ * replays its entrance animation (no-blink contract). Registered once by
+ * settings-modal.ts at module load; null until then makes the hook a no-op. */
+let modalSyncHook: (() => void) | null = null;
+export function setModalSyncHook(fn: (() => void) | null): void {
+    modalSyncHook = fn;
+}
+
 function App() {
     const t = getLabels(state);
     if (!state.soundtouchAddress && !state.skippedSetup) return renderSetup(state, t);
@@ -88,7 +97,6 @@ function App() {
     ${renderHeader(t)}
     <main id="main">
         ${bannerHtml}
-        ${renderSoundtouch(state, t)}
         ${state.soundtouchAddress ? renderRemotePanel(state, t) : ''}
         <section class="layout">
             ${renderFilters(state, t)}
@@ -174,6 +182,9 @@ export function render() {
     if (state.showSettings && modal) {
         modal.classList.add('modal-overlay--no-anim');
         document.querySelector<HTMLDivElement>('#app')!.appendChild(modal);
+        // wave 7: the preserved popup's SoundTouch section re-syncs in place
+        // so a background render keeps the live status/hints current.
+        modalSyncHook?.();
     }
 
     // kick off background artwork fetches for any skeleton slots; requestArtwork

@@ -1,7 +1,8 @@
-import {state} from './app';
+import {state, setModalSyncHook} from './app';
 import type {State} from './state';
 import {getLabels} from './i18n';
 import {renderSettings} from './components/settings';
+import {renderSoundtouchSettings} from './components/soundtouch';
 
 const OVERLAY_SELECTOR = '.modal-overlay';
 
@@ -55,3 +56,18 @@ export function relabelSettingsModal(s: State): void {
     const resetBtn = document.getElementById('resetSettings');
     if (resetBtn) resetBtn.textContent = t.resetDefaults;
 }
+
+/** Wave 7: re-renders ONLY the preserved popup's SoundTouch section with the
+ * current state (host, live status, hints, device info) — the popup keeps its
+ * node and never replays its entrance animation (no-blink contract). No-op
+ * while the popup is closed. */
+export function syncSettingsModalSoundtouch(s: State): void {
+    const section = document.querySelector<HTMLElement>('.soundtouch-section');
+    if (!section) return;
+    section.outerHTML = renderSoundtouchSettings(s, getLabels(s));
+}
+
+// registered once at module load: every render() that re-inserts the open
+// popup re-syncs the section in place (settings-modal imports state from
+// './app', so app.ts evaluates first — no cycle, no TDZ)
+setModalSyncHook(() => syncSettingsModalSoundtouch(state));
