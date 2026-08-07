@@ -8,14 +8,14 @@ software that keeps these speakers alive: [AfterTouch — Bose SoundTouch Toolki
 (https://gesellix.github.io/Bose-SoundTouch/). Not affiliated with Bose Corporation.
 
 Features shipped in this release and planned for the next are specified in
-[FEATURES.md](FEATURES.md) — waves 1-10 are implemented: the wave-1 station picker and
+[FEATURES.md](FEATURES.md) — waves 1-11 are implemented: the wave-1 station picker and
 setup, the wave-2 live device-state remote (FR-3), the wave-3 now-playing confirmation
 (FR-4 extension), the wave-4 station artwork (FR-6), the wave-5 settings popup fixes, the
 wave-6 settings expansion (language select in the popup, hidden remote skip buttons), the
 wave-7 settings refinement (speaker config in the popup's labeled SoundTouch section,
 device info in the Remote panel header), the wave-8 fixed-size buttons & volume/mute row
-polish, the wave-9 Radio Browser service-unavailable banner, and the wave-10 remote
-standby button.
+polish, the wave-9 Radio Browser service-unavailable banner, the wave-10 remote
+standby button, and the wave-11 remote-panel artwork plays-only gate.
 
 ## SoundTouch remote control
 
@@ -54,7 +54,8 @@ speaker's state feed (port 8080) once configured and shows a **Remote** panel on
 screen:
 
 - **Now playing** — what's playing on the speaker (station/track, artist, source) and whether
-  it's playing or paused, updated in real time.
+  it's playing or paused, updated in real time. The station logo shows only while the radio is
+  actually playing (or starting to play); it disappears when the speaker stops or pauses.
 - **Device info** — a ℹ icon next to the connection status in the panel header expands the
   speaker's details (name, type, module type, variant, IP, firmware, ID).
 - **Standby** — a power button in the panel header's upper-right corner, next to the ℹ
