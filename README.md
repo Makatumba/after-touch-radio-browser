@@ -8,13 +8,13 @@ software that keeps these speakers alive: [AfterTouch — Bose SoundTouch Toolki
 (https://gesellix.github.io/Bose-SoundTouch/). Not affiliated with Bose Corporation.
 
 Features shipped in this release and planned for the next are specified in
-[FEATURES.md](FEATURES.md) — waves 1-8 are implemented: the wave-1 station picker and
+[FEATURES.md](FEATURES.md) — waves 1-9 are implemented: the wave-1 station picker and
 setup, the wave-2 live device-state remote (FR-3), the wave-3 now-playing confirmation
 (FR-4 extension), the wave-4 station artwork (FR-6), the wave-5 settings popup fixes, the
 wave-6 settings expansion (language select in the popup, hidden remote skip buttons), the
 wave-7 settings refinement (speaker config in the popup's labeled SoundTouch section,
-device info in the Remote panel header), and the wave-8 fixed-size buttons & volume/mute
-row polish.
+device info in the Remote panel header), the wave-8 fixed-size buttons & volume/mute row
+polish, and the wave-9 Radio Browser service-unavailable banner.
 
 ## SoundTouch remote control
 
@@ -181,8 +181,13 @@ A full codebase map — structure, key files, module dependency graph, and conve
   WebSocket (no `:8090`/`:8080` appended). The host input is sanitized
   before use (scheme, path, and unsafe characters stripped).
 - **Status line** — shows "Loading stations…" during a fetch, "N loaded" on success, or
-  "Service unavailable" on error. In Search and Favorites modes it appends the active sort
-  label ("N loaded · Top all time").
+  the localized "service unavailable" message on error. In Search and Favorites modes it
+  appends the active sort label ("N loaded · Top all time"). Any failed station-list
+  fetch (HTTP 4xx/5xx or a network error) also raises the "Radio Browser service is
+  unavailable" banner with a Reload button above the results (wave 9): the banner clears
+  on the next successful load (reload, mode change, search, or switching to Favorites),
+  is not manually dismissible, and never triggers on the Language/Country option lists
+  (they keep their silent cache fallback).
 - **Hosting** — GitHub Pages serves the app from the committed `docs/` folder; `dist/` and
   `.DS_Store` are gitignored.
 
