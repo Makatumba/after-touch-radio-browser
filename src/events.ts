@@ -15,6 +15,35 @@ import {mountSettingsModal, unmountSettingsModal, syncSettingsModalState, relabe
 // listeners; inert while the popup is closed.
 let escapeKeydownBound = false;
 
+/** Saves a SoundTouch host from either the first-run setup view or the
+ * settings popup (wave 7): sanitize, persist, drop any pending confirmation,
+ * mark the reachability check, re-render, probe the device, and (re)connect
+ * the WebSocket feed. The stale-host guard keeps an in-flight ping from a
+ * previous save from overwriting a newer address's result. */
+function applySoundtouchHost(raw: string): void {
+    const host = sanitizeHost(raw);
+    state.soundtouchAddress = host;
+    // FR-2: the address is persisted on every save (first setup, changes, clearing)
+    localStorage.setItem('radio-browser-soundtouch-host', host);
+    cancelSendConfirmation();
+    state.soundtouchStatus = host ? 'checking' : 'idle';
+    render();
+    if (host) {
+        pingSoundtouch(host).then(ok => {
+            if (state.soundtouchAddress === host) {
+                state.soundtouchStatus = ok ? 'available' : 'unreachable';
+                render();
+                if (ok) requestSnapshot();
+            }
+        });
+    }
+    if (host) {
+        connectSoundtouchWs(host);
+    } else {
+        closeSoundtouchWs();
+    }
+}
+
 export function setupEvents(): void {
     const app = document.querySelector('#app')!;
 
@@ -86,32 +115,20 @@ export function setupEvents(): void {
         // lands on the <path>/<svg> (target.id === ''), so resolve it like
         // the remote-control buttons instead of switching on target.id
         const gearBtn = target.closest('#openSettings') as HTMLElement | null;
-        if (gearBtn) { mountSettingsModal(state); return; }
+        if (gearBtn) {
+            mountSettingsModal(state);
+            return;
+        }
 
         switch (target.id) {
             case 'saveSoundtouch': {
                 const raw = document.querySelector<HTMLInputElement>('#soundtouch')?.value || '';
-                const host = sanitizeHost(raw);
-                state.soundtouchAddress = host;
-                // FR-2: the address is persisted on every save (first setup, changes, clearing)
-                localStorage.setItem('radio-browser-soundtouch-host', host);
-                cancelSendConfirmation();
-                state.soundtouchStatus = host ? 'checking' : 'idle';
-                render();
-                if (host) {
-                    pingSoundtouch(host).then(ok => {
-                        if (state.soundtouchAddress === host) {
-                            state.soundtouchStatus = ok ? 'available' : 'unreachable';
-                            render();
-                            if (ok) requestSnapshot();
-                        }
-                    });
-                }
-                if (host) {
-                    connectSoundtouchWs(host);
-                } else {
-                    closeSoundtouchWs();
-                }
+                applySoundtouchHost(raw);
+                break;
+            }
+            case 'settingSoundtouchSave': {
+                const raw = document.querySelector<HTMLInputElement>('#settingSoundtouchHost')?.value || '';
+                applySoundtouchHost(raw);
                 break;
             }
             case 'skipSetup':

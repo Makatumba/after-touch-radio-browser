@@ -1,5 +1,6 @@
 import type { State } from '../state';
 import { getLabels } from '../i18n';
+import { renderSoundtouchSettings } from './soundtouch';
 
 export function renderSettings(state: State): string {
     const t = getLabels(state);
@@ -28,6 +29,7 @@ export function renderSettings(state: State): string {
                 <input type="checkbox" id="settingHideRemoteSkipButtons" ${s.hideRemoteSkipButtons ? 'checked' : ''}>
                 <span id="settingHideRemoteSkipButtonsLabel">${t.settingHideRemoteSkipButtons}</span>
             </label>
+            ${renderSoundtouchSettings(state, t)}
         </div>
         <div class="modal-footer">
             <button class="btn btn-secondary" id="resetSettings">${t.resetDefaults}</button>
