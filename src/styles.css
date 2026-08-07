@@ -608,6 +608,27 @@ button {
     font-weight: 600
 }
 
+.service-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    background: color-mix(in srgb, #d97706 14%, var(--surface));
+    color: #92400e;
+    border: 1px solid color-mix(in srgb, #d97706 40%, transparent);
+    border-radius: var(--radius);
+    padding: .85rem 1rem;
+    font-weight: 600
+}
+
+.service-banner .btn {
+    flex-shrink: 0;
+    background: color-mix(in srgb, #d97706 16%, var(--surface));
+    border: 1px solid color-mix(in srgb, #d97706 45%, transparent);
+    color: #92400e;
+    min-height: 40px
+}
+
 .soundtouch-hint {
     display: block;
     color: var(--muted);

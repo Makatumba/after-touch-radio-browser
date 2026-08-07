@@ -103,6 +103,7 @@ export interface State {
     status: string;
     soundtouchAddress: string;
     soundtouchStatus: 'idle' | 'checking' | 'available' | 'unreachable';
+    serviceUnavailable: boolean;
     wsStatus: 'idle' | 'connecting' | 'connected' | 'reconnecting';
     deviceNowPlaying: string;
     deviceArtist: string;
