@@ -64,7 +64,13 @@ export function renderRemotePanel(state: State, t: Record<string, string>): stri
     // failure — no inline JS, never an img after a failure)
     const artUrl = detail?.contentItem?.containerArt || detail?.art || playingStationArtUrl(state) || '';
     const artUuid = uuidFromLocation(detail?.contentItem?.location || '') || state.stations[state.currentIndex]?.stationuuid || '';
-    const artHtml = renderArtworkSlot(artUrl, artUuid);
+    // Wave 11 plays-only gate: the logo renders only while the speaker is
+    // playing or starting to play; paused/stopped/unknown keeps the last-known
+    // payload but drops the artwork slot entirely (nothing renders, nothing is
+    // fetched). artUrl/artUuid stay computed — pure reads consumed only by the
+    // gated render, so no fetch or cache side effects can escape the gate.
+    const artworkVisible = state.devicePlayStatus === 'PLAY_STATE' || state.devicePlayStatus === 'BUFFERING_STATE';
+    const artHtml = artworkVisible ? renderArtworkSlot(artUrl, artUuid) : '';
     return `<section class="panel remote-panel">
     <div class="remote-head">
         <h2>${t.remoteTitle}</h2>
