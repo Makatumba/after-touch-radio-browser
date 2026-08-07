@@ -8,13 +8,14 @@ software that keeps these speakers alive: [AfterTouch — Bose SoundTouch Toolki
 (https://gesellix.github.io/Bose-SoundTouch/). Not affiliated with Bose Corporation.
 
 Features shipped in this release and planned for the next are specified in
-[FEATURES.md](FEATURES.md) — waves 1-9 are implemented: the wave-1 station picker and
+[FEATURES.md](FEATURES.md) — waves 1-10 are implemented: the wave-1 station picker and
 setup, the wave-2 live device-state remote (FR-3), the wave-3 now-playing confirmation
 (FR-4 extension), the wave-4 station artwork (FR-6), the wave-5 settings popup fixes, the
 wave-6 settings expansion (language select in the popup, hidden remote skip buttons), the
 wave-7 settings refinement (speaker config in the popup's labeled SoundTouch section,
 device info in the Remote panel header), the wave-8 fixed-size buttons & volume/mute row
-polish, and the wave-9 Radio Browser service-unavailable banner.
+polish, the wave-9 Radio Browser service-unavailable banner, and the wave-10 remote
+standby button.
 
 ## SoundTouch remote control
 
@@ -56,6 +57,9 @@ screen:
   it's playing or paused, updated in real time.
 - **Device info** — a ℹ icon next to the connection status in the panel header expands the
   speaker's details (name, type, module type, variant, IP, firmware, ID).
+- **Standby** — a power button in the panel header's upper-right corner, next to the ℹ
+  device info, puts the speaker into standby; press it again to wake it up (the speaker
+  stays on the network in standby, so the remote keeps working).
 - **Playback** — play/pause, next, and previous buttons (next/prev are hidden by default; show
   them via Settings → "Hide skip buttons in the remote").
 - **Volume** — a slider that mirrors the speaker's actual volume and sends changes to it,
@@ -171,7 +175,8 @@ A full codebase map — structure, key files, module dependency graph, and conve
   `<ContentItem source="RADIO_BROWSER" type="stationurl" location="/stations/byuuid/{uuid}">`
   document carrying `<itemName>` and `<containerArt>` children when known — XML-escaped),
   and the remote-control commands (POST `/key` — press+release pairs with
-  `sender="Gabbo"` for play/pause/next/prev — and POST `/volume` for volume/mute). 8080: the
+  `sender="Gabbo"` for play/pause/next/prev and the power/standby toggle (`POWER`) — and
+  POST `/volume` for volume/mute). 8080: the
   live-state WebSocket feed (`ws://<host>:8080/`, "gabbo" protocol, XML `<updates>` messages:
   `nowPlayingUpdated`, `volumeUpdated`); live device state is written only from these events —
   no echo loops. The reachability check is a `no-cors` GET `/info` probe: stock Bose firmware

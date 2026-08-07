@@ -443,7 +443,12 @@ fire-and-forget and reconciles from WebSocket events (no echo loops).
 
   - Keys used by the app (unprefixed, case-sensitive — the canonical values per the Bose
     documentation and the hardware-verified AfterTouch implementation): `PLAY`, `PAUSE`,
-    `NEXT_TRACK`, `PREV_TRACK`. A `KEY_`-prefixed value is rejected with HTTP 400
+    `NEXT_TRACK`, `PREV_TRACK`, `POWER` — the power/standby toggle: it puts a powered-on
+    device into standby and wakes a device in standby, and devices in standby maintain
+    their network connections (so the WebSocket feed stays open); per the Bose
+    documentation and the AfterTouch implementation, press+release is required, and the
+    AfterTouch integration tests cover SoundTouch 10/20. A `KEY_`-prefixed value is
+    rejected with HTTP 400
     `CLIENT_XML_ERROR` 1019 — verified against the live SoundTouch 10 speaker.
   - Response (unreadable in the browser): `<?xml version="1.0" encoding="UTF-8"?><status>/key</status>`.
 - **POST `/volume`** — set volume: body `<volume>50</volume>` (0–100). The AfterTouch project
@@ -460,6 +465,9 @@ fire-and-forget and reconciles from WebSocket events (no echo loops).
 - [x] `PLAY`/`PAUSE`/`NEXT_TRACK`/`PREV_TRACK` execute on the speaker (verified 2026-08-04
       against a SoundTouch 10: `KEY_`-prefixed values are rejected with HTTP 400
       `CLIENT_XML_ERROR` 1019, unprefixed press+release returns `<status>/key</status>`).
+- [ ] `POWER` press+release toggles the speaker into standby and back; the WebSocket stays
+      connected while in standby (networked standby) and the now-playing panel reflects
+      the stop.
 - [ ] `POST /volume` with body `<volume>N</volume>` changes the volume, and the `muteenabled`
       body toggles mute.
 - [ ] The `GET now_playing` / `GET volume` / `GET info` snapshot requests over the WebSocket

@@ -1088,6 +1088,82 @@ the volume/mute row — ships on a separate branch and merges before this one.)
 - The settings popup open during a failure — the banner renders behind the popup via the
   normal shell render; the no-blink contract is untouched.
 
+## Implemented (wave 10)
+
+### Remote standby button
+
+The Remote panel gains a **Standby** power button that puts the speaker into standby (and
+wakes it again). Bose's SoundTouch Web API exposes a single power key — `POWER` — which
+toggles the device between on and standby ("Products in standby maintain network
+connections"), so one button covers both directions, exactly like the hardware's power
+button. The command is a `POST /key` press+release pair with `sender="Gabbo"`, the same
+pattern as play/pause/next/prev (see [API-NOTES.md](API-NOTES.md) "Commands — HTTP API,
+POST `/key`").
+
+- **Placement**: the button sits in the Remote panel **header's upper-right corner**, next
+  to the ℹ device-info button, in the same fixed-size icon-button style as the play/pause
+  button (a 48×48 square with a centered inline SVG power icon and the localized
+  "Standby" label as `aria-label` + `title`). The header keeps its existing wrap behavior
+  (the wave-8 pinned rules are untouched).
+- **Command**: tapping sends the `POWER` key (press+release, `sender="Gabbo"`),
+  fire-and-forget like the other transport commands. In standby the speaker keeps its
+  network connections, so the WebSocket feed stays open and the same button wakes it.
+- **Gating**: the button is enabled only while the WebSocket is connected
+  (`wsStatus === 'connected'`), exactly like the other remote controls; it is disabled
+  otherwise.
+- **No echo loops**: the command never writes live device state — the now-playing panel
+  reflects the result (the play-status chip turns "Stopped" as playback stops). The button
+  keeps a static icon: the port-8080 feed documents no power-state signal, so there is no
+  standby-state icon swap (unlike mute/play-pause, which mirror WebSocket-confirmed state).
+- **Independence**: the `hideRemoteSkipButtons` setting never affects the standby button
+  (it is a primary control like play/pause, volume, and mute). A standby press cancels any
+  pending send confirmation, consistent with the other remote commands.
+- **i18n**: the new label key (`remoteStandby`) ships in all four languages (`en`, `de`,
+  `ru`, `ukr`).
+- No new settings, no localStorage keys, no state fields, and no module-structure change
+  (ARCHITECTURE.md is untouched).
+
+#### User flows (wave 10)
+
+1. **Standby** — open the app → tap the power button in the Remote panel header's
+   upper-right corner → the speaker enters standby; the now-playing panel shows the stop
+   and the button stays enabled (networked standby keeps the WebSocket alive).
+2. **Wake** — tap the power button again → the speaker wakes and resumes per the device's
+   own behavior.
+3. **Disconnected** — the WebSocket drops → the button is disabled with the other
+   controls; it re-enables on reconnect.
+
+#### Acceptance criteria (wave 10)
+
+- The Remote panel header renders the standby button after the ℹ device-info button
+  (upper-right corner) as a fixed 48×48 square icon button with an inline SVG power icon
+  and `aria-label`/`title` = the localized "Standby" label.
+- The button is enabled exactly when `wsStatus === 'connected'` and disabled otherwise
+  (including `connecting`, `reconnecting`, and `idle`).
+- Clicking it (or its inner svg/path) sends two `no-cors` POSTs to `/key` — press then
+  release, `<key state="press" sender="Gabbo">POWER</key>` /
+  `<key state="release" sender="Gabbo">POWER</key>` — and cancels any pending send
+  confirmation.
+- The button never writes live device state directly (no echo loop); it changes no
+  settings and no localStorage data.
+- The `hideRemoteSkipButtons` setting does not affect the button (it renders in both
+  transport states).
+- The new `remoteStandby` i18n key ships in all four languages (`en`, `de`, `ru`, `ukr`).
+- `npm test`, `npx tsc --noEmit --skipLibCheck`, and `npm run build` pass.
+
+#### Edge cases (wave 10)
+
+- WebSocket disconnected or reconnecting — the button is disabled with the other controls.
+- Speaker in standby — the WebSocket stays connected (networked standby), so the button
+  remains enabled and tapping it wakes the speaker.
+- No address saved — the Remote panel (and with it the button) does not render.
+- Rapid taps — fire-and-forget like the other keys; the device reconciles, nothing local
+  can corrupt.
+- Standby while a station send is pending — the pending confirmation cancels (consistent
+  with the other remote commands); the speaker stopping is reflected in the panel.
+- Narrow screens — the header wraps as before; the button stays grouped with the status
+  and ℹ on the right.
+
 ## Non-goals (v1)
 
 - Device discovery (SSDP/mDNS — impossible from a browser; needs a future bridge).
