@@ -313,20 +313,27 @@ button {
 }
 
 @media (max-width: 1024px) {
-    .topbar {
-        grid-template-columns:1fr
-    }
-
-    .header-right {
-        justify-items: start
-    }
-
     .layout {
         grid-template-columns:1fr
     }
 
     .controls {
         position: static
+    }
+
+    .brand {
+        min-width: 0
+    }
+
+    .brand > div {
+        min-width: 0
+    }
+
+    .brand h1,
+    .brand p {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap
     }
 }
 
