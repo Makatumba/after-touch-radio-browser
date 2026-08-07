@@ -249,8 +249,16 @@ describe('app-like polish (src/styles.css)', () => {
         expect(readCss()).toMatch(/\.remote-head \.remote-status\s*\{[^}]*margin-left:\s*auto/);
     });
 
-    it('expands the remote header device-info popover as a full-width row (wave 7.1)', () => {
-        expect(readCss()).toMatch(/\.remote-head \.soundtouch-info-body[^{]*\{[^}]*position:\s*static[^}]*width:\s*100%/);
-        expect(readCss()).toMatch(/\.remote-head \.soundtouch-info\[open\][^{]*\{[^}]*flex-basis:\s*100%/);
+    it('floats the remote header device-info popover and drops the full-width-row rules (wave 7.2)', () => {
+        expect(readCss()).toMatch(
+            /\.soundtouch-info-body[^{]*\{[^}]*position:\s*absolute[^}]*top:\s*100%[^}]*z-index:\s*2/
+        );
+        expect(readCss()).not.toMatch(/\.remote-head \.soundtouch-info[^{]*\{/);
+    });
+
+    it('opens the settings popup device-info popover upward (wave 7.2)', () => {
+        expect(readCss()).toMatch(
+            /\.soundtouch-section \.soundtouch-info-body[^{]*\{[^}]*bottom:\s*100%[^}]*top:\s*auto[^}]*margin-top:\s*0/
+        );
     });
 });
