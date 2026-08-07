@@ -1874,10 +1874,13 @@ describe('remote control panel', () => {
             });
             render();
 
-            // gate closed ⇒ no slot at all, no skeleton ⇒ no background fetch
+            // gate closed ⇒ the remote panel fetches nothing: the echoed
+            // containerArt/art URLs never reach an Image; only the station
+            // card's own thumbnail (favicon) is fetched, which is the wave-4
+            // behavior the gate must not touch
             expect(document.querySelector('.remote-nowplaying .artwork-slot')).toBeNull();
             expect(document.querySelector('img.artwork-slot')).toBeNull();
-            expect(FakeImage.instances).toHaveLength(0);
+            expect(FakeImage.instances.filter(i => i.src === 'http://192.168.1.42:8090/v1/gate-closed-container-art.png' || i.src === 'http://192.168.1.42:8090/v1/gate-closed-art.png')).toHaveLength(0);
         });
 
         it('keeps the title, meta line, and play-status chip when the logo is gated off', () => {
@@ -1895,7 +1898,10 @@ describe('remote control panel', () => {
             });
             render();
 
-            expect(document.querySelector('.artwork-slot')).toBeNull();
+            // the remote panel drops the logo ...
+            expect(document.querySelector('.remote-nowplaying .artwork-slot')).toBeNull();
+            // ... while the station card keeps its thumbnail (wave-4 behavior untouched)
+            expect(document.querySelectorAll('.artwork-slot')).toHaveLength(1);
             const strong = document.querySelector('.remote-nowplaying strong');
             expect(strong!.textContent).toBe('Track title');
             const small = document.querySelector('.remote-nowplaying small');
