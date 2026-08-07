@@ -261,4 +261,8 @@ describe('app-like polish (src/styles.css)', () => {
             /\.soundtouch-section \.soundtouch-info-body[^{]*\{[^}]*bottom:\s*100%[^}]*top:\s*auto[^}]*margin-top:\s*0/
         );
     });
+
+    it('keeps the modal panel overflow visible so the popup device info is never clipped (wave 7.4)', () => {
+        expect(readCss()).toMatch(/\.modal-panel[^{]*\{[^}]*overflow-y:\s*visible/);
+    });
 });
