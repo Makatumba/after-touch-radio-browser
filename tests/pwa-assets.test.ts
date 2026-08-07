@@ -267,4 +267,23 @@ describe('app-like polish (src/styles.css)', () => {
         expect(readCss()).toMatch(/\.modal-panel[^{]*\{[^}]*overflow-y:\s*auto/);
         expect(readCss()).toMatch(/\.remote-panel[^{]*\{[^}]*margin:\s*0 0 1rem 0/);
     });
+
+    it('keeps the header a single row with the gear top-right on small screens (FR-12)', () => {
+        expect(readCss()).not.toMatch(/\.topbar\s*\{[^}]*grid-template-columns:\s*1fr\s*\}/);
+        expect(readCss()).not.toMatch(/\.header-right\s*\{[^}]*justify-items:\s*start\s*\}/);
+        expect(readCss()).toMatch(/\.topbar\s*\{[^}]*grid-template-columns:\s*1fr auto/);
+        expect(readCss()).toMatch(/\.header-right\s*\{[^}]*justify-items:\s*end/);
+    });
+
+    it('still collapses .layout and .controls in the max-width 1024px media query (FR-12)', () => {
+        expect(readCss()).toMatch(/\.layout\s*\{[^}]*grid-template-columns:\s*1fr\s*\}/);
+        expect(readCss()).toMatch(/\.controls\s*\{[^}]*position:\s*static\s*\}/);
+    });
+
+    it('truncates the brand text with an ellipsis on narrow screens (FR-12)', () => {
+        expect(readCss()).toMatch(/\.brand\s*\{[^}]*min-width:\s*0/);
+        expect(readCss()).toMatch(/\.brand\s*>\s*div\s*\{[^}]*min-width:\s*0/);
+        expect(readCss()).toMatch(/\.brand h1[^{]*\{[^}]*overflow:\s*hidden[^}]*text-overflow:\s*ellipsis[^}]*white-space:\s*nowrap/);
+        expect(readCss()).toMatch(/\.brand p[^{]*\{[^}]*overflow:\s*hidden[^}]*text-overflow:\s*ellipsis[^}]*white-space:\s*nowrap/);
+    });
 });
