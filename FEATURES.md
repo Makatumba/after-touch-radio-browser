@@ -1164,6 +1164,76 @@ POST `/key`").
 - Narrow screens — the header wraps as before; the button stays grouped with the status
   and ℹ on the right.
 
+## Implemented (wave 11)
+
+### Remote panel artwork — plays-only gate
+
+The Remote panel's now-playing artwork (the station logo in the now-playing card) renders
+only while the speaker is actually playing — or starting to play. Previously the logo stayed
+visible whenever any artwork URL was known: the device-echoed `ContentItem.containerArt` in
+the last-known now-playing payload survived a stop, and the app-side fallback
+(`playingStationArtUrl`) resolved from the highlighted list station's `favicon` even when
+nothing had ever been sent to the speaker. Both paths now render no logo when the radio is
+not running. This refines the wave-2 "artwork when present" and wave-4 "Remote panel reads
+the device logo (WS-first)" behavior for the not-playing case.
+
+- **Gate**: the artwork slot renders only when the device reports `devicePlayStatus` as
+  `PLAY_STATE` or `BUFFERING_STATE` — playing, or starting to play. It renders nothing for
+  `PAUSE_STATE`, `STOP_STATE`, and any empty/unknown status (never connected, or cleared on
+  host change / explicit close). The gate reads only WebSocket-derived state — no command
+  writes it (no echo loops).
+- **Scope**: only the logo slot is gated. The now-playing title, the artist/meta line, and
+  the play-status chip ("Playing" / "Paused" / "Buffering" / "Stopped") render exactly as
+  before — a stopped speaker keeps its last station text with the "Stopped" chip, minus the
+  logo.
+- **Priority unchanged**: when the gate is open, the artwork source order is untouched —
+  WS-emitted `ContentItem.containerArt` → device `art` → app-side station `favicon`
+  (wave-4/FR-6), with the same skeleton-slot pattern, silent degradation, and per-uuid
+  cache behavior.
+- **No wire change**: the send-with-play `containerArt` echo, the WebSocket payload, and the
+  artwork cache are untouched — the app only gates the display. API-NOTES.md is unchanged.
+- **No UI strings, settings, or state**: no new i18n keys (all four languages), no settings
+  toggles, no localStorage keys, no state fields, no module-structure change
+  (ARCHITECTURE.md is untouched).
+- Station-card thumbnails and the preview player bar are unaffected.
+
+#### User flows (wave 11)
+
+1. **Playing** — tap a station → it starts buffering on the speaker (`BUFFERING_STATE` — the
+   logo shows immediately) → playback starts (`PLAY_STATE` — the logo stays).
+2. **Stopped** — the speaker stops (standby, manual stop) → the now-playing card keeps the
+   last station text with the "Stopped" chip; the logo disappears.
+3. **Paused** — the speaker pauses → the "Paused" chip appears; the logo disappears.
+4. **Highlight without playing** — a list station is highlighted but nothing has been sent to
+   the speaker → the panel shows no logo (previously it showed the highlighted station's
+   favicon).
+
+#### Acceptance criteria (wave 11)
+
+- The Remote panel renders the now-playing artwork slot only when `state.devicePlayStatus`
+  is `PLAY_STATE` or `BUFFERING_STATE`; it renders nothing for `PAUSE_STATE`, `STOP_STATE`,
+  and empty/unknown statuses.
+- A station that stopped after playing (last-known payload still carrying `containerArt`)
+  shows no logo; the title, meta, and "Stopped" chip remain.
+- A highlighted list station with a known `favicon` that is not playing shows no logo.
+- With the gate open, the artwork source priority, skeleton-slot pattern, and per-uuid
+  cache behavior are unchanged (wave-4 pins hold).
+- The play/pause button icon/label logic is unchanged (still `PLAY_STATE`-only).
+- No new i18n keys, no settings, no localStorage keys, no state fields, no wire changes.
+- `npm test`, `npx tsc --noEmit --skipLibCheck`, and `npm run build` pass.
+
+#### Edge cases (wave 11)
+
+- WS drop / reconnect — `devicePlayStatus` keeps its last-known value (device state is
+  cleared only on host change or explicit close), so a playing speaker keeps its logo while
+  the feed reconnects; updates resume on the reopened socket.
+- Host change / explicit close — `clearDeviceState()` empties `devicePlayStatus`, so the
+  logo hides with the rest of the device state.
+- Unknown play status values (outside the pinned set) — mapped to empty on parse, logo
+  hidden.
+- Stop→play in quick succession — the logo follows `BUFFERING_STATE`/`PLAY_STATE`
+  immediately on the next render.
+
 ## Non-goals (v1)
 
 - Device discovery (SSDP/mDNS — impossible from a browser; needs a future bridge).
