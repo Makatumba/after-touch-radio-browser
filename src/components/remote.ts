@@ -1,5 +1,6 @@
 import type {State} from '../state';
 import {playingStationArtUrl, renderArtworkSlot} from '../artwork';
+import {renderDeviceInfo} from './soundtouch';
 
 function escapeHtml(value: string): string {
     return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -67,6 +68,7 @@ export function renderRemotePanel(state: State, t: Record<string, string>): stri
     <div class="remote-head">
         <h2>${t.remoteTitle}</h2>
         <span class="remote-status${statusCls}">${statusText}</span>
+        ${renderDeviceInfo(state, t)}
     </div>
     <div class="remote-nowplaying">
         ${artHtml}
