@@ -1226,6 +1226,91 @@ describe('settings expansion (wave 6)', () => {
     });
 });
 
+describe('remote panel header device info (wave 7.1)', () => {
+    // the file's shared beforeEach does not reset soundtouchDevice (AGENTS.md
+    // convention) — every test starts from a known-good null device so widget
+    // presence is pinned per test, never leaked from an earlier one
+    beforeEach(() => {
+        state.soundtouchDevice = null;
+    });
+
+    it('renders no device-info widget and keeps the header intact when no device is known', () => {
+        render();
+        expect(document.querySelector('.remote-head .soundtouch-info')).toBeNull();
+        expect(document.querySelector('.remote-head h2')).not.toBeNull();
+        expect(document.querySelector('.remote-head .remote-status')).not.toBeNull();
+    });
+
+    it('shows the device-info widget in the remote header when a device is known', () => {
+        state.soundtouchDevice = { id: '689E19B8BB8A', name: 'Bose SoundTouch B9B8BC', type: 'SoundTouch 10' };
+        render();
+        const widget = document.querySelector<HTMLElement>('.remote-head .soundtouch-info');
+        expect(widget).not.toBeNull();
+        expect(widget!.parentElement!.classList.contains('remote-head')).toBe(true);
+        expect(widget!.querySelector('summary')!.textContent).toBe('ℹ');
+        const body = widget!.querySelector<HTMLElement>('.soundtouch-info-body');
+        expect(body).not.toBeNull();
+        expect(body!.textContent).toContain(getLabels(state).deviceName);
+        expect(body!.textContent).toContain('Bose SoundTouch B9B8BC');
+        expect(document.querySelector<HTMLElement>('.remote-head h2')!.textContent).toBe(getLabels(state).remoteTitle);
+        expect(document.querySelector('.remote-head .remote-status')).not.toBeNull();
+    });
+
+    it('keeps the header device-info widget while reconnecting or unreachable', () => {
+        state.soundtouchDevice = { id: '689E19B8BB8A', name: 'Bose SoundTouch B9B8BC', type: 'SoundTouch 10' };
+        render();
+        expect(document.querySelector('.remote-head .soundtouch-info')).not.toBeNull();
+
+        state.wsStatus = 'reconnecting';
+        render();
+        expect(document.querySelector('.remote-head .soundtouch-info')).not.toBeNull();
+
+        state.soundtouchStatus = 'unreachable';
+        render();
+        expect(document.querySelector('.remote-head .soundtouch-info')).not.toBeNull();
+    });
+
+    it('a background render keeps the header device-info widget and the popup node', () => {
+        state.soundtouchDevice = { id: '689E19B8BB8A', name: 'Bose SoundTouch B9B8BC', type: 'SoundTouch 10' };
+        render();
+        setupEvents();
+        document.querySelector<HTMLButtonElement>('#openSettings')!.click();
+        const overlay = document.querySelector('.modal-overlay');
+        expect(overlay).not.toBeNull();
+        expect(document.querySelector('.remote-head .soundtouch-info')).not.toBeNull();
+
+        // direct render() simulates the artwork-settle hook path
+        render();
+
+        expect(document.querySelector('.modal-overlay')).toBe(overlay);
+        expect(document.querySelector('.remote-head .soundtouch-info')).not.toBeNull();
+    });
+
+    it('toggling skip-hiding rebuilds the remote panel with the device-info widget and keeps the popup', () => {
+        state.soundtouchDevice = { id: '689E19B8BB8A', name: 'Bose SoundTouch B9B8BC', type: 'SoundTouch 10' };
+        render();
+        setupEvents();
+        document.querySelector<HTMLButtonElement>('#openSettings')!.click();
+        const overlay = document.querySelector('.modal-overlay');
+        const remotePanel = document.querySelector('.remote-panel');
+        const widget = document.querySelector<HTMLElement>('.remote-head .soundtouch-info');
+        expect(overlay).not.toBeNull();
+        expect(remotePanel).not.toBeNull();
+        expect(widget).not.toBeNull();
+
+        const hideToggle = document.querySelector<HTMLInputElement>('#settingHideRemoteSkipButtons');
+        expect(hideToggle).not.toBeNull();
+        hideToggle!.checked = false;
+        hideToggle!.dispatchEvent(new Event('change', { bubbles: true }));
+
+        // syncRemotePanel replaces ONLY the remote panel — the header widget
+        // comes along with the fresh panel and the popup keeps its node
+        expect(document.querySelector('.remote-panel')).not.toBe(remotePanel);
+        expect(document.querySelector('.remote-head .soundtouch-info')).not.toBeNull();
+        expect(document.querySelector('.modal-overlay')).toBe(overlay);
+    });
+});
+
 describe('soundtouch settings section (wave 7)', () => {
     it('renders no SoundTouch bar in the shell when an address is saved', () => {
         state.soundtouchAddress = '192.168.1.42';
@@ -1455,5 +1540,67 @@ describe('soundtouch settings section (wave 7)', () => {
         rejectA(new Error('offline'));
         await new Promise((r) => setTimeout(r, 0));
         expect(state.soundtouchStatus).toBe('available');
+    });
+
+    it('labels the host field with soundtouchNetworkAddress above the config row', () => {
+        state.soundtouchAddress = '192.168.1.42';
+        render();
+        setupEvents();
+        document.querySelector<HTMLButtonElement>('#openSettings')!.click();
+
+        const label = document.querySelector<HTMLLabelElement>('.soundtouch-section label[for="settingSoundtouchHost"]');
+        expect(label).not.toBeNull();
+        expect(label!.textContent).toBe(getLabels(state).soundtouchNetworkAddress);
+        const config = document.querySelector<HTMLElement>('.soundtouch-config');
+        expect(config).not.toBeNull();
+        // the label sits ABOVE the config row (language-select placement), not inside it
+        expect(config!.contains(label!)).toBe(false);
+        const input = document.querySelector<HTMLInputElement>('#settingSoundtouchHost');
+        expect(input).not.toBeNull();
+        expect(label!.compareDocumentPosition(input!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+        // the old inline plain-span label is gone from the config row — only
+        // the status span (and the new field label above) remain
+        expect(
+            Array.from(config!.children).filter((el) => el.tagName === 'SPAN' && !el.classList.contains('soundtouch-status'))
+        ).toEqual([]);
+    });
+
+    it('drops soundtouchCollapsed and adds soundtouchNetworkAddress in all languages', () => {
+        // Hardcoded expected strings per language (NOT derived from any placeholder).
+        const NETWORK_ADDRESS: Record<string, string> = {
+            en: 'SoundTouch network address',
+            de: 'SoundTouch-Netzwerkadresse',
+            ru: 'Сетевой адрес SoundTouch',
+            ukr: 'Мережева адреса SoundTouch',
+        };
+        for (const lang of ['en', 'de', 'ru', 'ukr'] as const) {
+            const t = getLabels({ language: lang });
+            expect(t.soundtouchCollapsed).toBeUndefined();
+            expect(t.soundtouchNetworkAddress).toBe(NETWORK_ADDRESS[lang]);
+        }
+    });
+
+    it('a language switch re-labels the host field in place without rebuilding the popup', () => {
+        state.soundtouchAddress = '192.168.1.42';
+        render();
+        setupEvents();
+        document.querySelector<HTMLButtonElement>('#openSettings')!.click();
+        const overlay = document.querySelector('.modal-overlay');
+        expect(overlay).not.toBeNull();
+        const label = document.querySelector<HTMLLabelElement>('.soundtouch-section label[for="settingSoundtouchHost"]');
+        expect(label).not.toBeNull();
+        expect(label!.textContent).toBe(getLabels(state).soundtouchNetworkAddress);
+
+        const select = document.querySelector<HTMLSelectElement>('#settingLanguage');
+        expect(select).not.toBeNull();
+        select!.value = 'de';
+        select!.dispatchEvent(new Event('change', { bubbles: true }));
+
+        const de = getLabels({ language: 'de' });
+        expect(
+            document.querySelector<HTMLLabelElement>('.soundtouch-section label[for="settingSoundtouchHost"]')!.textContent
+        ).toBe(de.soundtouchNetworkAddress);
+        expect(document.querySelector<HTMLInputElement>('#settingSoundtouchHost')!.value).toBe('192.168.1.42');
+        expect(document.querySelector('.modal-overlay')).toBe(overlay);
     });
 });

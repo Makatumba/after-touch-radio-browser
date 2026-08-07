@@ -243,4 +243,14 @@ describe('app-like polish (src/styles.css)', () => {
     it('has a rule on .btn with user-select: none', () => {
         expect(readCss()).toMatch(/\.btn[^{]*\{[^}]*user-select:\s*none/);
     });
+
+    it('wraps the remote header on narrow screens (wave 7.1)', () => {
+        expect(readCss()).toMatch(/\.remote-head[^{]*\{[^}]*flex-wrap:\s*wrap/);
+        expect(readCss()).toMatch(/\.remote-head \.remote-status\s*\{[^}]*margin-left:\s*auto/);
+    });
+
+    it('expands the remote header device-info popover as a full-width row (wave 7.1)', () => {
+        expect(readCss()).toMatch(/\.remote-head \.soundtouch-info-body[^{]*\{[^}]*position:\s*static[^}]*width:\s*100%/);
+        expect(readCss()).toMatch(/\.remote-head \.soundtouch-info\[open\][^{]*\{[^}]*flex-basis:\s*100%/);
+    });
 });
