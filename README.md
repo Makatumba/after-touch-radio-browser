@@ -8,12 +8,13 @@ software that keeps these speakers alive: [AfterTouch — Bose SoundTouch Toolki
 (https://gesellix.github.io/Bose-SoundTouch/). Not affiliated with Bose Corporation.
 
 Features shipped in this release and planned for the next are specified in
-[FEATURES.md](FEATURES.md) — waves 1-7 are implemented: the wave-1 station picker and
+[FEATURES.md](FEATURES.md) — waves 1-8 are implemented: the wave-1 station picker and
 setup, the wave-2 live device-state remote (FR-3), the wave-3 now-playing confirmation
 (FR-4 extension), the wave-4 station artwork (FR-6), the wave-5 settings popup fixes, the
-wave-6 settings expansion (language select in the popup, hidden remote skip buttons), and
-the wave-7 settings refinement (speaker config in the popup's labeled SoundTouch section,
-device info in the Remote panel header).
+wave-6 settings expansion (language select in the popup, hidden remote skip buttons), the
+wave-7 settings refinement (speaker config in the popup's labeled SoundTouch section,
+device info in the Remote panel header), and the wave-8 fixed-size buttons & volume/mute
+row polish.
 
 ## SoundTouch remote control
 

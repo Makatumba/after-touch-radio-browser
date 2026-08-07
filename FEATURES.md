@@ -949,6 +949,77 @@ skeleton placeholder covers every load.
   panel keeps its native scrolling, so expanding the popup's ℹ scrolls the rows into view when
   the visible area is too small; the Remote panel's ℹ relies on the page scrolling naturally.
 
+## Implemented (wave 8)
+
+### Fixed-size buttons & the mobile volume/mute row
+
+Every interactive button renders at fixed, content-independent dimensions instead of
+stretching with the layout, and the Remote panel's mute button stays on the same line as
+the volume slider at every viewport width.
+
+- **Fixed-size buttons**: the flex-grow stretch rules on button rows are gone
+  (`flex: 1 1 …` on `.actions > *`, `.station-actions > *`, `.remote-transport .btn`,
+  `.results-footer .btn`) — every button family renders at deterministic sizes and
+  same-row buttons align by their shared fixed height instead of stretching widths:
+  - Text buttons (`.btn`: Play on speaker, Preview, Favorite, Search, Reset, Prev/Next,
+    Save, Reset to defaults) keep the fixed 48px touch-target height with content-based
+    width and fixed padding — long translated labels size the button, never truncate or
+    stretch it.
+  - Icon-only control buttons — the Remote transport (play/pause, next/prev) and mute —
+    render as fixed 48×48 squares with the icon centered.
+  - The chrome icon buttons — the ↻ refresh pill, the settings gear, and the modal ×
+    close — render as fixed squares (the gear keeps its established 36px square).
+  - The mode chips (Top/Recent/Favorites) keep their fixed 40px height.
+  - The Remote transport row centers its fixed-size buttons in both states: with the
+    skip buttons hidden it collapses to the single centered play/pause button (as
+    before); with them shown the three buttons center on the row.
+- **Volume/mute row (mobile)**: the Remote panel's volume row (label, slider, value,
+  mute) no longer pushes the mute icon onto its own line on narrow screens. The slider is
+  the flexible element and shrinks first, so slider + value + mute always share one line;
+  only the label may wrap above the row as a unit.
+- The change is presentation-only: no markup, ids, actions, disabled states, or i18n keys
+  change, and the dead `.audio-actions`/`.player-stop` rules are left untouched.
+
+#### User flows (wave 8)
+
+1. **Browse at any width** — every button renders at its fixed size: icon buttons are
+   square and aligned, text buttons share one height, and nothing stretches with the
+   panel width.
+2. **Adjust volume on a phone** — open the Remote panel on a narrow screen → the volume
+   slider, its value, and the mute icon stay on a single line (the slider shrinks as
+   needed); only the label may sit above them.
+
+#### Acceptance criteria (wave 8)
+
+- No `flex: 1 1 …` grow rule remains on any button container (`.actions`,
+  `.station-actions`, `.remote-transport`, `.results-footer`); text `.btn` buttons render
+  at the fixed 48px height with content-based width and fixed padding.
+- Icon-only control buttons (Remote transport + mute) render as fixed 48×48 squares with
+  centered icons; the ↻ pill, gear, and modal × close render as fixed squares.
+- The mode chips keep their fixed 40px height.
+- The Remote transport row centers its fixed-size buttons in both states (skips hidden →
+  solo play/pause centered; skips shown → three centered buttons).
+- In `.remote-volume` the mute button never wraps onto its own line: at narrow widths the
+  slider shrinks and slider + value + mute share one line; only the label may wrap above
+  the row.
+- The previously pinned CSS rules (`.remote-head` wrap + status margin, `.btn`
+  `user-select`, the FR-12 topbar grid, the wave-7 popover rules) are untouched.
+- `npm test`, `npx tsc --noEmit --skipLibCheck`, and `npm run build` pass.
+
+#### Edge cases (wave 8)
+
+- Long translated labels (e.g. German "Auf Lautsprecher abspielen") — the fixed
+  height holds; the width grows with the label, never truncates.
+- Narrow screens (≤720px) — the old `flex: 1 1 140px` stretch on the filter and
+  station-card action rows is gone; buttons stay content-sized and the rows wrap per
+  button.
+- Very narrow viewports (~320px) — the slider shrinks to a usable minimum; the mute
+  button stays attached to it; the label wraps above as a unit.
+- Skip buttons hidden vs shown — both transport states render fixed-size centered buttons
+  (the solo state's centering is preserved).
+- Disabled/connected states — sizing is independent of the disabled/opacity states and
+  the wsStatus/device gating; nothing changes there.
+
 ## Non-goals (v1)
 
 - Device discovery (SSDP/mDNS — impossible from a browser; needs a future bridge).
