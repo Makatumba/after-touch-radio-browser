@@ -53,11 +53,11 @@ filters panel offering five orders — Name (A–Z), Name (Z–A), Popular (1 da
 (2 days), and Top all time. For search, the selection maps to the API's `order`/`reverse`
 parameters (`name` with/without `reverse`; `clickcount`/`clicktrend`/`votes` with
 `reverse=true`); for the locally paged favorites list it maps to a client-side comparator
-over the same fields. The default is **Popular (1 day)** (`order=clickcount&reverse=true`),
-which is exactly the order the app used before sorting was selectable. The dropdown always
-shows the current order, and in Search and Favorites modes the results toolbar appends the
-active sort label to the status line (e.g. "24 loaded · Popular (1 day)"). Changing the sort
-re-runs the search (offset 0) in Search mode and re-sorts the local favorites in place
+over the same fields. The default is **Top all time** (`order=votes&reverse=true`) — the same
+all-time ordering the app's initial Top list has always used (`/stations/topvote`). The
+dropdown always shows the current order, and in Search and Favorites modes the results toolbar
+appends the active sort label to the status line (e.g. "24 loaded · Top all time"). Changing
+the sort re-runs the search (offset 0) in Search mode and re-sorts the local favorites in place
 (offset 0, no API call) in Favorites mode; in Top and Recent modes it behaves like the other
 filters — it starts a search with the current filters and the new sort. Favorites sort
 client-side before paging: names compare with the active UI language's collation (missing
@@ -266,7 +266,7 @@ capability are non-goals (see Non-goals).
   in place without an API call in Favorites mode, and starts a search from Top/Recent (like
   the other filters); favorites sort handles missing numeric fields (as 0) and missing names
   (as empty strings); the stored favorites array keeps insertion order; the choice survives
-  mode switches but not a page reload; Reset restores Popular (1 day).
+  mode switches but not a page reload; Reset restores Top all time.
 - **Preview**: off by default; when on, a Preview action plays in-browser without disturbing
   device state; disabling it stops preview audio.
 - **i18n**: language is auto-detected on first run (`'uk'` → `'ukr'`, unsupported → English);

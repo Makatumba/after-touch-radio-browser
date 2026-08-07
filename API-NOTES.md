@@ -64,9 +64,9 @@ The app maps five sort options onto the API (verified live against the 0.7.44 mi
 |---|---|---|---|
 | Name (A–Z) | `name` | — | alphabetical by station name |
 | Name (Z–A) | `name` | `true` | reverse alphabetical |
-| Popular (1 day) | `clickcount` | `true` | most clicks within the last 24 h — the app default |
+| Popular (1 day) | `clickcount` | `true` | most clicks within the last 24 h |
 | Trending (2 days) | `clicktrend` | `true` | biggest change in clickcount over the last 2 days |
-| Top all time | `votes` | `true` | most votes ever (votes never reset) |
+| Top all time | `votes` | `true` | most votes ever (votes never reset) — the app default |
 
 Notes: there is no "clicks in the last 2 days" field — `clicktrend` is the 2-day **change**, so
 the "Trending (2 days)" option ranks by momentum; `clicktrend` and `clickcount` coincide for
