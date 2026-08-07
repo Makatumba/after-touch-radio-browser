@@ -38,7 +38,7 @@ async function loadActions() {
         sendVolume: (value: number) => Promise<void>;
         sendMute: (muted: boolean) => Promise<void>;
         scheduleVolumeSend: (value: number) => void;
-        REMOTE_KEYS: Readonly<{ play: string; pause: string; next: string; prev: string }>;
+        REMOTE_KEYS: Readonly<{ play: string; pause: string; next: string; prev: string; power: string }>;
     };
 }
 
@@ -409,9 +409,30 @@ describe('sendKeyPress — press+release key pair', () => {
         expect(String(release[1].body)).toBe('<key state="release" sender="Gabbo">PLAY</key>');
     });
 
-    it('exposes the four remote keys as a const map', async () => {
+    it('posts the POWER key as a press+release pair (wave 10)', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({} as Response);
+        vi.stubGlobal('fetch', fetchMock);
+
+        const { sendKeyPress, REMOTE_KEYS } = await loadActions();
+        await sendKeyPress(REMOTE_KEYS.power);
+
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+        const press = fetchMock.mock.calls[0] as [string, RequestInit];
+        const release = fetchMock.mock.calls[1] as [string, RequestInit];
+        expect(press[0]).toBe('http://192.168.1.42:8090/key');
+        expect(release[0]).toBe('http://192.168.1.42:8090/key');
+        for (const [url, init] of [press, release]) {
+            expect(init.method).toBe('POST');
+            expect(init.mode).toBe('no-cors');
+            expect(new Headers(init.headers as HeadersInit).get('Content-Type')).toBe('text/plain;charset=UTF-8');
+        }
+        expect(String(press[1].body)).toBe('<key state="press" sender="Gabbo">POWER</key>');
+        expect(String(release[1].body)).toBe('<key state="release" sender="Gabbo">POWER</key>');
+    });
+
+    it('exposes the remote keys as a const map (wave 10)', async () => {
         const { REMOTE_KEYS } = await loadActions();
-        expect(REMOTE_KEYS).toEqual({ play: 'PLAY', pause: 'PAUSE', next: 'NEXT_TRACK', prev: 'PREV_TRACK' });
+        expect(REMOTE_KEYS).toEqual({ play: 'PLAY', pause: 'PAUSE', next: 'NEXT_TRACK', prev: 'PREV_TRACK', power: 'POWER' });
     });
 
     it('never writes live device state (no echo loop)', async () => {
@@ -572,6 +593,14 @@ describe('device info widget (FR-3, WebSocket-fed)', () => {
             for (const key of keys) {
                 expect(tView[lang][key]?.trim()).toBeTruthy();
             }
+        }
+    });
+});
+
+describe('remote standby button (wave 10)', () => {
+    it('adds the remoteStandby label in all four languages (wave 10)', () => {
+        for (const lang of ['en', 'de', 'ru', 'ukr'] as const) {
+            expect(tView[lang].remoteStandby?.trim()).toBeTruthy();
         }
     });
 });

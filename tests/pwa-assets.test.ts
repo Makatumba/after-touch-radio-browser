@@ -327,4 +327,9 @@ describe('app-like polish (src/styles.css)', () => {
     it('styles the service-unavailable banner with the error pattern (wave 9)', () => {
         expect(readCss()).toMatch(/\.service-banner[^{]*\{[^}]*display:\s*flex/);
     });
+
+    it('renders the remote header standby button as a fixed 48px square (wave 10)', () => {
+        expect(readCss()).toMatch(/\.remote-head \.btn[^{]*\{[^}]*width:\s*3rem[^}]*height:\s*3rem[^}]*padding:\s*0/);
+        expect(readCss()).toMatch(/\.remote-head \.btn svg[^{]*\{[^}]*width:\s*1\.4em[^}]*height:\s*1\.4em/);
+    });
 });
