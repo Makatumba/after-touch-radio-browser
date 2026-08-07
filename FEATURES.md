@@ -1020,6 +1020,74 @@ the volume slider at every viewport width.
 - Disabled/connected states — sizing is independent of the disabled/opacity states and
   the wsStatus/device gating; nothing changes there.
 
+## Implemented (wave 9)
+
+### Radio Browser service-unavailable banner
+
+When the Radio Browser service cannot answer a station-list fetch, the app says so plainly
+and offers a reload instead of only a terse status line. (Wave 8 — fixed-size buttons &
+the volume/mute row — ships on a separate branch and merges before this one.)
+
+- **Trigger**: any failed station-list fetch — an HTTP 4xx or 5xx response from the Radio
+  Browser API, or a network error with no response (offline, DNS, timeout) — for the Top,
+  Recent, Search, and pagination loads. The Language/Country option lists keep their
+  existing silent cache fallback (FR-1): their failure never raises the banner.
+- **Banner**: on such a failure the results area shows a prominent banner (the device
+  offline-banner pattern: `role="status"`, error styling) above the list: the message
+  "Radio Browser service is unavailable — check your connection and reload." plus a
+  **Reload** button. Localized in all four languages (`serviceUnavailable`, `reload`).
+- **Reload**: the button re-fetches the current mode's first set in place — exactly the
+  ↻ toolbar refresh, no full page reload. A successful fetch clears the banner and the
+  list renders normally.
+- **Persistence**: the banner stays until a station-list fetch succeeds — a successful
+  reload, a mode change, a new search, or a filter change. Switching to Favorites (a
+  purely local list) also clears it. It is not manually dismissible and there is no
+  auto-retry loop; repeated failed reloads simply keep it in place.
+- **Status line**: the toolbar status shows the same localized message — the previously
+  hardcoded English "Service unavailable" string becomes the `serviceUnavailable` key —
+  so the failure reads consistently in the active language.
+- **State**: one new `serviceUnavailable` flag — set in the station-load error path,
+  cleared on every successful load.
+- The first-run setup view (no station list) never shows the banner.
+
+#### User flows (wave 9)
+
+1. **Service down at open** — open the app → the initial list fetch fails → the banner and
+   the localized status appear above the results; tap **Reload** → the fetch is retried;
+   on success the banner clears and the list renders.
+2. **Service down mid-use** — a search, mode change, or page flip fails → the banner
+   appears; browsing favorites still works and clears it; returning to a network-backed
+   mode re-shows it if the service is still down.
+
+#### Acceptance criteria (wave 9)
+
+- A failed station-list fetch (4xx, 5xx, or network error) renders the banner with the
+  localized message and a Reload button; the toolbar status shows the same localized text.
+- Tapping Reload re-fetches the current mode's first set; on success the banner
+  disappears and the list renders; on repeated failure it stays.
+- Switching to Favorites (or any successful load) clears the banner.
+- Language/Country option-list failures never trigger the banner (the FR-1 cache
+  fallback is unchanged).
+- The setup view never renders the banner.
+- The new `serviceUnavailable` and `reload` i18n keys ship in all four languages; the
+  hardcoded "Service unavailable" status string is gone from the code.
+- `npm test`, `npx tsc --noEmit --skipLibCheck`, and `npm run build` pass.
+
+#### Edge cases (wave 9)
+
+- First visit while offline — the initial fetch fails and the banner shows; the app
+  otherwise behaves as today.
+- Device-offline banner (FR-11) and the service banner can be visible at the same time —
+  they are independent concerns (speaker vs. catalog) and render side by side.
+- Rapid failed reloads — no auto-retry, no storm; the banner simply stays.
+- A fetch that fails after a re-render — the flag-based render (like the offline banner)
+  never shows stale state.
+- Favorites with the service down — local list loads succeed and clear the banner;
+  playing a favorite still sends the station to the speaker (device control is
+  independent of the Radio Browser API).
+- The settings popup open during a failure — the banner renders behind the popup via the
+  normal shell render; the no-blink contract is untouched.
+
 ## Non-goals (v1)
 
 - Device discovery (SSDP/mDNS — impossible from a browser; needs a future bridge).
