@@ -17,7 +17,8 @@ export const REMOTE_KEYS = {
     play: 'PLAY',
     pause: 'PAUSE',
     next: 'NEXT_TRACK',
-    prev: 'PREV_TRACK'
+    prev: 'PREV_TRACK',
+    power: 'POWER'
 } as const;
 
 export function compareFavorites(a: Station, b: Station, sort: SortKey, locale: string): number {

@@ -89,7 +89,7 @@ export function setupEvents(): void {
             return;
         }
 
-        const remoteBtn = target.closest('#remotePlayPause, #remoteNext, #remotePrev, #remoteMute') as HTMLElement | null;
+        const remoteBtn = target.closest('#remotePlayPause, #remoteNext, #remotePrev, #remoteMute, #remotePower') as HTMLElement | null;
         if (remoteBtn) {
             if (state.wsStatus !== 'connected') return;
             cancelSendConfirmation();
@@ -107,6 +107,7 @@ export function setupEvents(): void {
                     sendKeyPress(REMOTE_KEYS.prev);
                     break;
                 case 'remoteMute': sendMute(!state.deviceMute); break;
+                case 'remotePower': sendKeyPress(REMOTE_KEYS.power); break;
             }
             return;
         }
