@@ -181,7 +181,7 @@ A full codebase map — structure, key files, module dependency graph, and conve
   before use (scheme, path, and unsafe characters stripped).
 - **Status line** — shows "Loading stations…" during a fetch, "N loaded" on success, or
   "Service unavailable" on error. In Search and Favorites modes it appends the active sort
-  label ("N loaded · Popular (1 day)").
+  label ("N loaded · Top all time").
 - **Hosting** — GitHub Pages serves the app from the committed `docs/` folder; `dist/` and
   `.DS_Store` are gitignored.
 
