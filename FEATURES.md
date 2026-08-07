@@ -281,7 +281,7 @@ capability are non-goals (see Non-goals).
 - **Logo**: favicon loads with no console errors; header shows the logo with alt text and no
   layout shift on small screens; text branding still renders if the image is missing; on small
   screens (≤1024px) the settings gear stays top-right on the same row as the brand, with the
-  brand text truncated (ellipsis) instead of overlapping the gear.
+  brand text truncating (ellipsis) when it does not fit, instead of overlapping the gear.
 - **PWA**: the manifest is valid and complete (name, short_name ≤ 12, relative
   `id`/`start_url`/`scope`, `display: "standalone"`, theme/background colors, icons 192 + 512
   incl. `maskable`); the hosted URL is installable in Chrome (DevTools installability audit);
