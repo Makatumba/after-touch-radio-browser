@@ -1,0 +1,4 @@
+# graphify ignore rules (gitignore-style, layered over .gitignore)
+# docs/ is the tracked GitHub Pages build output (npm run deploy) — generated
+# assets, not source; keep it out of the knowledge graph.
+docs/
