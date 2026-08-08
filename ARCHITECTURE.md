@@ -43,7 +43,7 @@ AfterTouch-RadioBrowser/
 │       ├── station-card.ts     # Primary play-on-speaker + preview + favorite card actions
 │       ├── player-bar.ts       # Now-playing info
 │       ├── soundtouch.ts       # Settings-popup SoundTouch section (labeled host input + status + hints + device-info widget)
-│       ├── remote.ts           # Live remote panel: now playing, transport (skip buttons toggleable), volume, mute, header ℹ device info
+│       ├── remote.ts           # Live remote panel: now playing, transport (skip buttons toggleable), volume, mute, header ℹ device info + standby power button
 │       ├── setup.ts            # Full-screen first-run setup view
 │       ├── banner.ts           # Device-offline and service-unavailable banners
 │       └── settings.ts         # Settings modal (SoundTouch config + language select + preview/hide-skip toggles + reset)
@@ -52,6 +52,8 @@ AfterTouch-RadioBrowser/
 │   ├── pagination.test.ts      # List-pagination tests (jsdom)
 │   ├── filters.test.ts         # Canonical language/country dropdown tests (jsdom)
 │   ├── filter-cache.test.ts    # Filter option list cache tests (jsdom)
+│   ├── artwork.test.ts         # FR-6 station artwork cache/rendering tests (jsdom)
+│   ├── confirmation.test.ts    # FR-4 play-confirmation watcher tests (jsdom)
 │   ├── soundtouch.test.ts      # SoundTouch reachability + device-info tests (jsdom)
 │   ├── soundtouch-ws.test.ts   # SoundTouch live-remote WebSocket tests (jsdom)
 │   ├── pwa-assets.test.ts      # FR-8 PWA manifest/icon/installability + polish tests (fs-based)
@@ -90,7 +92,6 @@ AfterTouch-RadioBrowser/
 graph TD
     MAIN[main.ts] --> APP[app.ts]
     MAIN --> EVT[events.ts]
-    MAIN --> ACT[actions.ts]
     MAIN --> WS[soundtouch-ws.ts]
     APP --> I18N[i18n.ts]
     APP --> ST[state.ts]
@@ -144,8 +145,9 @@ graph TD
 - **Main**: `src/main.ts` — renders app, calls `refresh('top')`, pings saved SoundTouch host and
   opens the live-state WebSocket (`connectSoundtouchWs`)
 - **Tests**: `tests/app.test.ts`, `tests/pagination.test.ts`, `tests/filters.test.ts`,
-  `tests/filter-cache.test.ts`, `tests/soundtouch.test.ts`, `tests/soundtouch-ws.test.ts`,
-  `tests/pwa-assets.test.ts`, `tests/api.test.ts` — Vitest, jsdom environment
+  `tests/filter-cache.test.ts`, `tests/artwork.test.ts`, `tests/confirmation.test.ts`,
+  `tests/soundtouch.test.ts`, `tests/soundtouch-ws.test.ts`, `tests/pwa-assets.test.ts`,
+  `tests/api.test.ts` — Vitest, jsdom environment
 - **Deploy**: `npm run deploy` — build → `dist/` → `docs/` (GitHub Pages)
 
 ## Conventions
@@ -202,7 +204,9 @@ graph TD
   only the 'All' option. Caching is best-effort: malformed entries or a full localStorage are
   ignored, never fatal.
 - **Language codes**: `en`/`de`/`ru`/`ukr` (not `uk`); `getLabels()` maps `'uk'` → `'ukr'`;
-  `detectLanguage()` maps `'uk'` → `'ukr'` and unsupported locales → `en`.
+  `detectLanguage()` maps `'uk'` → `'ukr'` and unsupported locales → `en`. The settings
+  popup's Language select shows the four languages as fully written native names (English,
+  Deutsch, Русский, Українська) for those codes.
 - **localStorage keys**: `radio-browser-language`, `radio-browser-soundtouch-host`,
   `radio-browser-favorites`, `radio-browser-settings`,
   `radio-browser-languages-cache` / `radio-browser-countries-cache` (raw JSON fallback lists of
@@ -231,7 +235,12 @@ graph TD
   `playingStationArtUrl(state)` (current station `favicon` → cached URL by `stationuuid` →
   `''`) — the WS truth pairs with the WS-derived title; the slot uuid follows the echoed
   station when the device reports a canonical `/stations/byuuid/<uuid>` location, else the
-  highlighted station's. Every slot is `renderArtworkSlot(url, uuid?)`:
+  highlighted station's. In the Remote panel the slot is **plays-only gated** (wave 11):
+  it renders only while `state.devicePlayStatus` is `PLAY_STATE` or `BUFFERING_STATE` —
+  paused, stopped, and empty/unknown statuses (never connected, host change, explicit close)
+  render nothing for the logo while the title/meta/status chip keep the last-known payload
+  (the gate reads only WebSocket-derived state; station-card thumbnails and the preview
+  player bar are unaffected). Every slot is `renderArtworkSlot(url, uuid?)`:
   `''` for an empty URL, a `.artwork-skeleton` span carrying `data-art-url`/`data-art-uuid`
   (CSS shimmer, disabled under `prefers-reduced-motion`) while loading, an
   `<img class="artwork-slot" src="…" alt="" loading="lazy">` (escaped, no inline JS, never
@@ -285,15 +294,23 @@ graph TD
   and the SoundTouch widget shows the WebSocket-fed device info; the remote panel header also
   carries the ℹ device-info widget next to its connection status (expanding the same curated
   rows as a floating popover — upward in the settings popup, downward over the panel content in
-  the remote header — never in-flow, so expanding never shifts layout). The now-playing parser
+  the remote header — never in-flow, so expanding never shifts layout), followed by the
+  **standby power button** (wave 10): a fixed-size icon button in the header's upper-right
+  corner sending a `POWER` press+release `/key` pair, enabled only while the WebSocket is
+  connected (`wsStatus === 'connected'`), static icon (the feed documents no power-state
+  signal), unaffected by `hideRemoteSkipButtons`, and labeled `remoteStandby` in all four
+  languages. The now-playing parser
   stores the full verbose payload (`deviceNowPlayingDetail` in `state.ts`: stationName, art,
   ContentItem, skip/favorite presence flags, seekSupported, shuffle/repeat, streamType,
   trackID, position, description, stationLocation) — the panel derives the title
   `track` → `stationName` → `ContentItem.itemName` → "No station playing", the artist falls
   back to the verbose `description`, next/prev are gated on the `skipEnabled` /
   `skipPreviousEnabled` presence flags (in the component and in the delegated click
-  handler), and artwork renders through the FR-6 artwork slot (see the Station artwork
-  convention below). The `info` snapshot response populates the
+  handler), and artwork renders through the FR-6 artwork slot gated by the wave-11
+  plays-only rule — the slot renders only while `devicePlayStatus` is `PLAY_STATE` or
+  `BUFFERING_STATE` (playing, or starting to play); paused/stopped/unknown keeps the
+  last-known payload but drops the logo entirely (see the Station artwork convention
+  below). The `info` snapshot response populates the
   device payload (id, name, type, moduleType, variant, variantMode, country/region
   codes, networkInfo type + IP, first component's category/firmware, marge URL/UUID;
   the element's own `deviceID` attribute wins over the RESPONSE header). The

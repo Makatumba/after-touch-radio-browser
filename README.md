@@ -161,8 +161,9 @@ A full codebase map — structure, key files, module dependency graph, and conve
 
 - **Language codes** — `en`, `de`, `ru`, `ukr` (not `uk`); auto-detected from the browser on
   first run (`'uk'` → `'ukr'`, unsupported → English), manually overridable via the Settings
-  popup's Language select; `getLabels()` maps `'uk'` → `'ukr'`, and `<html lang>` is set to `uk`
-  for Ukrainian.
+  popup's Language select, whose options show the fully written native names — English,
+  Deutsch, Русский, Українська — for the same four codes; `getLabels()` maps `'uk'` → `'ukr'`,
+  and `<html lang>` is set to `uk` for Ukrainian.
 - **localStorage keys** — `radio-browser-language`, `radio-browser-soundtouch-host`,
   `radio-browser-favorites`, `radio-browser-settings` (settings stored as JSON;
   `enablePreview` default off, `hideRemoteSkipButtons` default on — hides the remote's next/prev
