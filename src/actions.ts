@@ -1,6 +1,6 @@
-import type {SortKey, Station, State} from './state';
-import {getLabels, getLocale} from './i18n';
+import type {SortKey, State, Station} from './state';
 import type {Language} from './i18n';
+import {getLabels, getLocale} from './i18n';
 import {playStream, stopStream} from './player';
 import {state} from './app';
 import {cancelSendConfirmation} from './confirmation';
@@ -40,7 +40,8 @@ export function sanitizeHost(raw: string): string {
 export function soundtouchBaseUrl(raw: string): string {
     const clean = sanitizeHost(raw);
     if (!clean) return '';
-    return `http://${clean}${/:\d+$/.test(clean) ? '' : ':8090'}`;
+    const httpOrHttps = raw.startsWith('https') ? 'https' : 'http';
+    return `${httpOrHttps}://${clean}${/:\d+$/.test(clean) ? '' : ':8090'}`;
 }
 
 export function soundtouchWsUrl(raw: string): string {
@@ -143,7 +144,7 @@ export async function pingSoundtouch(host: string): Promise<boolean> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), PING_TIMEOUT_MS);
     try {
-        await fetch(`${base}/info`, { method: 'GET', mode: 'no-cors', signal: controller.signal });
+        await fetch(`${base}/info`, {method: 'GET', mode: 'no-cors', signal: controller.signal});
         return true;
     } catch {
         return false;
