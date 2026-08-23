@@ -1241,10 +1241,11 @@ the device logo (WS-first)" behavior for the not-playing case.
 The hosted app (GitHub Pages, HTTPS) could not be installed as a PWA: with a speaker address
 saved, every page load probed `http://<host>:8090` and opened the `ws://<host>:8080` feed —
 active mixed content from a secure context that browsers gate or block outright (Chrome's Local
-Network Access permission prompt since Chrome 142, iOS Safari always). Wave 12 makes the hosted
+Network Access permission prompt since Chrome 142, iOS Safari always) — and every list fired
+doomed auto-upgrade requests for plain-HTTP station favicons. Wave 12 makes the hosted
 app **install-clean by default**: out of the box it issues zero app-initiated requests toward
-the local network, and full speaker features return through one explicit toggle after
-installing.
+the local network and never requests plain-HTTP station artwork, and full speaker features
+return through one explicit toggle after installing.
 
 - **New setting `enableSpeakerControl`** (default **off**) joins the settings JSON — the model
   becomes `{ enablePreview, hideRemoteSkipButtons, enableSpeakerControl }`. This supersedes the
@@ -1265,6 +1266,13 @@ installing.
   speaker" card actions render disabled with an off-hint, and the delegated click handler
   additionally refuses play/send/remote commands while off (dispatched events bypass DOM
   `disabled` attributes).
+- **Quiet artwork while off**: with the toggle off, the browser never requests an `http://`
+  artwork URL — station-card thumbnails, the Remote panel's fallback (favicon and per-station
+  cache), and device-echoed logos included. Such slots resolve straight to the empty state
+  (never a hanging skeleton); `https://` artwork keeps loading. Flipping the toggle on
+  repopulates the skipped thumbnails in place (the existing artwork-scan pipeline, no reload);
+  flipping off stops new plain-HTTP loads and leaves already-rendered logos alone. The gate is
+  render-only — it never touches what the app sends: see below.
 - **Save implies on**: saving a non-empty speaker address — first-run setup view or settings
   popup — turns the toggle on automatically and runs today's exact save sequence (sanitize →
   persist → reachability check → WebSocket feed). FR-2's save→check contract is unchanged, and
@@ -1295,10 +1303,11 @@ installing.
   app-initiated insecure-request cause and the LAN-permission noise during the install window.
   If a specific browser still hides the install affordance, investigating its engagement
   heuristics or proprietary gates is out of scope.
-- **Explicitly unchanged**: station artwork/favicon and preview-stream URLs stay as-is (passive
-  subresources are browser-managed; rewriting them was considered and declined), the
-  manifest/icons/no-service-worker posture (FR-8) is untouched, and API-NOTES.md is unchanged
-  (no wire change).
+- **Explicitly unchanged**: preview-stream URLs stay as-is (passive audio is browser-managed;
+  rewriting considered and declined), the artwork URL carried to the speaker in `/select`
+  `<containerArt>` is never scheme-filtered (the speaker fetches it itself for its own display —
+  and while the toggle is off no send happens anyway), the manifest/icons/no-service-worker
+  posture (FR-8) is untouched, and API-NOTES.md is unchanged (no wire change).
 
 #### User flows (wave 12)
 
@@ -1322,6 +1331,10 @@ installing.
 - With the toggle off: no Remote panel in the shell, Play-on-speaker disabled with the
   off-hint, no offline banner ever, and the delegated handler rejects play/send/remote commands
   even when invoked via dispatched events.
+- With the toggle off, no image request is initiated for any `http://` artwork URL (card
+  thumbnails, Remote panel fallback, cached or device-echoed URLs) — affected slots render the
+  empty state immediately; with it on, wave-4/FR-6 behavior is unchanged; toggling on mid-session
+  repopulates skipped artwork without a reload.
 - Saving a non-empty address enables the toggle and runs the unchanged save sequence (probe →
   WS → snapshot); clearing the address keeps the toggle value; a manually-off toggle suppresses
   all device traffic until re-enabled.
@@ -1354,8 +1367,13 @@ installing.
   section's Save always signals connect intent.
 - localStorage unavailable/corrupt → defaults apply (off); persisting follows the best-effort
   settings convention.
-- Browsers may still log auto-upgrade notices for passive http favicons — accepted noise, not
-  app-initiated fetches, irrelevant to installability.
+- A station whose plain-HTTP favicon upgrades successfully today loses its thumbnail while the
+  toggle is off — accepted trade-off; the logo returns when speaker control is on.
+- Cached `http://` artwork URLs are ignored at read time while off (no destructive purge) and
+  work again after enabling.
+- Toggling off with logos already rendered — they stay visible; only new plain-HTTP loads are
+  gated. With speaker control on, browsers may still log auto-upgrade notices for passive http
+  favicons — accepted noise in full-feature mode, irrelevant to installability.
 
 ## Non-goals (v1)
 
@@ -1372,7 +1390,8 @@ installing.
   update lifecycle, push notifications, background sync, badging, share target, and in-app
   install banners or hints (browser-native install affordances only).
 - Rewriting station artwork/favicon or preview-stream URLs (https upgrades/proxying) — passive
-  subresources are browser-managed; considered and declined in wave 12.
+  subresources are browser-managed; wave 12 gates plain-HTTP artwork behind the speaker-control
+  toggle instead of rewriting URLs.
 - WSS/TLS to the speaker or any proxy/bridge translating secure↔plain traffic — the direct
   connection model stands.
 
@@ -1400,7 +1419,8 @@ installing.
   `http://<host>:8090` are active mixed content — gated or blocked by browsers (Chrome's Local
   Network Access permission prompt since Chrome 142; iOS Safari blocks outright), and
   `ws://<host>:8080` sockets are blocked outright. Passive http subresources (station favicons,
-  preview streams) are auto-upgraded by the browser and fail silently. Chromium installability
+  preview streams) are auto-upgraded by the browser and fail silently; while the wave-12 toggle
+  is off, plain-HTTP artwork is never requested at all. Chromium installability
   itself is manifest + HTTPS plus the engagement heuristic above — the wave-12 speaker-control
   toggle keeps the default experience free of app-initiated insecure requests so installation is
   offered cleanly. Hosts entered with an explicit scheme prefix are honored where the code

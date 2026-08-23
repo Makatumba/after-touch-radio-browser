@@ -109,7 +109,8 @@ speaker.
 - The app is an installable PWA (web app manifest + icons, standalone window) with **no
   service worker**: the app is online-only, so there is no offline support and no update
   lifecycle — new releases reach you on the next visit. By default the app sends nothing to
-  your local network, which keeps the page install-clean — turn on **speaker control** in
+  your local network and doesn't load station logos served only over plain HTTP, which keeps
+  the page install-clean — turn on **speaker control** in
   Settings (or save the speaker's address) to connect. Install via the browser's own
   affordances: the address-bar Install icon in Chrome/Edge (desktop), the browser menu
   (Android), or the Share menu → "Add to Home Screen" (iOS).
