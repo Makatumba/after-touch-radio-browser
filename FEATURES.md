@@ -1254,10 +1254,11 @@ return through one explicit toggle after installing.
   criterion): the popup now renders exactly three toggles plus the Language select and the
   SoundTouch section. No new localStorage key and no new state field — components read
   `state.settings.enableSpeakerControl`.
-- **Migration**: stored settings JSON without the new key falls back contextually — absent key
-  + non-empty saved host ⇒ treated as **on** (an existing working setup keeps its remote across
-  the update); absent key + empty host ⇒ off. Corrupt JSON ⇒ defaults (off). Once written, the
-  stored value wins.
+- **Migration**: stored settings without the new key fall back contextually — including a
+  wholly missing settings entry (the common pre-wave-12 state): absent key + non-empty saved
+  host ⇒ treated as **on** (an existing working setup keeps its remote across the update);
+  absent key + empty/no host ⇒ off. A corrupt settings value ⇒ defaults (off). Once written,
+  the stored value wins.
 - **Off = browse-only, zero LAN traffic**: with the toggle off (or by default), the app never
   contacts the speaker. The startup reachability check does not run — the gate lives at the
   startup call site (`main.ts`, which only calls the existing startup check when enabled), not
@@ -1329,9 +1330,11 @@ return through one explicit toggle after installing.
 - The settings JSON carries the third boolean (`enableSpeakerControl`, default off) with the
   documented migration (absent key + saved host ⇒ on; absent key + empty host ⇒ off; corrupt ⇒
   defaults).
-- Loading the app with default settings — even with a saved host — initiates no fetch to port
-  8090 and constructs no WebSocket (observable in jsdom via global fetch/WebSocket spies); the
-  startup gate sits at the call site, leaving direct startup-check invocations functional.
+- With the toggle off (fresh install, manual off, or after Reset), loading the app initiates
+  no fetch to port 8090 and constructs no WebSocket (observable in jsdom via global
+  fetch/WebSocket spies); a migrated legacy setup (stored settings without the key + a saved
+  host) starts enabled and probes as before. The startup gate sits at the call site, leaving
+  direct startup-check invocations functional.
 - With the toggle off: no Remote panel in the shell, Play-on-speaker disabled with the
   off-hint, no offline banner ever, and the delegated handler rejects play/send/remote commands
   even when invoked via dispatched events.
