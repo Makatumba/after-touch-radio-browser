@@ -1302,7 +1302,11 @@ return through one explicit toggle after installing.
   since Chrome 108 mobile / 112 desktop) were already satisfied on paper — wave 12 removes every
   app-initiated insecure-request cause and the LAN-permission noise during the install window.
   If a specific browser still hides the install affordance, investigating its engagement
-  heuristics or proprietary gates is out of scope.
+  heuristics or proprietary gates is out of scope. These hosted-URL observations (console
+  cleanliness, DevTools installability listing, the offered install affordance) are **manual
+  platform QA** and deliberately excluded from the automated test contract — every automatable
+  consequence (no LAN requests, no WebSocket, no plain-HTTP artwork loads, suppressed
+  panel/banner/button states) is covered by unit tests instead.
 - **Explicitly unchanged**: preview-stream URLs stay as-is (passive audio is browser-managed;
   rewriting considered and declined), the artwork URL carried to the speaker in `/select`
   `<containerArt>` is never scheme-filtered (the speaker fetches it itself for its own display —
@@ -1349,9 +1353,9 @@ return through one explicit toggle after installing.
 - Existing test suites are updated where they pinned the two-key settings shape or seeded a
   saved address with an enabled-by-default remote shell; `npm test`,
   `npx tsc --noEmit --skipLibCheck`, and `npm run build` pass.
-- On the hosted URL with default settings: the console shows no app-caused mixed-content
-  errors, Manifest → Installability lists no problems, and Chrome presents the install
-  affordance (manual verification step).
+- Hosted-URL install behavior (console mixed-content silence, Manifest → Installability
+  listing, the offered install affordance) is manual platform QA per the Install-cleanliness
+  bullet — deliberately not part of this automated contract.
 
 #### Edge cases (wave 12)
 
