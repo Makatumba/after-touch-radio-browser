@@ -8,14 +8,15 @@ software that keeps these speakers alive: [AfterTouch — Bose SoundTouch Toolki
 (https://gesellix.github.io/Bose-SoundTouch/). Not affiliated with Bose Corporation.
 
 Features shipped in this release and planned for the next are specified in
-[FEATURES.md](FEATURES.md) — waves 1-11 are implemented: the wave-1 station picker and
+[FEATURES.md](FEATURES.md) — waves 1-12 are implemented: the wave-1 station picker and
 setup, the wave-2 live device-state remote (FR-3), the wave-3 now-playing confirmation
 (FR-4 extension), the wave-4 station artwork (FR-6), the wave-5 settings popup fixes, the
 wave-6 settings expansion (language select in the popup, hidden remote skip buttons), the
 wave-7 settings refinement (speaker config in the popup's labeled SoundTouch section,
 device info in the Remote panel header), the wave-8 fixed-size buttons & volume/mute row
 polish, the wave-9 Radio Browser service-unavailable banner, the wave-10 remote
-standby button, and the wave-11 remote-panel artwork plays-only gate.
+standby button, the wave-11 remote-panel artwork plays-only gate, and the wave-12
+speaker-control toggle (install-clean default).
 
 ## SoundTouch remote control
 
@@ -98,15 +99,18 @@ speaker.
 
 ### Notes
 
-- The app connects to the speaker directly: HTTP port 8090 — the device's Web API — for the
-  reachability check (GET /info) and play commands (POST /select). The remote-control
+- Once speaker control is enabled (Settings), the app connects to the speaker directly:
+  HTTP port 8090 — the device's Web API — for the reachability check (GET /info) and play
+  commands (POST /select). The remote-control
   commands (POST /key, POST /volume) and the live-state WebSocket feed on port 8080 ship with
   the FR-3 live remote (see FEATURES.md).
 - Chrome (and other Chromium browsers) may ask permission to *look for and connect to devices on
-  your local network* — allow it for the app.
+  your local network* — allow it for the app (this only happens once speaker control is on).
 - The app is an installable PWA (web app manifest + icons, standalone window) with **no
   service worker**: the app is online-only, so there is no offline support and no update
-  lifecycle — new releases reach you on the next visit. Install via the browser's own
+  lifecycle — new releases reach you on the next visit. By default the app sends nothing to
+  your local network, which keeps the page install-clean — turn on **speaker control** in
+  Settings (or save the speaker's address) to connect. Install via the browser's own
   affordances: the address-bar Install icon in Chrome/Edge (desktop), the browser menu
   (Android), or the Share menu → "Add to Home Screen" (iOS).
 
@@ -167,7 +171,8 @@ A full codebase map — structure, key files, module dependency graph, and conve
 - **localStorage keys** — `radio-browser-language`, `radio-browser-soundtouch-host`,
   `radio-browser-favorites`, `radio-browser-settings` (settings stored as JSON;
   `enablePreview` default off, `hideRemoteSkipButtons` default on — hides the remote's next/prev
-  buttons; defaults in `src/settings.ts`),
+  buttons; `enableSpeakerControl` default off — gates every connection to the speaker, and
+  saving an address turns it on; defaults in `src/settings.ts`),
   `radio-browser-languages-cache` / `radio-browser-countries-cache` (raw JSON fallback copies of
   the last successful Language/Country dropdown option lists, used when the Radio Browser API
   fetch fails or returns empty), and `radio-browser-art-<uuid>` (per-station artwork URL,

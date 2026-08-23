@@ -1234,6 +1234,129 @@ the device logo (WS-first)" behavior for the not-playing case.
 - Stop→play in quick succession — the logo follows `BUFFERING_STATE`/`PLAY_STATE`
   immediately on the next render.
 
+## Implemented (wave 12)
+
+### Speaker control toggle — install-clean default
+
+The hosted app (GitHub Pages, HTTPS) could not be installed as a PWA: with a speaker address
+saved, every page load probed `http://<host>:8090` and opened the `ws://<host>:8080` feed —
+active mixed content from a secure context that browsers gate or block outright (Chrome's Local
+Network Access permission prompt since Chrome 142, iOS Safari always). Wave 12 makes the hosted
+app **install-clean by default**: out of the box it issues zero app-initiated requests toward
+the local network, and full speaker features return through one explicit toggle after
+installing.
+
+- **New setting `enableSpeakerControl`** (default **off**) joins the settings JSON — the model
+  becomes `{ enablePreview, hideRemoteSkipButtons, enableSpeakerControl }`. This supersedes the
+  earlier settings-model statements (FR-10's "single toggle", wave 5's "settings model is
+  unchanged", wave 6's `{enablePreview, hideRemoteSkipButtons}` and its "exactly two toggles"
+  criterion): the popup now renders exactly three toggles plus the Language select and the
+  SoundTouch section. No new localStorage key and no new state field — components read
+  `state.settings.enableSpeakerControl`.
+- **Migration**: stored settings JSON without the new key falls back contextually — absent key
+  + non-empty saved host ⇒ treated as **on** (an existing working setup keeps its remote across
+  the update); absent key + empty host ⇒ off. Corrupt JSON ⇒ defaults (off). Once written, the
+  stored value wins.
+- **Off = browse-only, zero LAN traffic**: with the toggle off (or by default), the app never
+  contacts the speaker. The startup reachability check does not run — the gate lives at the
+  startup call site (`main.ts`, which only calls the existing startup check when enabled), not
+  inside the check itself, so direct invocations keep working. No WebSocket connects or
+  reconnects, and the offline banner cannot appear. The Remote panel is hidden, "Play on
+  speaker" card actions render disabled with an off-hint, and the delegated click handler
+  additionally refuses play/send/remote commands while off (dispatched events bypass DOM
+  `disabled` attributes).
+- **Save implies on**: saving a non-empty speaker address — first-run setup view or settings
+  popup — turns the toggle on automatically and runs today's exact save sequence (sanitize →
+  persist → reachability check → WebSocket feed). FR-2's save→check contract is unchanged, and
+  pressing Save in the SoundTouch section always means "connect me". A manually-off toggle stays
+  off until the next save or manual on; clearing the address leaves the toggle value untouched
+  (it only matters while a host is saved).
+- **On = everything as shipped**: FR-2/FR-3 behave exactly as documented (startup check for a
+  saved address, WS lifecycle with capped backoff, snapshots, offline banner, remote commands).
+  Toggling on mid-session immediately runs the saved-address startup sequence. Toggling off
+  tears down like a cleared host minus forgetting data: socket closed, reconnect timers and any
+  pending send confirmation cancelled, live device state cleared, both device statuses forced to
+  idle, Remote panel removed, card actions disabled. Reset to defaults stores literal `false`
+  for the toggle (wave-6 literal-defaults precedent) and performs the same off-teardown;
+  language and host remain untouched per the established rules.
+- **Settings popup**: a third `.setting-row` checkbox above the SoundTouch section, label
+  localized in all four languages. While off (with or without a saved address), the section's
+  status line shows a localized "Speaker control is off" message instead of
+  Checking…/Reachable/Unreachable; Save still works and re-enables per save-implies-on. All
+  toggle interactions follow the wave-5/7 no-blink contract: surgical updates only (popup state
+  re-sync, Remote panel removal/appearance, station-card refresh, banner clear) — never a
+  rebuild or animation replay of the open popup — and the modal's state-sync/relabel paths
+  enumerate the new checkbox and label so reset and language switches stay live.
+- **Install cleanliness (the point)**: with default settings the hosted HTTPS page initiates no
+  request toward private-network hosts — DevTools shows no mixed-content errors caused by the
+  app, Application → Manifest → Installability reports no issues, and Chrome offers
+  installation. Chromium's published criteria (manifest + HTTPS; service worker not required
+  since Chrome 108 mobile / 112 desktop) were already satisfied on paper — wave 12 removes every
+  app-initiated insecure-request cause and the LAN-permission noise during the install window.
+  If a specific browser still hides the install affordance, investigating its engagement
+  heuristics or proprietary gates is out of scope.
+- **Explicitly unchanged**: station artwork/favicon and preview-stream URLs stay as-is (passive
+  subresources are browser-managed; rewriting them was considered and declined), the
+  manifest/icons/no-service-worker posture (FR-8) is untouched, and API-NOTES.md is unchanged
+  (no wire change).
+
+#### User flows (wave 12)
+
+1. **First visit & install** — open the hosted URL → browse stations normally (zero LAN
+   traffic) → the browser offers Install → installed standalone.
+2. **Enable the speaker** — Settings → flip "Control speaker over local network" on (or save
+   the address) → Reachable appears in place, the Remote panel shows up live behind the popup.
+3. **Daily use** — unchanged: open → tap a station → plays on the speaker (the toggle stays on
+   once enabled).
+4. **Pause the connection** — flip the toggle off → the socket closes, the panel disappears,
+   cards disable with the hint; nothing touches the network until it is back on.
+
+#### Acceptance criteria (wave 12)
+
+- The settings JSON carries the third boolean (`enableSpeakerControl`, default off) with the
+  documented migration (absent key + saved host ⇒ on; absent key + empty host ⇒ off; corrupt ⇒
+  defaults).
+- Loading the app with default settings — even with a saved host — initiates no fetch to port
+  8090 and constructs no WebSocket (observable in jsdom via global fetch/WebSocket spies); the
+  startup gate sits at the call site, leaving direct startup-check invocations functional.
+- With the toggle off: no Remote panel in the shell, Play-on-speaker disabled with the
+  off-hint, no offline banner ever, and the delegated handler rejects play/send/remote commands
+  even when invoked via dispatched events.
+- Saving a non-empty address enables the toggle and runs the unchanged save sequence (probe →
+  WS → snapshot); clearing the address keeps the toggle value; a manually-off toggle suppresses
+  all device traffic until re-enabled.
+- Toggling off mid-session performs the full teardown (socket closed, reconnect/pending-send
+  cancelled, device state cleared, statuses idle, panel removed); toggling on runs the
+  saved-address startup sequence immediately; Reset restores literal `false` with the same
+  teardown, language/host untouched.
+- The popup renders exactly three toggles plus the Language select and the SoundTouch section;
+  while off, the SoundTouch status shows the localized off-message; the new i18n keys ship in
+  all four languages (`en`, `de`, `ru`, `ukr`); the no-blink contract holds through every toggle
+  path.
+- Existing test suites are updated where they pinned the two-key settings shape or seeded a
+  saved address with an enabled-by-default remote shell; `npm test`,
+  `npx tsc --noEmit --skipLibCheck`, and `npm run build` pass.
+- On the hosted URL with default settings: the console shows no app-caused mixed-content
+  errors, Manifest → Installability lists no problems, and Chrome presents the install
+  affordance (manual verification step).
+
+#### Edge cases (wave 12)
+
+- Update migration: a user with a saved address and pre-wave-12 settings JSON keeps a working
+  remote (treated as enabled) — nobody silently loses the core feature.
+- Toggle off while connected → clean disconnect, no reconnect storm, banner suppressed.
+- Toggle on while on the wrong Wi-Fi → existing probe-failure path → FR-11 banner (unchanged).
+- Toggle on with no address saved → nothing to probe; the popup shows the unconfigured hint;
+  the Remote panel stays hidden.
+- Rapid toggling → single socket/timer discipline preserved (host-change guards reused).
+- Dispatched clicks bypassing `disabled` → handler-level gating prevents stray `/select` POSTs.
+- Save clicked while manually off → behaves as save-implies-on (reconnects) — the SoundTouch
+  section's Save always signals connect intent.
+- localStorage unavailable/corrupt → defaults apply (off); persisting follows the best-effort
+  settings convention.
+- Browsers may still log auto-upgrade notices for passive http favicons — accepted noise, not
+  app-initiated fetches, irrelevant to installability.
+
 ## Non-goals (v1)
 
 - Device discovery (SSDP/mDNS — impossible from a browser; needs a future bridge).
@@ -1248,6 +1371,10 @@ the device logo (WS-first)" behavior for the not-playing case.
 - PWA extras beyond the FR-8 wave's scope: a service worker, offline support / offline UI,
   update lifecycle, push notifications, background sync, badging, share target, and in-app
   install banners or hints (browser-native install affordances only).
+- Rewriting station artwork/favicon or preview-stream URLs (https upgrades/proxying) — passive
+  subresources are browser-managed; considered and declined in wave 12.
+- WSS/TLS to the speaker or any proxy/bridge translating secure↔plain traffic — the direct
+  connection model stands.
 
 ## Platform constraints (researched)
 
@@ -1269,3 +1396,13 @@ the device logo (WS-first)" behavior for the not-playing case.
 - Chrome installability criteria: manifest `name`, `icons` 192 + 512 (incl. maskable-safe),
   `start_url`, `display` of standalone/fullscreen/minimal-ui, HTTPS, and an engagement heuristic
   (≥ 1 click and ≥ 30 s) — `beforeinstallprompt` fires only when these are met.
+- Mixed content & installability: from an HTTPS origin, fetches to
+  `http://<host>:8090` are active mixed content — gated or blocked by browsers (Chrome's Local
+  Network Access permission prompt since Chrome 142; iOS Safari blocks outright), and
+  `ws://<host>:8080` sockets are blocked outright. Passive http subresources (station favicons,
+  preview streams) are auto-upgraded by the browser and fail silently. Chromium installability
+  itself is manifest + HTTPS plus the engagement heuristic above — the wave-12 speaker-control
+  toggle keeps the default experience free of app-initiated insecure requests so installation is
+  offered cleanly. Hosts entered with an explicit scheme prefix are honored where the code
+  distinguishes schemes; stock speakers never speak TLS, so plain HTTP remains the operative
+  case.
