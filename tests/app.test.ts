@@ -48,8 +48,10 @@ const sortView = state as unknown as { sort: SortKey };
 
 // Wave 6: Settings gains hideRemoteSkipButtons; until src/state.ts +
 // src/settings.ts change, tests read it through this typed view.
+// Wave 12: the model gains enableSpeakerControl (default off) — shared shells
+// seed it ON below so tests that assume a working remote stay meaningful.
 const settingsView = state as unknown as {
-    settings: { enablePreview: boolean; hideRemoteSkipButtons: boolean };
+    settings: { enablePreview: boolean; hideRemoteSkipButtons: boolean; enableSpeakerControl: boolean };
 };
 
 // Wave 9: state gains a serviceUnavailable flag; until src/state.ts changes,
@@ -94,7 +96,10 @@ beforeEach(() => {
     // shell/footer assertion fails.
     state.soundtouchAddress = '192.168.1.42';
     state.soundtouchStatus = 'available';
-    state.settings = { ...defaultSettings };
+    // Wave 12: the shell assumes a working remote (saved address) — seed the
+    // speaker-control toggle ON through the typed view until src/state.ts +
+    // src/settings.ts gain the third boolean.
+    settingsView.settings = { ...defaultSettings, enableSpeakerControl: true };
     state.stations = [];
     state.favorites = [];
     state.mode = 'top';
@@ -593,8 +598,8 @@ describe('preview playback (FR-5)', () => {
         expect(resetBtn).not.toBeNull();
         resetBtn!.click();
 
-        expect(state.settings).toEqual({ enablePreview: false, hideRemoteSkipButtons: true });
-        expect(JSON.parse(localStorage.getItem(LS_SETTINGS)!)).toEqual({ enablePreview: false, hideRemoteSkipButtons: true });
+        expect(state.settings).toEqual({ enablePreview: false, hideRemoteSkipButtons: true, enableSpeakerControl: false });
+        expect(JSON.parse(localStorage.getItem(LS_SETTINGS)!)).toEqual({ enablePreview: false, hideRemoteSkipButtons: true, enableSpeakerControl: false });
         expect(getAudioElement().hasAttribute('src')).toBe(false);
         expect(document.querySelector('.player')).toBeNull();
     });
@@ -611,32 +616,32 @@ describe('settings (FR-10)', () => {
                 enablePreview: true,
             })
         );
-        expect(loadSettings()).toEqual({ enablePreview: true, hideRemoteSkipButtons: true });
+        expect(loadSettings()).toEqual({ enablePreview: true, hideRemoteSkipButtons: true, enableSpeakerControl: false });
     });
 
     it('defaults enablePreview to false when only legacy keys are stored', () => {
         localStorage.setItem(LS_SETTINGS, JSON.stringify({ disablePlayer: true }));
-        expect(loadSettings()).toEqual({ enablePreview: false, hideRemoteSkipButtons: true });
+        expect(loadSettings()).toEqual({ enablePreview: false, hideRemoteSkipButtons: true, enableSpeakerControl: false });
     });
 
     it('rejects a non-boolean enablePreview value', () => {
         localStorage.setItem(LS_SETTINGS, JSON.stringify({ enablePreview: 'yes' }));
-        expect(loadSettings()).toEqual({ enablePreview: false, hideRemoteSkipButtons: true });
+        expect(loadSettings()).toEqual({ enablePreview: false, hideRemoteSkipButtons: true, enableSpeakerControl: false });
     });
 
     it('falls back to defaults on corrupt JSON', () => {
         localStorage.setItem(LS_SETTINGS, '{corrupt');
-        expect(loadSettings()).toEqual({ enablePreview: false, hideRemoteSkipButtons: true });
+        expect(loadSettings()).toEqual({ enablePreview: false, hideRemoteSkipButtons: true, enableSpeakerControl: false });
     });
 
     it('loads hideRemoteSkipButtons=false when stored false', () => {
         localStorage.setItem(LS_SETTINGS, JSON.stringify({ enablePreview: true, hideRemoteSkipButtons: false }));
-        expect(loadSettings()).toEqual({ enablePreview: true, hideRemoteSkipButtons: false });
+        expect(loadSettings()).toEqual({ enablePreview: true, hideRemoteSkipButtons: false, enableSpeakerControl: false });
     });
 
     it('ignores a corrupt hideRemoteSkipButtons value (defaults to true)', () => {
         localStorage.setItem(LS_SETTINGS, JSON.stringify({ enablePreview: false, hideRemoteSkipButtons: 'false' }));
-        expect(loadSettings()).toEqual({ enablePreview: false, hideRemoteSkipButtons: true });
+        expect(loadSettings()).toEqual({ enablePreview: false, hideRemoteSkipButtons: true, enableSpeakerControl: false });
     });
 
     it('renders exactly two toggles and one language select in the settings modal', async () => {
@@ -677,8 +682,8 @@ describe('settings (FR-10)', () => {
         expect(state.settings.enablePreview).toBe(true);
 
         document.querySelector<HTMLButtonElement>('#resetSettings')!.click();
-        expect(state.settings).toEqual({ enablePreview: false, hideRemoteSkipButtons: true });
-        expect(JSON.parse(localStorage.getItem(LS_SETTINGS)!)).toEqual({ enablePreview: false, hideRemoteSkipButtons: true });
+        expect(state.settings).toEqual({ enablePreview: false, hideRemoteSkipButtons: true, enableSpeakerControl: false });
+        expect(JSON.parse(localStorage.getItem(LS_SETTINGS)!)).toEqual({ enablePreview: false, hideRemoteSkipButtons: true, enableSpeakerControl: false });
         // Wave 5: reset also syncs the open popup's checkbox (syncSettingsModalState).
         expect(document.querySelector<HTMLInputElement>('#settingEnablePreview')!.checked).toBe(false);
     });
@@ -785,7 +790,7 @@ describe('language auto-detect (FR-9)', () => {
         expect(localStorage.getItem(LS_LANGUAGE)).toBe('de');
         expect(select!.value).toBe('de');
         // both settings restore their defaults
-        expect(state.settings).toEqual({ enablePreview: false, hideRemoteSkipButtons: true });
+        expect(state.settings).toEqual({ enablePreview: false, hideRemoteSkipButtons: true, enableSpeakerControl: false });
         const hideToggle = document.querySelector<HTMLInputElement>('#settingHideRemoteSkipButtons');
         expect(hideToggle).not.toBeNull();
         expect(hideToggle!.checked).toBe(true);
@@ -1063,8 +1068,8 @@ describe('settings popup fixes (wave 5)', () => {
         expect(document.querySelector('.modal-panel')).toBe(panel);
         expect(document.querySelector('.station-list')).toBe(list);
         expect(document.querySelector('.player')).not.toBeNull();
-        expect(state.settings).toEqual({ enablePreview: true, hideRemoteSkipButtons: true });
-        expect(JSON.parse(localStorage.getItem(LS_SETTINGS)!)).toEqual({ enablePreview: true, hideRemoteSkipButtons: true });
+        expect(state.settings).toEqual({ enablePreview: true, hideRemoteSkipButtons: true, enableSpeakerControl: true });
+        expect(JSON.parse(localStorage.getItem(LS_SETTINGS)!)).toEqual({ enablePreview: true, hideRemoteSkipButtons: true, enableSpeakerControl: true });
 
         toggle!.checked = false;
         toggle!.dispatchEvent(new Event('change', { bubbles: true }));
@@ -1072,8 +1077,9 @@ describe('settings popup fixes (wave 5)', () => {
         expect(document.querySelector('.modal-panel')).toBe(panel);
         expect(document.querySelector('.station-list')).toBe(list);
         expect(document.querySelector('.player')).toBeNull();
-        expect(state.settings).toEqual({ enablePreview: false, hideRemoteSkipButtons: true });
-        expect(JSON.parse(localStorage.getItem(LS_SETTINGS)!)).toEqual({ enablePreview: false, hideRemoteSkipButtons: true });
+        // the preview toggle never touches the speaker-control flag (seeded ON)
+        expect(state.settings).toEqual({ enablePreview: false, hideRemoteSkipButtons: true, enableSpeakerControl: true });
+        expect(JSON.parse(localStorage.getItem(LS_SETTINGS)!)).toEqual({ enablePreview: false, hideRemoteSkipButtons: true, enableSpeakerControl: true });
     });
 
     it('enabling preview shows the cards preview buttons without rebuilding the shell', () => {
@@ -1128,7 +1134,7 @@ describe('settings popup fixes (wave 5)', () => {
 
         expect(document.querySelector('[data-preview]')).toBeNull();
         expect(document.querySelector('.player')).toBeNull();
-        expect(state.settings).toEqual({ enablePreview: false, hideRemoteSkipButtons: true });
+        expect(state.settings).toEqual({ enablePreview: false, hideRemoteSkipButtons: true, enableSpeakerControl: false });
         // reset must not rebuild the popup
         expect(document.querySelector('.modal-overlay')).toBe(overlay);
     });
@@ -1218,7 +1224,7 @@ describe('settings expansion (wave 6)', () => {
         hideToggle!.dispatchEvent(new Event('change', { bubbles: true }));
 
         expect(settingsView.settings.hideRemoteSkipButtons).toBe(false);
-        expect(JSON.parse(localStorage.getItem(LS_SETTINGS)!)).toEqual({ enablePreview: false, hideRemoteSkipButtons: false });
+        expect(JSON.parse(localStorage.getItem(LS_SETTINGS)!)).toEqual({ enablePreview: false, hideRemoteSkipButtons: false, enableSpeakerControl: true });
         // syncRemotePanel replaces ONLY the remote panel — the popup and the
         // station list keep their nodes (no-blink contract)
         expect(document.querySelector('.remote-panel')).not.toBe(remotePanel);
@@ -1242,8 +1248,8 @@ describe('settings expansion (wave 6)', () => {
 
         document.querySelector<HTMLButtonElement>('#resetSettings')!.click();
 
-        expect(settingsView.settings).toEqual({ enablePreview: false, hideRemoteSkipButtons: true });
-        expect(JSON.parse(localStorage.getItem(LS_SETTINGS)!)).toEqual({ enablePreview: false, hideRemoteSkipButtons: true });
+        expect(settingsView.settings).toEqual({ enablePreview: false, hideRemoteSkipButtons: true, enableSpeakerControl: false });
+        expect(JSON.parse(localStorage.getItem(LS_SETTINGS)!)).toEqual({ enablePreview: false, hideRemoteSkipButtons: true, enableSpeakerControl: false });
         // the preserved popup's controls sync to the restored defaults
         expect(document.querySelector<HTMLInputElement>('#settingHideRemoteSkipButtons')!.checked).toBe(true);
         expect(document.querySelector('#remoteNext')).toBeNull();
@@ -1491,7 +1497,7 @@ describe('soundtouch settings section (wave 7)', () => {
         // is never reset
         expect(state.soundtouchAddress).toBe('192.168.1.42');
         expect(document.querySelector<HTMLInputElement>('#settingSoundtouchHost')!.value).toBe('192.168.1.42');
-        expect(state.settings).toEqual({ enablePreview: false, hideRemoteSkipButtons: true });
+        expect(state.settings).toEqual({ enablePreview: false, hideRemoteSkipButtons: true, enableSpeakerControl: false });
         expect(document.querySelector('.modal-overlay')).toBe(overlay);
     });
 

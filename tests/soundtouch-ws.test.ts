@@ -84,8 +84,10 @@ const tView = translations as unknown as Record<string, Record<string, string>>;
 // Wave 6: Settings gains hideRemoteSkipButtons (default true — the remote's
 // next/prev render only when it is false). Until src/state.ts + src/settings.ts
 // change, the tests that opt out of skip-hiding write through this typed view.
+// Wave 12: the model gains enableSpeakerControl — these shells assume a working
+// remote, so beforeEach seeds it ON through the same view.
 const settingsView = state as unknown as {
-    settings: { enablePreview: boolean; hideRemoteSkipButtons: boolean };
+    settings: { enablePreview: boolean; hideRemoteSkipButtons: boolean; enableSpeakerControl: boolean };
 };
 
 // jsdom has no WebSocket. The module must resolve `WebSocket` at construction
@@ -355,7 +357,9 @@ beforeEach(() => {
     state.soundtouchStatus = 'available';
     state.deviceMessage = '';
     state.skippedSetup = false;
-    state.settings = { ...defaultSettings };
+    // Wave 12: these tests exercise the enabled remote — seed speaker control
+    // ON through the typed view until src/state.ts + src/settings.ts change.
+    settingsView.settings = { ...defaultSettings, enableSpeakerControl: true };
     state.stations = [];
     state.favorites = [];
     wsState.wsStatus = 'idle';

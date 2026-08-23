@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { state } from '../src/app';
 import type { Station } from '../src/state';
+import { defaultSettings } from '../src/settings';
 import {
     getArtworkLoadState,
     loadArtworkCache,
@@ -45,6 +46,14 @@ class FakeImage {
 // type-clean at every commit in the sequence.
 type StationWithFavicon = Station & { favicon?: string };
 
+// Wave 12: the artwork pipeline consults the speaker-control toggle (render/
+// request gate). This suite pins the FR-6 baseline — enabled artwork — so
+// beforeEach seeds the toggle ON through this typed view until src/state.ts
+// + src/settings.ts gain the third boolean.
+const settingsView = state as unknown as {
+    settings: { enablePreview: boolean; hideRemoteSkipButtons: boolean; enableSpeakerControl: boolean };
+};
+
 const stationWithArt = (uuid: string, favicon?: string): StationWithFavicon => {
     const station: StationWithFavicon = { stationuuid: uuid, name: `${uuid} FM` };
     if (favicon !== undefined) station.favicon = favicon;
@@ -62,6 +71,7 @@ beforeEach(() => {
     }
     state.stations = [];
     state.currentIndex = -1;
+    settingsView.settings = { ...defaultSettings, enableSpeakerControl: true };
 });
 
 afterEach(() => {
