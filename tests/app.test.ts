@@ -644,18 +644,21 @@ describe('settings (FR-10)', () => {
         expect(loadSettings()).toEqual({ enablePreview: false, hideRemoteSkipButtons: true, enableSpeakerControl: false });
     });
 
-    it('renders exactly two toggles and one language select in the settings modal', async () => {
+    it('renders exactly three toggles and one language select in the settings modal', async () => {
         // Wave 5: the popup is mounted explicitly rather than baked into App().
         // Wave 6: the popup gains the hideRemoteSkipButtons toggle and the
         // language select next to the existing enablePreview toggle.
+        // Wave 12 supersedes the two-toggle count: enableSpeakerControl joins
+        // as the third .setting-row checkbox (above the SoundTouch section).
         const { mountSettingsModal } = await loadSettingsModal();
         mountSettingsModal(state);
         const toggles = document.querySelectorAll('.modal-body input[type="checkbox"]');
-        expect(toggles.length).toBe(2);
+        expect(toggles.length).toBe(3);
         const previewToggle = document.querySelector<HTMLInputElement>('#settingEnablePreview');
         expect(previewToggle).not.toBeNull();
         expect(previewToggle!.parentElement!.textContent).toContain(getLabels(state).settingEnablePreview);
         expect(document.querySelector('#settingHideRemoteSkipButtons')).not.toBeNull();
+        expect(document.querySelector('#settingEnableSpeakerControl')).not.toBeNull();
         const select = document.querySelector<HTMLSelectElement>('#settingLanguage');
         expect(select).not.toBeNull();
         expect(select!.tagName).toBe('SELECT');

@@ -186,7 +186,10 @@ beforeEach(() => {
     state.soundtouchStatus = 'available';
     wsState.deviceMessage = '';
     state.skippedSetup = false;
-    state.settings = { ...defaultSettings };
+    // Wave 12: this suite drives the full click-through send path — enabled-
+    // mode coverage, so the speaker-control shell is seeded ON (the approved
+    // seeding decision; default-off behavior has its own suite).
+    state.settings = { ...defaultSettings, enableSpeakerControl: true };
     state.stations = [];
     state.favorites = [];
     wsState.wsStatus = 'idle';
