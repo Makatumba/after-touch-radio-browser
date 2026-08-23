@@ -23,6 +23,19 @@ const registry = new Map<string, ArtEntry>();
 
 let renderHook: (() => void) | null = null;
 
+// Wave 12: optional plain-http artwork gate — registered once at module load
+// by app.ts next to setRenderHook (same pattern); null = ungated. Render-only:
+// it decides whether an unresolved http URL may render a skeleton slot or
+// start an Image fetch. It never touches already-rendered logos, cache
+// writes, or what the app sends to the speaker.
+let httpGateHook: ((url: string) => boolean) | null = null;
+
+/** True when the registered gate refuses this URL (plain-http while the
+ * speaker-control toggle is off). */
+function httpGated(url: string): boolean {
+    return !!httpGateHook?.(url);
+}
+
 function escapeHtml(value: string): string {
     return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
@@ -95,12 +108,20 @@ function startArtworkFetch(url: string): void {
 }
 
 export function requestArtwork(url: string): void {
-    if (!url || registry.has(url)) return;
+    // wave 12: a gated http URL is refused silently — no registry entry, no
+    // Image, so scanArtwork over planted/stale slots stays network-quiet
+    if (!url || httpGated(url) || registry.has(url)) return;
     startArtworkFetch(url);
 }
 
 export function setRenderHook(fn: (() => void) | null): void {
     renderHook = fn;
+}
+
+/** Wave 12: registers (or clears with null) the plain-http artwork gate.
+ * Mirrors setRenderHook; called once at module load by app.ts. */
+export function setArtworkHttpGate(fn: ((url: string) => boolean) | null): void {
+    httpGateHook = fn;
 }
 
 /** Persists the URL for a station and starts a real background verification:
@@ -118,12 +139,18 @@ export function rememberStationArtwork(uuid: string, url: string): void {
 }
 
 /** '' when the URL is empty; a skeleton slot while loading; an img once ready;
- * an empty slot after a failure — never an img after a failure. */
+ * an empty slot after a failure — never an img after a failure. Wave 12: a
+ * gated http URL that is not already settled resolves straight to the empty
+ * slot (never a hanging skeleton, nothing for scanArtwork to fetch); an
+ * already-rendered ready logo survives the gate untouched. */
 export function renderArtworkSlot(url: string, uuid?: string): string {
     if (!url) return '';
     const loadState = getArtworkLoadState(url);
     if (loadState === 'ready') {
         return `<img class="artwork-slot" src="${escapeHtml(url)}" alt="" loading="lazy">`;
+    }
+    if (httpGated(url)) {
+        return `<span class="artwork-slot artwork-slot--empty"></span>`;
     }
     if (loadState === 'error') {
         return `<span class="artwork-slot artwork-slot--empty"></span>`;

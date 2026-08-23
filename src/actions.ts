@@ -88,10 +88,20 @@ export async function sendMute(muted: boolean): Promise<void> {
 let volumeTimer: ReturnType<typeof setTimeout> | null = null;
 let pendingVolumeHost = '';
 
+/** Wave 12: drops a pending debounced volume send — the toggle-off teardown
+ * uses it so no /volume POST fires after the speaker session is gone. */
+export function cancelVolumeSend(): void {
+    if (volumeTimer !== null) {
+        clearTimeout(volumeTimer);
+        volumeTimer = null;
+    }
+    pendingVolumeHost = '';
+}
+
 export function scheduleVolumeSend(value: number): void {
     const host = sanitizeHost(state.soundtouchAddress);
     if (!host) return;
-    if (volumeTimer !== null) clearTimeout(volumeTimer);
+    cancelVolumeSend();
     pendingVolumeHost = host;
     volumeTimer = setTimeout(() => {
         volumeTimer = null;

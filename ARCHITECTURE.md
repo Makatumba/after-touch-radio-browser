@@ -21,19 +21,19 @@ also implemented (see the "Station artwork (FR-6)" convention below). The UI is 
 ```
 AfterTouch-RadioBrowser/
 ├── src/                        # Application source
-│   ├── main.ts                 # Entry point: render, wire events, fetch, ping SoundTouch
+│   ├── main.ts                 # Entry point: render, wire events, fetch, ping SoundTouch (only while speaker control is on)
 │   ├── app.ts                  # Global mutable state + render/refresh orchestration
 │   ├── events.ts               # All user interaction via 3 delegated listeners
-│   ├── actions.ts              # Domain actions: sanitize, favorites, language, SoundTouch send/preview + remote commands (REMOTE_KEYS, sendKeyPress, sendVolume, sendMute, scheduleVolumeSend)
+│   ├── actions.ts              # Domain actions: sanitize, favorites, language, SoundTouch send/preview + remote commands (REMOTE_KEYS, sendKeyPress, sendVolume, sendMute, scheduleVolumeSend, cancelVolumeSend)
 │   ├── soundtouch-ws.ts        # WebSocket client: gabbo feed, XML parsing (full now-playing + device info), snapshot requests on connect + successful (re)connection checks, reconnect with backoff
 │   ├── confirmation.ts         # FR-4 play-confirmation watcher: module-local pending record, single 15s timer, writes only deviceMessage
 │   ├── api.ts                  # Radio Browser API client (axios): search/top/recent + languages/countries lists
 │   ├── i18n.ts                 # Translations en/de/ru/ukr (as const) + locale helpers (getLocale, localizeFilterOptions, filterLabelOverrides)
 │   ├── player.ts               # Persistent <audio> singleton
-│   ├── settings.ts             # Settings defaults + localStorage persistence (enablePreview, hideRemoteSkipButtons)
+│   ├── settings.ts             # Settings defaults + localStorage persistence (enablePreview, hideRemoteSkipButtons, enableSpeakerControl with saved-host migration)
 │   ├── settings-modal.ts       # Settings popup mount/unmount + in-place state sync + no-blink re-label/live sync
 │   ├── filter-cache.ts         # Filter option list localStorage cache (raw {value,label,code} lists)
-│   ├── artwork.ts              # FR-6 station artwork: per-station favicon cache, background Image fetch, skeleton/empty slot rendering
+│   ├── artwork.ts              # FR-6 station artwork: per-station favicon cache, background Image fetch, skeleton/empty slot rendering, wave-12 plain-http gate hook
 │   ├── state.ts                # Shared types (Station, Settings, State, Mode, FilterOption, DeviceInfo, DeviceNowPlayingVerbose)
 │   ├── styles.css              # All styling
 │   └── components/             # Pure render functions returning HTML strings
@@ -46,7 +46,7 @@ AfterTouch-RadioBrowser/
 │       ├── remote.ts           # Live remote panel: now playing, transport (skip buttons toggleable), volume, mute, header ℹ device info + standby power button
 │       ├── setup.ts            # Full-screen first-run setup view
 │       ├── banner.ts           # Device-offline and service-unavailable banners
-│       └── settings.ts         # Settings modal (SoundTouch config + language select + preview/hide-skip toggles + reset)
+│       └── settings.ts         # Settings modal (SoundTouch config + language select + preview/hide-skip/speaker-control toggles + reset)
 ├── tests/
 │   ├── app.test.ts             # Vitest suite (jsdom)
 │   ├── pagination.test.ts      # List-pagination tests (jsdom)
@@ -76,14 +76,14 @@ AfterTouch-RadioBrowser/
 | `src/events.ts` | All event delegation (click/keydown/change on `#app`) |
 | `src/state.ts` | Core domain types (FilterOption carries the canonical API `code` for label localization; DeviceNowPlayingVerbose / DeviceInfo are the FR-3 verbose state and full device-info payloads) |
 | `src/api.ts` | Radio Browser API endpoints (search/top/recent + languages/countries lists; `searchStations` sends the mapped `order`/`reverse`) |
-| `src/actions.ts` | Playback, favorites, SoundTouch domain logic + remote commands (`REMOTE_KEYS`, `sendKeyPress`, `sendVolume`, `sendMute`, `scheduleVolumeSend`, `soundtouchWsUrl`) |
+| `src/actions.ts` | Playback, favorites, SoundTouch domain logic + remote commands (`REMOTE_KEYS`, `sendKeyPress`, `sendVolume`, `sendMute`, `scheduleVolumeSend`, `cancelVolumeSend`, `soundtouchWsUrl`) |
 | `src/soundtouch-ws.ts` | Live-state WebSocket client: gabbo feed, XML `<updates>` parsing (full now-playing payload + full device info), REST-proxy snapshot requests (`now_playing`/`volume`/`info`) on connect and on every successful (re)connection check, reconnect with backoff + `/info` probe |
 | `src/confirmation.ts` | Passive FR-4 play-confirmation watcher: module-local pending record (station name, exact location, pre-send radio-playing flag), single 15 s timer, writes only `deviceMessage` (XSS-escapes interpolations); armed/cancelled by `events.ts`, evaluated by `soundtouch-ws.ts` |
 | `src/i18n.ts` | 4-language translation dictionary + locale helpers (`getLocale`, `localizeFilterOptions`, `filterLabelOverrides`) |
-| `src/settings.ts` | Settings defaults + persistence |
+| `src/settings.ts` | Settings defaults + persistence (`enableSpeakerControl` migrates from the saved-host key when absent; corrupt JSON ⇒ defaults) |
 | `src/settings-modal.ts` | Settings popup mount/unmount + in-place state sync (syncSettingsModalState, relabelSettingsModal, live SoundTouch-section sync) |
 | `src/filter-cache.ts` | Filter option list localStorage persistence (raw `{value, label, code}` lists with validation) |
-| `src/artwork.ts` | FR-6 station artwork: per-station favicon cache (`radio-browser-art-<uuid>`, last-known-good JSON string), idempotent background `Image` fetch with a stale-guarded render hook, skeleton/empty slot rendering, and the playing-station art URL fallback chain |
+| `src/artwork.ts` | FR-6 station artwork: per-station favicon cache (`radio-browser-art-<uuid>`, last-known-good JSON string), idempotent background `Image` fetch with a stale-guarded render hook, skeleton/empty slot rendering, the playing-station art URL fallback chain, and the wave-12 plain-http gate (`setArtworkHttpGate`, wired by app.ts: gated http URLs render empty slots and refuse fetches while speaker control is off) |
 | `vite.config.ts` | Build/test configuration |
 
 ## Module Dependencies
@@ -143,7 +143,8 @@ graph TD
 ## Entry Points
 
 - **Main**: `src/main.ts` — renders app, calls `refresh('top')`, pings saved SoundTouch host and
-  opens the live-state WebSocket (`connectSoundtouchWs`)
+  opens the live-state WebSocket (`checkSoundtouchOnStartup`) — the last two only while
+  `enableSpeakerControl` is on (wave-12 call-site gate)
 - **Tests**: `tests/app.test.ts`, `tests/pagination.test.ts`, `tests/filters.test.ts`,
   `tests/filter-cache.test.ts`, `tests/artwork.test.ts`, `tests/confirmation.test.ts`,
   `tests/soundtouch.test.ts`, `tests/soundtouch-ws.test.ts`, `tests/pwa-assets.test.ts`,

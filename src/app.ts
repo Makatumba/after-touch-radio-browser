@@ -6,7 +6,7 @@ import {topStations, recentStations, searchStations, fetchLanguages, fetchCountr
 import {loadSettings} from './settings';
 import {loadFilterCache, saveFilterCache} from './filter-cache';
 import type {FilterCacheKind} from './filter-cache';
-import {scanArtwork, setRenderHook} from './artwork';
+import {scanArtwork, setRenderHook, setArtworkHttpGate} from './artwork';
 import {compareFavorites} from './actions';
 import {renderHeader} from './components/header';
 import {renderRemotePanel} from './components/remote';
@@ -90,7 +90,9 @@ function App() {
     const t = getLabels(state);
     if (!state.soundtouchAddress && !state.skippedSetup) return renderSetup(state, t);
     const playerHtml = state.settings.enablePreview ? renderPlayerBar(state, t) : '';
-    const bannerHtml = `${state.soundtouchStatus === 'unreachable' ? renderOfflineBanner(state, t) : ''}${state.serviceUnavailable ? renderServiceBanner(state, t) : ''}`;
+    // wave 12: the offline banner requires speaker control — while off nothing
+    // probes the device, so no banner can ever be justified
+    const bannerHtml = `${state.soundtouchStatus === 'unreachable' && state.settings.enableSpeakerControl ? renderOfflineBanner(state, t) : ''}${state.serviceUnavailable ? renderServiceBanner(state, t) : ''}`;
     const prevDisabled = state.offset === 0 ? ' disabled' : '';
     const nextDisabled = state.stations.length < state.limit ? ' disabled' : '';
     return `<div class="app-shell">
@@ -98,7 +100,7 @@ function App() {
     ${renderHeader(t)}
     <main id="main">
         ${bannerHtml}
-        ${state.soundtouchAddress ? renderRemotePanel(state, t) : ''}
+        ${state.soundtouchAddress && state.settings.enableSpeakerControl ? renderRemotePanel(state, t) : ''}
         <section class="layout">
             ${renderFilters(state, t)}
             <section class="panel results-panel">
@@ -231,13 +233,19 @@ export function syncShellLanguage(): void {
 /** Wave 6: toggling skip-hiding (or resetting) must change only the Remote
  * panel — never rebuild the shell behind the open settings popup (no-blink
  * contract). Replaces ONLY the .remote-panel node; inserts it before the
- * layout when absent; then re-primes the panel's artwork slots. */
+ * layout when absent; then re-primes the panel's artwork slots.
+ * Wave 12: the panel is wanted only when an address is saved AND speaker
+ * control is enabled — otherwise an existing panel node is removed. */
 export function syncRemotePanel(): void {
-    if (!state.soundtouchAddress) return;
     const main = document.querySelector<HTMLElement>('main#main');
     if (!main) return;
-    const html = renderRemotePanel(state, getLabels(state));
+    const wanted = !!state.soundtouchAddress && state.settings.enableSpeakerControl;
     const panel = document.querySelector<HTMLElement>('.remote-panel');
+    if (!wanted) {
+        panel?.remove();
+        return;
+    }
+    const html = renderRemotePanel(state, getLabels(state));
     if (panel) {
         panel.outerHTML = html;
     } else {
@@ -262,6 +270,10 @@ export function syncStationCards(): void {
 // artwork settle → re-render once, wired a single time at module load (the
 // hook's render() re-scan is a no-op for settled URLs, so no loop)
 setRenderHook(render);
+
+// wave 12: plain-http artwork is refused while the speaker-control toggle is
+// off (render-only gate — already-rendered logos and speaker sends untouched)
+setArtworkHttpGate((url) => url.startsWith('http://') && !state.settings.enableSpeakerControl);
 
 export function searchFromInputs() {
     state.query = document.querySelector<HTMLInputElement>('#query')?.value || '';

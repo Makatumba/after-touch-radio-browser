@@ -4,8 +4,15 @@ import {renderArtworkSlot, resolveArtworkUrl} from '../artwork';
 
 export function renderStationCard(station: Station, state: State, t: Record<string, string>): string {
     const active = state.stations[state.currentIndex]?.stationuuid === station.stationuuid;
-    const disabled = !state.soundtouchAddress || state.soundtouchStatus === 'unreachable';
-    const title = !state.soundtouchAddress ? t.unconfiguredHint : t.offlineHint;
+    // wave 12: the toggle is the first gate — while off the off-hint wins over
+    // both the unconfigured and the offline hint
+    const speakerOn = !!state.soundtouchAddress && state.settings.enableSpeakerControl;
+    const disabled = !speakerOn || state.soundtouchStatus === 'unreachable';
+    const title = !state.settings.enableSpeakerControl
+        ? t.speakerControlOffHint
+        : !state.soundtouchAddress
+            ? t.unconfiguredHint
+            : t.offlineHint;
     const playBtn = `<button class="btn btn-primary" data-play="${station.stationuuid}"${disabled ? ` disabled title="${title}"` : ''}>${t.playOnSpeaker}</button>`;
     const previewBtn = state.settings.enablePreview ? `<button class="btn btn-secondary" data-preview="${station.stationuuid}">${t.preview}</button>` : '';
     return `<article class="station-card ${active ? 'active' : ''}">

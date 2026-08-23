@@ -26,6 +26,10 @@ export interface Station {
 export interface Settings {
     enablePreview: boolean;
     hideRemoteSkipButtons: boolean;
+    /** Wave 12: master switch for every speaker connection and plain-http
+     * artwork load (default off — install-clean). No separate state field:
+     * components read state.settings.enableSpeakerControl directly. */
+    enableSpeakerControl: boolean;
 }
 
 export interface FilterOption {

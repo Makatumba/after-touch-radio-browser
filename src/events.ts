@@ -3,11 +3,11 @@ import type {Language} from './i18n';
 import type {Mode, SortKey, Station} from './state';
 import {state} from './app';
 import {render, refresh, searchFromInputs, reset, loadNextResultSet, loadPreviousResultSet, syncPlayerBar, syncShellLanguage, syncRemotePanel, syncStationCards} from './app';
-import {playStation, stopPlayback, toggleFavorite, sendToSoundtouch, setLanguage, pingSoundtouch, sanitizeHost, sendKeyPress, sendMute, scheduleVolumeSend, REMOTE_KEYS} from './actions';
-import {connectSoundtouchWs, closeSoundtouchWs, requestSnapshot} from './soundtouch-ws';
+import {playStation, stopPlayback, toggleFavorite, sendToSoundtouch, setLanguage, pingSoundtouch, sanitizeHost, sendKeyPress, sendMute, scheduleVolumeSend, cancelVolumeSend, REMOTE_KEYS} from './actions';
+import {checkSoundtouchOnStartup, connectSoundtouchWs, closeSoundtouchWs, requestSnapshot} from './soundtouch-ws';
 import {armSendConfirmation, cancelSendConfirmation, confirmStationAlreadyPlaying} from './confirmation';
 import {defaultSettings, saveSettings} from './settings';
-import {mountSettingsModal, unmountSettingsModal, syncSettingsModalState, relabelSettingsModal} from './settings-modal';
+import {mountSettingsModal, unmountSettingsModal, syncSettingsModalState, relabelSettingsModal, syncSettingsModalSoundtouch} from './settings-modal';
 
 // The settings popup lives inside #app, but Esc must close it from anywhere
 // (focus inside the modal, or a keydown dispatched on document/body). Bound
@@ -19,18 +19,26 @@ let escapeKeydownBound = false;
  * settings popup (wave 7): sanitize, persist, drop any pending confirmation,
  * mark the reachability check, re-render, probe the device, and (re)connect
  * the WebSocket feed. The stale-host guard keeps an in-flight ping from a
- * previous save from overwriting a newer address's result. */
+ * previous save from overwriting a newer address's result.
+ * Wave 12 save-implies-on: saving a non-empty address turns speaker control
+ * on and persists the settings before the unchanged probe/connect sequence;
+ * an empty save persists the current settings untouched (the flag keeps its
+ * value) so the stored entry always exists. */
 function applySoundtouchHost(raw: string): void {
     const host = sanitizeHost(raw);
     state.soundtouchAddress = host;
     // FR-2: the address is persisted on every save (first setup, changes, clearing)
     localStorage.setItem('radio-browser-soundtouch-host', host);
+    if (host) state.settings.enableSpeakerControl = true;
+    saveSettings(state.settings);
     cancelSendConfirmation();
     state.soundtouchStatus = host ? 'checking' : 'idle';
     render();
     if (host) {
         pingSoundtouch(host).then(ok => {
-            if (state.soundtouchAddress === host) {
+            // wave 12: a mid-flight toggle-off must never resurrect the status
+            // or fire a post-teardown snapshot — the flag joins the stale-guard
+            if (state.soundtouchAddress === host && state.settings.enableSpeakerControl) {
                 state.soundtouchStatus = ok ? 'available' : 'unreachable';
                 render();
                 if (ok) requestSnapshot();
@@ -41,6 +49,47 @@ function applySoundtouchHost(raw: string): void {
         connectSoundtouchWs(host);
     } else {
         closeSoundtouchWs();
+    }
+}
+
+/** Wave 12: the shared toggle-off teardown — cancels every pending device
+ * interaction, forces both device statuses to idle, disconnects without a
+ * full shell render, then updates only what must change (panel removed,
+ * cards disabled with the off-hint, banner dropped, popup SoundTouch section
+ * re-synced in place). The station-list node and the open popup keep their
+ * identity (no-blink contract). */
+function disableSpeakerSession(): void {
+    cancelSendConfirmation();
+    cancelVolumeSend();
+    state.soundtouchStatus = 'idle';
+    closeSoundtouchWs(false);
+    syncRemotePanel();
+    syncStationCards();
+    document.querySelector('.offline-banner')?.remove();
+    syncSettingsModalSoundtouch(state);
+}
+
+/** Wave 12: applies the speaker-control toggle. Persist first, always; then
+ * either run today's saved-address startup sequence verbatim (enable with a
+ * host), repopulate skipped artwork + flip the popup status line (enable
+ * without one), or tear the session down (disable). */
+function applySpeakerControl(enabled: boolean): void {
+    const wasEnabled = state.settings.enableSpeakerControl;
+    state.settings.enableSpeakerControl = enabled;
+    saveSettings(state.settings);
+    if (enabled) {
+        if (state.soundtouchAddress) {
+            checkSoundtouchOnStartup(state.soundtouchAddress);
+        } else {
+            // nothing to probe: skipped http thumbnails come back via the
+            // cards' surgical re-render (its scanArtwork picks them up)
+            syncStationCards();
+            syncSettingsModalSoundtouch(state);
+        }
+    } else if (wasEnabled) {
+        disableSpeakerSession();
+    } else {
+        syncSettingsModalSoundtouch(state);
     }
 }
 
@@ -55,7 +104,9 @@ export function setupEvents(): void {
 
         const playBtn = target.closest('[data-play]') as HTMLElement | null;
         if (playBtn) {
-            if (!state.soundtouchAddress || state.soundtouchStatus === 'unreachable') return;
+            // wave 12: the flag joins the guard — dispatched events bypass the
+            // DOM disabled attribute, so the handler itself must refuse
+            if (!state.soundtouchAddress || !state.settings.enableSpeakerControl || state.soundtouchStatus === 'unreachable') return;
             const s = state.stations.find((x: Station) => x.stationuuid === playBtn!.dataset.play);
             if (s) {
                 // FR-4: a station the device already plays never re-sends
@@ -91,7 +142,9 @@ export function setupEvents(): void {
 
         const remoteBtn = target.closest('#remotePlayPause, #remoteNext, #remotePrev, #remoteMute, #remotePower') as HTMLElement | null;
         if (remoteBtn) {
-            if (state.wsStatus !== 'connected') return;
+            // wave 12: handler-level flag gate — dispatched clicks on planted
+            // stale nodes must not reach the device while control is off
+            if (state.wsStatus !== 'connected' || !state.settings.enableSpeakerControl) return;
             cancelSendConfirmation();
             switch (remoteBtn.id) {
                 case 'remotePlayPause': sendKeyPress(state.devicePlayStatus === 'PLAY_STATE' ? REMOTE_KEYS.pause : REMOTE_KEYS.play); break;
@@ -168,9 +221,13 @@ export function setupEvents(): void {
                 // toggling the switch off (previously the player bar vanished
                 // while the persistent <audio> kept playing invisibly).
                 const wasPreviewEnabled = state.settings.enablePreview;
+                // Wave 12: resetting also tears an active speaker session down
+                // when it flips the toggle on → off.
+                const wasSpeakerControlEnabled = state.settings.enableSpeakerControl;
                 state.settings = {...defaultSettings};
                 saveSettings(state.settings);
                 if (wasPreviewEnabled) stopPlayback(state);
+                if (wasSpeakerControlEnabled && !state.settings.enableSpeakerControl) disableSpeakerSession();
                 // Wave 5/6: only the preview UI (player bar + cards' preview
                 // buttons) and the Remote panel change; the shell behind the
                 // popup and the popup node itself stay untouched.
@@ -213,7 +270,9 @@ export function setupEvents(): void {
         const target = e.target as HTMLElement;
         // remote volume slider: BEFORE the filter branch — it must never trigger a search
         if (target.id === 'remoteVolume') {
-            if (state.wsStatus !== 'connected') return;
+            // wave 12: handler-level flag gate (dispatched change events bypass
+            // everything else)
+            if (state.wsStatus !== 'connected' || !state.settings.enableSpeakerControl) return;
             cancelSendConfirmation();
             scheduleVolumeSend(Number((target as HTMLInputElement).value));
             return;
@@ -259,6 +318,14 @@ export function setupEvents(): void {
             state.settings.hideRemoteSkipButtons = (target as HTMLInputElement).checked;
             saveSettings(state.settings);
             syncRemotePanel();
+            return;
+        }
+        if (target.id === 'settingEnableSpeakerControl') {
+            // Wave 12: the master switch — persist, then either run the saved-
+            // address startup sequence, repopulate skipped artwork + popup
+            // status (no host), or tear the session down. The popup and the
+            // station-list node keep their identity throughout.
+            applySpeakerControl((target as HTMLInputElement).checked);
             return;
         }
     });

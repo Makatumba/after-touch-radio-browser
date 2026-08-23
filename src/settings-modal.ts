@@ -34,6 +34,9 @@ export function syncSettingsModalState(s: State): void {
     if (toggle) toggle.checked = s.settings.enablePreview;
     const hideToggle = document.querySelector<HTMLInputElement>('#settingHideRemoteSkipButtons');
     if (hideToggle) hideToggle.checked = s.settings.hideRemoteSkipButtons;
+    // wave 12: the third row syncs too (reset restores its literal default)
+    const speakerToggle = document.querySelector<HTMLInputElement>('#settingEnableSpeakerControl');
+    if (speakerToggle) speakerToggle.checked = s.settings.enableSpeakerControl;
     const langSelect = document.querySelector<HTMLSelectElement>('#settingLanguage');
     if (langSelect) langSelect.value = s.language;
 }
@@ -53,6 +56,9 @@ export function relabelSettingsModal(s: State): void {
     if (previewLabel) previewLabel.textContent = t.settingEnablePreview;
     const hideLabel = document.getElementById('settingHideRemoteSkipButtonsLabel');
     if (hideLabel) hideLabel.textContent = t.settingHideRemoteSkipButtons;
+    // wave 12: the third row re-labels in place with the rest
+    const speakerLabel = document.getElementById('settingEnableSpeakerControlLabel');
+    if (speakerLabel) speakerLabel.textContent = t.settingEnableSpeakerControl;
     const resetBtn = document.getElementById('resetSettings');
     if (resetBtn) resetBtn.textContent = t.resetDefaults;
 }

@@ -29,6 +29,10 @@ export function renderSettings(state: State): string {
                 <input type="checkbox" id="settingHideRemoteSkipButtons" ${s.hideRemoteSkipButtons ? 'checked' : ''}>
                 <span id="settingHideRemoteSkipButtonsLabel">${t.settingHideRemoteSkipButtons}</span>
             </label>
+            <label class="setting-row">
+                <input type="checkbox" id="settingEnableSpeakerControl" ${s.enableSpeakerControl ? 'checked' : ''}>
+                <span id="settingEnableSpeakerControlLabel">${t.settingEnableSpeakerControl}</span>
+            </label>
             ${renderSoundtouchSettings(state, t)}
         </div>
         <div class="modal-footer">

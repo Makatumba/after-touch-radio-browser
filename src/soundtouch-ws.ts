@@ -55,7 +55,7 @@ export function connectSoundtouchWs(raw: string): void {
     openSocket(host);
 }
 
-export function closeSoundtouchWs(): void {
+export function closeSoundtouchWs(renderShell = true): void {
     clearReconnect();
     if (socket) {
         const old = socket;
@@ -67,7 +67,10 @@ export function closeSoundtouchWs(): void {
     probeFailures = 0;
     clearDeviceState();
     state.wsStatus = 'idle';
-    render();
+    // Wave 12: the toggle-off teardown passes false — it performs surgical
+    // DOM updates instead of a full shell render so the open settings popup
+    // and the station-list node keep their identity (no-blink contract).
+    if (renderShell) render();
 }
 
 function openSocket(host: string): void {
@@ -193,7 +196,9 @@ export function checkSoundtouchOnStartup(savedAddress: string): void {
     state.soundtouchStatus = 'checking';
     connectSoundtouchWs(savedAddress);
     pingSoundtouch(savedAddress).then(ok => {
-        if (state.soundtouchAddress === savedAddress) {
+        // wave 12: a mid-flight toggle-off must never resurrect the status or
+        // fire a post-teardown snapshot — the flag joins the stale-guard
+        if (state.soundtouchAddress === savedAddress && state.settings.enableSpeakerControl) {
             state.soundtouchStatus = ok ? 'available' : 'unreachable';
             if (!ok) cancelSendConfirmation();
             render();

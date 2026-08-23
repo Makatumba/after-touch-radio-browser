@@ -41,8 +41,12 @@ export function renderDeviceInfo(state: State, t: Record<string, string>): strin
  * Wave 7.1: the host field sits under a label above the config row, in the
  * same .field pattern as the Language select. */
 export function renderSoundtouchSettings(state: State, t: Record<string, string>): string {
-    const statusText = state.soundtouchStatus === 'checking' ? `⟳ ${t.checking}` : state.soundtouchStatus === 'available' ? `✓ ${t.reachable}` : state.soundtouchStatus === 'unreachable' ? `✗ ${t.unreachable}` : '—';
-    const cls = state.soundtouchStatus === 'available' ? ' status-ok' : state.soundtouchStatus === 'unreachable' ? ' status-err' : '';
+    // wave 12: while speaker control is off the status line explains why
+    // nothing connects — Checking…/Reachable/Unreachable cannot apply (and
+    // while off no probe ever runs to change them)
+    const speakerOff = !state.settings.enableSpeakerControl;
+    const statusText = speakerOff ? t.speakerControlOffHint : state.soundtouchStatus === 'checking' ? `⟳ ${t.checking}` : state.soundtouchStatus === 'available' ? `✓ ${t.reachable}` : state.soundtouchStatus === 'unreachable' ? `✗ ${t.unreachable}` : '—';
+    const cls = !speakerOff && state.soundtouchStatus === 'available' ? ' status-ok' : !speakerOff && state.soundtouchStatus === 'unreachable' ? ' status-err' : '';
     const hint = !state.soundtouchAddress ? `<small class="soundtouch-hint">${t.unconfiguredHint}</small>` : '';
     const msg = state.deviceMessage ? `<small class="soundtouch-hint">${state.deviceMessage}</small>` : '';
     return `<section class="soundtouch-section">
