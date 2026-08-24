@@ -871,14 +871,15 @@ describe('language auto-detect (FR-9)', () => {
 describe('logo and branding (FR-12)', () => {
     it('shows the brand logo with alt text next to the title in the header', () => {
         render();
-        const img = document.querySelector<HTMLImageElement>('header .brand-mark');
-        expect(img).not.toBeNull();
-        expect(img!.tagName).toBe('IMG');
-        expect(img!.getAttribute('src')).toBe('logo.png');
-        expect(img!.getAttribute('alt')).toBe(getLabels(state).logoAlt);
-        expect(img!.getAttribute('alt')).toBeTruthy();
-        expect(img!.getAttribute('width')).toBe('48');
-        expect(img!.getAttribute('height')).toBe('48');
+        const mark = document.querySelector('header .brand-mark');
+        expect(mark).not.toBeNull();
+        expect(mark!.tagName.toLowerCase()).toBe('svg');
+        expect(mark!.getAttribute('viewBox')).toBe('0 0 90 90');
+        expect(mark!.getAttribute('aria-label')).toBe(getLabels(state).logoAlt);
+        expect(mark!.getAttribute('aria-label')).toBeTruthy();
+        expect(mark!.getAttribute('width')).toBe('48');
+        expect(mark!.getAttribute('height')).toBe('48');
+        expect(mark!.querySelector('path')).not.toBeNull();
         const h1 = document.querySelector('header h1');
         expect(h1).not.toBeNull();
         expect(h1!.textContent).toBe(getLabels(state).title);
