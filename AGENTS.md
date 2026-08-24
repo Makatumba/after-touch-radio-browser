@@ -3,7 +3,7 @@
 ## Commands
 - **Dev server**: `npm start`
 - **Test** (vitest, jsdom): `npm test`
-- **Build**: `npm run build`
+- **Build**: `npm run build` (also writes `dist/app-assets.json` — the stable runtime manifest the Android Cordova wrapper fetches to inject the current hashed assets; ships automatically with every deploy)
 - **Typecheck**: `npx tsc --noEmit --skipLibCheck` (`@types/node` not installed; `--skipLibCheck` required)
 - **Deploy**: `npm run deploy` → `vite build && rimraf docs && mv dist docs` (wipes and regenerates `docs/`). GitHub Pages hosts from the `docs/` folder, so commit the regenerated `docs/` after every deploy. `dist/` and `.DS_Store` are gitignored.
 
