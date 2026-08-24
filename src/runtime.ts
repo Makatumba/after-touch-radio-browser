@@ -1,7 +1,7 @@
 /**
  * Runtime environment detection (Cordova wrapper vs browser/PWA).
  *
- * The Android Cordova shell (sibling project after-touch-radio-browser-cordova)
+ * The Android Cordova shell (this repo's `cordova/` wrapper project)
  * boots from a LOCAL index.html that sets `window.__AFTER_TOUCH_RUNTIME__ =
  * 'cordova'` before loader.js injects this remote bundle. This helper is the
  * single source of truth for "am I inside the native wrapper?".
