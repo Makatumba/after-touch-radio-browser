@@ -34,6 +34,7 @@ AfterTouch-RadioBrowser/
 │   ├── settings-modal.ts       # Settings popup mount/unmount + in-place state sync + no-blink re-label/live sync
 │   ├── filter-cache.ts         # Filter option list localStorage cache (raw {value,label,code} lists)
 │   ├── artwork.ts              # FR-6 station artwork: per-station favicon cache, background Image fetch, skeleton/empty slot rendering
+│   ├── runtime.ts              # Runtime detection: Cordova wrapper vs browser/PWA (single source; future PWA-only code must consult it)
 │   ├── state.ts                # Shared types (Station, Settings, State, Mode, FilterOption, DeviceInfo, DeviceNowPlayingVerbose)
 │   ├── styles.css              # All styling
 │   └── components/             # Pure render functions returning HTML strings
@@ -47,6 +48,8 @@ AfterTouch-RadioBrowser/
 │       ├── setup.ts            # Full-screen first-run setup view
 │       ├── banner.ts           # Device-offline and service-unavailable banners
 │       └── settings.ts         # Settings modal (SoundTouch config + language select + preview/hide-skip toggles + reset)
+├── scripts/
+│   └── emit-app-assets.ts      # Build plugin: emits dist/app-assets.json (stable runtime manifest the Cordova wrapper fetches)
 ├── tests/
 │   ├── app.test.ts             # Vitest suite (jsdom)
 │   ├── pagination.test.ts      # List-pagination tests (jsdom)
@@ -84,7 +87,8 @@ AfterTouch-RadioBrowser/
 | `src/settings-modal.ts` | Settings popup mount/unmount + in-place state sync (syncSettingsModalState, relabelSettingsModal, live SoundTouch-section sync) |
 | `src/filter-cache.ts` | Filter option list localStorage persistence (raw `{value, label, code}` lists with validation) |
 | `src/artwork.ts` | FR-6 station artwork: per-station favicon cache (`radio-browser-art-<uuid>`, last-known-good JSON string), idempotent background `Image` fetch with a stale-guarded render hook, skeleton/empty slot rendering, and the playing-station art URL fallback chain |
-| `vite.config.ts` | Build/test configuration |
+| `src/runtime.ts` | Runtime environment detection (`isCordovaRuntime()` — live read of the shell flag / injected cordova global); the Android wrapper boots from a local document and injects this remote bundle |
+| `vite.config.ts` | Build/test configuration (jsdom, relative base, app-assets manifest plugin) |
 
 ## Module Dependencies
 
