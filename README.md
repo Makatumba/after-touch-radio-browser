@@ -131,6 +131,34 @@ Notes:
   **committed** — after every deploy, commit the regenerated `docs/`. Never edit `docs/` by hand.
   `dist/` and `.DS_Store` are gitignored.
 
+### Android app (Cordova wrapper)
+
+The `cordova/` subproject packages a native Android shell that loads the current deployed web
+assets (via `dist/app-assets.json`) into a WebView with LAN cleartext enabled — so speaker
+HTTP/WS works in the installed app without any browser mixed-content limits. Requirements:
+Node.js, an Android SDK + JDK 17+ with `ANDROID_HOME` set, and a real device for speaker tests.
+
+One-time setup (from this repo root):
+
+```sh
+cd cordova
+npm install                        # installs the Cordova CLI locally (no global install)
+npx cordova platform add android   # once; generates platforms/ (gitignored)
+cd ..
+```
+
+Build & run (repo root; device connected over USB or on the same Wi-Fi for `run`):
+
+```sh
+npm run android:build   # debug APK → cordova/platforms/android/app/build/outputs/apk/debug/
+npm run android         # build, install, and launch on the connected device
+```
+
+Every cold launch fetches the newest deployed assets from GitHub Pages, so shipping an app
+update to users is just a normal web deploy (`npm run deploy`). The wrapper needs no Cordova
+plugins. See [cordova/README.md](cordova/README.md) for architecture details, the full
+device-test checklist, and security notes.
+
 ## Architecture
 
 A full codebase map — structure, key files, module dependency graph, and conventions — lives in
