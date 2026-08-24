@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!--
+      After Touch Radio Browser — Android cleartext policy (deliberate, narrow scope).
+
+      WHY: Bose SoundTouch speakers expose their Web API only over plaintext
+      http://<ip>:8090 and ws://<ip>:8080 on the home LAN. Speaker addresses are
+      user-entered dynamic private IPs (no stable DNS names), so the cleartext
+      permission must be protocol-wide for this app.
+
+      SCOPE / RISK (documented per handoff):
+        - This app only sends station-selection XML and transport commands to
+          trusted home-LAN speakers — no credentials or sensitive data ever
+          transit these cleartext endpoints.
+        - Traffic to speakers is NOT encrypted; that is a property of the
+          speaker's own protocol.
+      TIGHTENING: if a deployment can rely on stable local hostnames, replace
+      the base-config below with a domain-config listing those hosts (example
+      kept inline, disabled).
+    -->
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <!--
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">soundtouch.local</domain>
+    </domain-config>
+    -->
+</network-security-config>

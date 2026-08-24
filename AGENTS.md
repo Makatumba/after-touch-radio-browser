@@ -6,6 +6,7 @@
 - **Build**: `npm run build` (also writes `dist/app-assets.json` — the stable runtime manifest the Android Cordova wrapper fetches to inject the current hashed assets; ships automatically with every deploy)
 - **Typecheck**: `npx tsc --noEmit --skipLibCheck` (`@types/node` not installed; `--skipLibCheck` required)
 - **Deploy**: `npm run deploy` → `vite build && rimraf docs && mv dist docs` (wipes and regenerates `docs/`). GitHub Pages hosts from the `docs/` folder, so commit the regenerated `docs/` after every deploy. `dist/` and `.DS_Store` are gitignored.
+- **Android wrapper**: the `cordova/` subproject (local Cordova CLI dep, no plugins) packages a native shell that loads the deployed assets via `dist/app-assets.json`. Run from `cordova/`: `npx cordova platform add android` (once), then from repo root `npm run android:build` / `npm run android`. Generated `platforms/`, `plugins/`, and `node_modules/` under `cordova/` are gitignored.
 
 ## Architecture
 - **Full map**: `ARCHITECTURE.md` at repo root contains the complete structure/dependency map. Read it before major changes; **keep it in sync** (update it in the same commit) whenever the module structure or dependencies change.

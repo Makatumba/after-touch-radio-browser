@@ -1,0 +1,21 @@
+{
+  "name": "after-touch-radio-browser-cordova",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Native Android (Cordova) wrapper for the GitHub-hosted After Touch Radio Browser web app.",
+  "scripts": {
+    "android": "cordova run android",
+    "android:build": "cordova build android",
+    "android:release": "cordova build android --release",
+    "requirements": "cordova requirements android"
+  },
+  "devDependencies": {
+    "cordova": "^12.0.0",
+    "cordova-android": "^15.1.0"
+  },
+  "cordova": {
+    "platforms": [
+      "android"
+    ]
+  }
+}

@@ -340,7 +340,13 @@ graph TD
   send. **No echo loops**: the watcher only reads state and writes `deviceMessage` — it
   never fetches, POSTs, or requests snapshots.
 - **Hosting**: `docs/` is committed deploy output for GitHub Pages; `dist/` and `.DS_Store`
-  are gitignored. `public/` is copied to the dist/docs root by Vite; the favicon uses a
+  are gitignored.
+- **Android wrapper**: `cordova/` — a self-contained Cordova subproject (local CLI dep, no
+  plugins) whose local shell (`www/index.html` + `www/loader.js`) fetches
+  `app-assets.json` (emitted by `scripts/emit-app-assets.ts` on every build) from GitHub
+  Pages and injects the current hashed CSS/JS into the native WebView. Runtime detection
+  lives in `src/runtime.ts`. Generated `platforms/`, `plugins/`, and `node_modules/`
+  under `cordova/` are not part of the source tree. `public/` is copied to the dist/docs root by Vite; the favicon uses a
   relative `href="logo.png"` so it resolves under the GitHub Pages subpath. The manifest
   (`manifest.webmanifest`) and all icon URLs are relative for the same subpath;
   `theme_color`/`background_color` = `#f7f6f2` (`--bg`) are duplicated in the manifest, the

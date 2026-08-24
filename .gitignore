@@ -3,3 +3,6 @@
 .DS_Store
 /dist/
 /graphify-out/
+/cordova/node_modules/
+/cordova/platforms/
+/cordova/plugins/

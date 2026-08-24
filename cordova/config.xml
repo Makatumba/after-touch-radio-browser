@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<widget
+  id="io.github.makatumba.aftertouch"
+  version="1.0.0"
+  xmlns="http://www.w3.org/ns/widgets"
+  xmlns:android="http://schemas.android.com/apk/res/android"
+  xmlns:cdv="http://cordova.apache.org/ns/1.0">
+
+  <name>After Touch Radio Browser</name>
+  <description>
+    Native Android wrapper for the GitHub-hosted After Touch Radio Browser web
+    app. The local shell loads the current hashed frontend assets from GitHub
+    Pages at every cold launch and talks directly to Bose SoundTouch speakers
+    on the home LAN.
+  </description>
+  <author email="makatumba@users.noreply.github.com">https://github.com/Makatumba</author>
+
+  <!-- Boot from the LOCAL shell document — never redirect the whole WebView. -->
+  <content src="index.html" />
+
+  <!-- GitHub Pages: app manifest, hashed build assets. -->
+  <access origin="https://makatumba.github.io" />
+  <allow-navigation href="https://makatumba.github.io/*" />
+
+  <!-- Pinned Radio Browser API host (station search/lists). -->
+  <access origin="https://de1.api.radio-browser.info" />
+
+  <!--
+    LAN speakers + user-contributed station artwork/streams: hosts are dynamic
+    private IPs and arbitrary third-party origins, so protocol-wide network
+    access is required. Deliberate, documented decision (README #security).
+    NOTE: allow-navigation stays NARROW (GitHub Pages only) — remote content is
+    never navigated to; this only governs where the app window itself may go,
+    while <access> governs XHR/fetch/WebSocket.
+  -->
+  <access origin="http://*" />
+  <access origin="https://*" />
+
+  <preference name="AndroidLaunchMode" value="singleTop" />
+
+  <!--
+    Cleartext LAN access (audited against cordova-android@15 source):
+    cordova-android exposes NO MixedContentMode setting, and the default
+    https://localhost virtual origin would apply strict browser mixed-content
+    blocking to the speaker's plaintext http/ws traffic. Serving the local
+    shell from file:// instead (this flag) takes the document out of
+    secure-context/mixed-content scope entirely — the sanctioned platform
+    route for this exact use case — while the network security config below
+    remains the OS-level gatekeeper for what cleartext may touch.
+    Verified: rg 'setMixedContentMode|MIXED_CONTENT' CordovaLib/src → no hits;
+    'InsecureFileMode' → SystemWebViewEngine.java:162, PluginManager.java:384,
+    ConfigXmlParser.java:182.
+  -->
+  <preference name="AndroidInsecureFileModeEnabled" value="true" />
+
+  <platform name="android">
+    <!-- Cleartext http/ws to LAN speakers: enabled via the merged application
+         attributes plus resources/android/xml/network_security_config.xml. -->
+    <edit-config file="app/src/main/AndroidManifest.xml" mode="merge" target="/manifest/application">
+      <application
+        android:usesCleartextTraffic="true"
+        android:networkSecurityConfig="@xml/network_security_config" />
+    </edit-config>
+
+    <resource-file
+      src="resources/android/xml/network_security_config.xml"
+      target="app/src/main/res/xml/network_security_config.xml" />
+
+    <!-- Launcher icons derived from the web app's branding asset
+         (public/logo.png, same source as the PWA manifest icons). -->
+    <icon src="res/icons/android/icon-36-ldpi.png" density="ldpi" />
+    <icon src="res/icons/android/icon-48-mdpi.png" density="mdpi" />
+    <icon src="res/icons/android/icon-72-hdpi.png" density="hdpi" />
+    <icon src="res/icons/android/icon-96-xhdpi.png" density="xhdpi" />
+    <icon src="res/icons/android/icon-144-xxhdpi.png" density="xxhdpi" />
+    <icon src="res/icons/android/icon-192-xxxhdpi.png" density="xxxhdpi" />
+
+    <!--
+      Android 12+ system splash screen (the legacy <splash> tags were removed
+      from cordova-android): brand background plus centered logo icon. The
+      system masks the icon into a circle; v1 accepts the corner crop.
+      Requires androidx core-splashscreen (wired by the platform by default).
+    -->
+    <preference name="AndroidWindowSplashScreenBackground" value="#f7f6f2" />
+    <preference name="AndroidWindowSplashScreenAnimatedIcon" value="res/splash/splash-icon.png" />
+  </platform>
+</widget>
