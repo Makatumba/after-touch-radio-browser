@@ -44,7 +44,7 @@ AfterTouch-RadioBrowser/
 │       ├── station-card.ts     # Primary play-on-speaker + preview + favorite card actions
 │       ├── player-bar.ts       # Now-playing info
 │       ├── soundtouch.ts       # Settings-popup SoundTouch section (labeled host input + status + hints + device-info widget)
-│       ├── remote.ts           # Live remote panel: now playing, transport (skip buttons toggleable), volume, mute, header ℹ device info + standby power button
+│       ├── remote.ts           # Live remote panel: now playing, transport (skip buttons toggleable, reload/retry icon in place of play/pause when configured speaker is unreachable — re-checks connection), volume, mute, header ℹ device info + standby power button
 │       ├── setup.ts            # Full-screen first-run setup view
 │       ├── banner.ts           # Device-offline and service-unavailable banners
 │       └── settings.ts         # Settings modal (SoundTouch config + language select + preview/hide-skip toggles + reset)
@@ -303,8 +303,8 @@ graph TD
   corner sending a `POWER` press+release `/key` pair, enabled only while the WebSocket is
   connected (`wsStatus === 'connected'`), static icon (the feed documents no power-state
   signal), unaffected by `hideRemoteSkipButtons`, and labeled `remoteStandby` in all four
-  languages. The now-playing parser
-  stores the full verbose payload (`deviceNowPlayingDetail` in `state.ts`: stationName, art,
+   languages. When the speaker is configured but unreachable (`soundtouchStatus === 'unreachable'`), the central play/pause button is replaced by a reload button (↻, 24×24, `currentColor`, `aria-hidden="true"`, `focusable="false"`, fixed 48×48 — no layout shift) that is enabled even while disconnected; clicking it sets `soundtouchStatus` to `checking` (renders `⟳ Checking…`), re-checks reachability via `GET /info` (5s timeout) and re-attempts the WebSocket connection with stale-host guards (`state.soundtouchAddress === host`, `currentHost`), and ignores a second click while `checking`; on success the panel reverts to play/pause, on failure it stays `unreachable` with the offline banner. When not configured or when reachable, behavior is unchanged and next/prev/volume/mute stay disabled as before. The retry label `remoteRetry` is localized in all four languages. The now-playing parser
+   stores the full verbose payload (`deviceNowPlayingDetail` in `state.ts`: stationName, art,
   ContentItem, skip/favorite presence flags, seekSupported, shuffle/repeat, streamType,
   trackID, position, description, stationLocation) — the panel derives the title
   `track` → `stationName` → `ContentItem.itemName` → "No station playing", the artist falls
