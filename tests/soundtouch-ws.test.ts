@@ -647,6 +647,7 @@ describe('connection loss & reconnection', () => {
 
         render();
         expect(document.querySelector('.offline-banner')).not.toBeNull();
+        expect((document.querySelector('#remotePower') as HTMLButtonElement).disabled).toBe(false);
         expect((document.querySelector('#remotePlayPause') as HTMLButtonElement).disabled).toBe(true);
         expect((document.querySelector('#remoteVolume') as HTMLInputElement).disabled).toBe(true);
     });

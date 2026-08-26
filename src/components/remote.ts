@@ -1,4 +1,5 @@
 import type {State} from '../state';
+import {translations} from '../i18n';
 import {playingStationArtUrl, renderArtworkSlot} from '../artwork';
 import {renderDeviceInfo} from './soundtouch';
 
@@ -28,7 +29,8 @@ const ICONS = {
     prev: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M18 6l-8.5 6L18 18V6zM6 6h2v12H6z"/></svg>',
     power: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M13 3h-2v10h2V3zm4.83 2.17l-1.42 1.42C17.99 7.86 19 9.81 19 12c0 3.31-2.69 6-6 6s-6-2.69-6-6c0-2.19 1.01-4.14 2.58-5.42L6.17 5.17C4.23 6.82 3 9.26 3 12c0 4.97 4.03 9 9 9s9-4.03 9-9c0-2.74-1.23-5.18-3.17-6.83z"/></svg>',
     speakerOn: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>',
-    speakerOff: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>'
+    speakerOff: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>',
+    reload: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>'
 } as const;
 
 export function renderRemotePanel(state: State, t: Record<string, string>): string {
@@ -45,6 +47,9 @@ export function renderRemotePanel(state: State, t: Record<string, string>): stri
     const playing = state.devicePlayStatus === 'PLAY_STATE';
     const playPauseLabel = playing ? t.remotePause : t.remotePlay;
     const playPauseIcon = playing ? ICONS.pause : ICONS.play;
+    const isReload = !!state.soundtouchAddress && state.soundtouchStatus === 'unreachable';
+    const powerLabel = isReload ? ((t as Record<string, string>).remoteRetry || translations.en.remoteRetry) : t.remoteStandby;
+    const powerIcon = isReload ? ICONS.reload : ICONS.power;
     const muteLabel = state.deviceMute ? t.remoteUnmute : t.remoteMute;
     const muteIcon = state.deviceMute ? ICONS.speakerOff : ICONS.speakerOn;
     // presence gating (per the gesellix reference): next/prev are disabled
@@ -76,7 +81,7 @@ export function renderRemotePanel(state: State, t: Record<string, string>): stri
         <h2>${t.remoteTitle}</h2>
         <span class="remote-status${statusCls}">${statusText}</span>
         ${renderDeviceInfo(state, t)}
-        <button class="btn btn-secondary" id="remotePower"${connected ? '' : ' disabled'} aria-label="${t.remoteStandby}" title="${t.remoteStandby}">${ICONS.power}</button>
+        <button class="btn btn-secondary" id="remotePower"${isReload ? '' : (connected ? '' : ' disabled')} aria-label="${powerLabel}" title="${powerLabel}">${powerIcon}</button>
     </div>
     <div class="remote-nowplaying">
         ${artHtml}

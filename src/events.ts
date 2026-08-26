@@ -91,6 +91,19 @@ export function setupEvents(): void {
 
         const remoteBtn = target.closest('#remotePlayPause, #remoteNext, #remotePrev, #remoteMute, #remotePower') as HTMLElement | null;
         if (remoteBtn) {
+            if (remoteBtn.id === 'remotePower' && state.soundtouchAddress && state.soundtouchStatus === 'unreachable') {
+                const host = state.soundtouchAddress;
+                state.soundtouchStatus = 'checking';
+                render();
+                pingSoundtouch(host).then(ok => {
+                    if (state.soundtouchAddress !== host) return;
+                    state.soundtouchStatus = ok ? 'available' : 'unreachable';
+                    render();
+                    if (ok) requestSnapshot();
+                });
+                connectSoundtouchWs(host);
+                return;
+            }
             if (state.wsStatus !== 'connected') return;
             cancelSendConfirmation();
             switch (remoteBtn.id) {

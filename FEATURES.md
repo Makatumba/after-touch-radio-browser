@@ -414,7 +414,7 @@ On WebSocket close/error: keep the last-known state on screen, mark the connecti
 `GET /info` probe. If the probe succeeds, keep retrying the WebSocket with capped exponential
 backoff (no banner); if the probe fails, wait and retry, and only after repeated probe
 failures does the device-offline banner (FR-11) appear and the device become "unreachable".
-Controls are disabled while disconnected; the last-known state stays visible. Exception: when a speaker is configured but `soundtouchStatus` is `unreachable`, the central play/pause button shows a reload ↻ (enabled while disconnected) that retries reachability (`GET /info`, 5s timeout) and the WebSocket; a second click while `checking` is ignored. The backoff
+Controls are disabled while disconnected; the last-known state stays visible. Exception: when a speaker is configured but `soundtouchStatus` is `unreachable`, the standby power button in the header shows a reload ↻ (enabled while disconnected) that retries reachability (`GET /info`, 5s timeout) and the WebSocket; a second click while `checking` is ignored. The backoff
 resets on a successful connection, and reconnecting stops when the address is cleared or
 changed.
 
