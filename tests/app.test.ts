@@ -150,7 +150,7 @@ describe('app', () => {
             const footer = document.querySelector<HTMLElement>('.app-shell > footer.footer');
             expect(footer).not.toBeNull();
             const links = footer!.querySelectorAll('a');
-            expect(links.length).toBe(1);
+            expect(links.length).toBe(2);
             const link = links[0];
             expect(link.getAttribute('href')).toBe('https://www.radio-browser.info/');
             expect(link.getAttribute('target')).toBe('_blank');
@@ -162,13 +162,171 @@ describe('app', () => {
             expect(link.textContent).toBe('Radio Browser');
         });
 
+        it('GH-1: renders a GitHub anchor with the exact contract', () => {
+            render();
+            const footer = document.querySelector<HTMLElement>('.app-shell > footer.footer');
+            expect(footer).not.toBeNull();
+            const links = footer!.querySelectorAll('a');
+            expect(links.length).toBe(2);
+            const github = links[1];
+            expect(github.getAttribute('href')).toBe('https://github.com/Makatumba/after-touch-radio-browser');
+            expect(github.getAttribute('target')).toBe('_blank');
+            expect(github.getAttribute('rel')).toBe('noopener');
+            const aria = github.getAttribute('aria-label');
+            expect(aria).toBeTruthy();
+            expect(github.getAttribute('title')).toBe(aria);
+        });
+
+        it('GH-2: GitHub anchor contains inline SVG GitHub mark with the exact contract', () => {
+            render();
+            const github = document.querySelector<HTMLElement>(
+                '.app-shell > footer.footer a[href="https://github.com/Makatumba/after-touch-radio-browser"]'
+            );
+            expect(github).not.toBeNull();
+            const svg = github!.querySelector('svg');
+            expect(svg).not.toBeNull();
+            expect(svg!.getAttribute('viewBox')).toBe('0 0 16 16');
+            expect(svg!.getAttribute('fill')).toBe('currentColor');
+            expect(svg!.getAttribute('aria-hidden')).toBe('true');
+            expect(svg!.getAttribute('focusable')).toBe('false');
+            expect(svg!.querySelector('path')).not.toBeNull();
+            expect(svg!.getAttribute('width')).toBe('16');
+            expect(svg!.getAttribute('height')).toBe('16');
+        });
+
+        it('GH-3: GitHub anchor is keyboard focusable', () => {
+            render();
+            const github = document.querySelector<HTMLElement>(
+                '.app-shell > footer.footer a[href="https://github.com/Makatumba/after-touch-radio-browser"]'
+            );
+            expect(github).not.toBeNull();
+            expect(github!.tagName.toLowerCase()).toBe('a');
+            expect(github!.hasAttribute('href')).toBe(true);
+            expect((github as HTMLAnchorElement).tabIndex).not.toBe(-1);
+        });
+
+        it('GH-4: localizes the GitHub link aria-label and title for every language', () => {
+            const tView = translations as unknown as Record<string, Record<string, string>>;
+            for (const lang of ['en', 'de', 'ru', 'ukr'] as const) {
+                state.language = lang;
+                render();
+                const github = document.querySelector<HTMLElement>(
+                    '.app-shell > footer.footer a[href="https://github.com/Makatumba/after-touch-radio-browser"]'
+                );
+                expect(github).not.toBeNull();
+                const expected = tView[lang].githubRepo || tView.en.githubRepo;
+                expect(github!.getAttribute('aria-label')).toBe(expected);
+                expect(github!.getAttribute('title')).toBe(expected);
+            }
+        });
+
+        it('GH-5: falls back to English when the githubRepo translation is missing', () => {
+            const tView = translations as unknown as Record<string, Record<string, string>>;
+            const saved = tView.ru.githubRepo;
+            // Preserve key order: setting to undefined keeps the key in place
+            // (delete + re-add would move it after sourceCode and break key-parity tests).
+            (tView.ru as Record<string, unknown>).githubRepo = undefined as unknown as string;
+            try {
+                state.language = 'ru';
+                render();
+                const github = document.querySelector<HTMLElement>(
+                    '.app-shell > footer.footer a[href="https://github.com/Makatumba/after-touch-radio-browser"]'
+                );
+                expect(github).not.toBeNull();
+                expect(github!.getAttribute('aria-label')).toBe(tView.en.githubRepo);
+                expect(github!.getAttribute('title')).toBe(tView.en.githubRepo);
+            } finally {
+                tView.ru.githubRepo = saved;
+            }
+        });
+
+        it('GH-6: does not mutate the Radio Browser attribution rendering', () => {
+            for (const lang of ['en', 'de', 'ru', 'ukr'] as const) {
+                state.language = lang;
+                render();
+                const footer = document.querySelector<HTMLElement>('.app-shell > footer.footer');
+                expect(footer).not.toBeNull();
+                expect(footer!.textContent!.trim()).toContain(FOOTER_STRINGS[lang]);
+                const links = footer!.querySelectorAll('a');
+                expect(links[0].getAttribute('href')).toBe('https://www.radio-browser.info/');
+                expect(links[0].textContent).toBe('Radio Browser');
+                expect(links.length).toBe(2);
+            }
+        });
+
+        it('GH-7: renders the GitHub link under the attribution with a description', () => {
+            render();
+            const footer = document.querySelector<HTMLElement>('.app-shell > footer.footer');
+            expect(footer).not.toBeNull();
+            // Description from i18n (default language en) should be present as "Source code on GitHub"
+            expect(footer!.textContent).toContain('Source code on');
+            expect(footer!.textContent).toContain('GitHub');
+            expect(footer!.innerHTML).toContain('Source code on');
+            const html = footer!.innerHTML;
+            const serviceClose = html.indexOf('</a>');
+            const sourcePos = html.indexOf('Source code');
+            const githubOpen = html.indexOf('<a', sourcePos);
+            expect(serviceClose).toBeGreaterThan(-1);
+            expect(sourcePos).toBeGreaterThan(serviceClose);
+            expect(githubOpen).toBeGreaterThan(sourcePos);
+            expect(html.slice(githubOpen)).toContain('https://github.com/Makatumba/after-touch-radio-browser');
+            expect(html.slice(githubOpen, html.indexOf('</a>', githubOpen))).toContain('GitHub');
+            expect(document.querySelectorAll('.app-shell > footer.footer').length).toBe(1);
+            // Second link is the GitHub one, first is Radio Browser
+            const links = footer!.querySelectorAll('a');
+            expect(links.length).toBe(2);
+            expect(links[0].getAttribute('href')).toBe('https://www.radio-browser.info/');
+            expect(links[1].getAttribute('href')).toBe('https://github.com/Makatumba/after-touch-radio-browser');
+            expect(links[1].textContent).toContain('GitHub');
+        });
+
+        it('GH-8: renders the GitHub link in every mode and with the settings modal open', async () => {
+            for (const mode of ['top', 'recent', 'search', 'favorites'] as const) {
+                state.mode = mode;
+                render();
+                expect(
+                    document.querySelector('.app-shell > footer.footer a[href="https://github.com/Makatumba/after-touch-radio-browser"]')
+                ).not.toBeNull();
+                expect(document.querySelector('.app-shell > footer.footer')).not.toBeNull();
+            }
+            const { mountSettingsModal } = await loadSettingsModal();
+            mountSettingsModal(state);
+            const overlay = document.querySelector('.modal-overlay');
+            expect(overlay).not.toBeNull();
+            render();
+            expect(document.querySelector('.modal-overlay')).toBe(overlay);
+            expect(
+                document.querySelector('.app-shell > footer.footer a[href="https://github.com/Makatumba/after-touch-radio-browser"]')
+            ).not.toBeNull();
+        });
+
+        it('GH-9: has githubRepo in all languages with identical key sets', () => {
+            const tView = translations as unknown as Record<string, Record<string, string>>;
+            for (const lang of ['en', 'de', 'ru', 'ukr'] as const) {
+                expect(tView[lang].githubRepo?.trim()).toBeTruthy();
+            }
+            for (const lang of ['de', 'ru', 'ukr'] as const) {
+                expect(Object.keys(tView[lang])).toEqual(Object.keys(tView.en));
+            }
+            expect(Object.keys(tView.de)).toEqual(Object.keys(tView.en));
+        });
+
+        it('GH-10: keeps footerAttribution key parity across all languages', () => {
+            for (const lang of ['en', 'de', 'ru', 'ukr'] as const) {
+                expect(translations[lang].footerAttribution).toBeTruthy();
+            }
+            for (const lang of ['de', 'ru', 'ukr'] as const) {
+                expect(Object.keys(translations[lang])).toEqual(Object.keys(translations.en));
+            }
+        });
+
         it('localizes the footer sentence for every language', () => {
             for (const lang of ['en', 'de', 'ru', 'ukr'] as const) {
                 state.language = lang;
                 render();
                 const footer = document.querySelector<HTMLElement>('.app-shell > footer.footer');
                 expect(footer).not.toBeNull();
-                expect(footer!.textContent!.trim()).toBe(FOOTER_STRINGS[lang]);
+                expect(footer!.textContent).toContain(FOOTER_STRINGS[lang]);
                 const link = footer!.querySelector('a');
                 expect(link).not.toBeNull();
                 expect(link!.textContent).toBe('Radio Browser');
