@@ -144,7 +144,9 @@ export const translations = {
         deviceModuleType: 'Module type',
         deviceVariant: 'Variant',
         deviceIp: 'IP address',
-        deviceFirmware: 'Firmware'
+        deviceFirmware: 'Firmware',
+        githubRepo: 'GitHub repository',
+        sourceCode: 'Source code on {github}'
     },
     de: {
         title: 'AfterTouch radio browser',
@@ -236,7 +238,9 @@ export const translations = {
         deviceModuleType: 'Modultyp',
         deviceVariant: 'Variante',
         deviceIp: 'IP-Adresse',
-        deviceFirmware: 'Firmware'
+        deviceFirmware: 'Firmware',
+        githubRepo: 'GitHub-Repository',
+        sourceCode: 'Quellcode auf {github}'
     },
     ru: {
         title: 'AfterTouch radio browser',
@@ -328,7 +332,9 @@ export const translations = {
         deviceModuleType: 'Тип модуля',
         deviceVariant: 'Вариант',
         deviceIp: 'IP-адрес',
-        deviceFirmware: 'Прошивка'
+        deviceFirmware: 'Прошивка',
+        githubRepo: 'Репозиторий на GitHub',
+        sourceCode: 'Исходный код на {github}'
     },
     ukr: {
         title: 'AfterTouch radio browser',
@@ -420,7 +426,9 @@ export const translations = {
         deviceModuleType: 'Тип модуля',
         deviceVariant: 'Варіант',
         deviceIp: 'IP-адреса',
-        deviceFirmware: 'Прошивка'
+        deviceFirmware: 'Прошивка',
+        githubRepo: 'Репозиторій на GitHub',
+        sourceCode: 'Вихідний код на {github}'
     }
 } as const;
 
