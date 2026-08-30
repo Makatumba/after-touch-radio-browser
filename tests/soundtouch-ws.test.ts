@@ -1952,13 +1952,24 @@ describe('remote control panel', () => {
     });
 
     it('disables the standby button unless the WebSocket is connected (wave 10)', () => {
-        for (const status of ['idle', 'connecting', 'reconnecting']) {
+        for (const status of ['idle', 'connecting']) {
             wsState.wsStatus = status;
+            (wsState as any).soundtouchStatus = 'available';
             render();
             const btn = document.querySelector('#remotePower') as HTMLButtonElement;
             expect(btn).not.toBeNull();
             expect(btn!.disabled).toBe(true);
+            expect(btn!.innerHTML).toContain('M13 3h-2v10');
         }
+        // reconnecting now shows reload enabled (gap before banner — wave 12)
+        wsState.wsStatus = 'reconnecting';
+        (wsState as any).soundtouchStatus = 'available';
+        render();
+        const reloadBtn = document.querySelector('#remotePower') as HTMLButtonElement;
+        expect(reloadBtn).not.toBeNull();
+        expect(reloadBtn!.disabled).toBe(false);
+        expect(reloadBtn!.innerHTML).toContain('M17.65 6.35');
+        expect(reloadBtn!.getAttribute('aria-label')).toBe(tView.en.remoteRetry);
 
         wsState.wsStatus = 'connected';
         render();
@@ -2227,20 +2238,22 @@ describe('remote controls — delegated events', () => {
         expect(String(fetchMock.mock.calls[3][1].body)).toBe('<key state="release" sender="Gabbo">POWER</key>');
     });
 
-    it('ignores the standby button while reconnecting (zero POSTs) (wave 10)', async () => {
-        const fetchMock = vi.fn();
+    it('retries via reload when reconnecting (fetch /info + WS) (wave 12)', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({} as Response);
         vi.stubGlobal('fetch', fetchMock);
         wsState.wsStatus = 'reconnecting';
+        (wsState as any).soundtouchStatus = 'available';
         render();
         setupEvents();
 
-        // dispatchEvent bypasses the disabled attribute — the delegated
-        // handler itself must guard on the connection state.
-        const power = document.querySelector('#remotePower');
-        expect(power).not.toBeNull();
-        power!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        const btn = document.querySelector('#remotePower');
+        expect(btn).not.toBeNull();
+        // reconnecting now shows reload enabled, not disabled standby
+        expect((btn as HTMLButtonElement).innerHTML).toContain('M17.65 6.35');
+        btn!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
         await flush();
 
-        expect(fetchMock).not.toHaveBeenCalled();
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(String(fetchMock.mock.calls[0][0])).toContain('/info');
     });
 });
