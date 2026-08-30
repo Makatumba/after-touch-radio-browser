@@ -47,7 +47,7 @@ export function renderRemotePanel(state: State, t: Record<string, string>): stri
     const playing = state.devicePlayStatus === 'PLAY_STATE';
     const playPauseLabel = playing ? t.remotePause : t.remotePlay;
     const playPauseIcon = playing ? ICONS.pause : ICONS.play;
-    const isReload = !!state.soundtouchAddress && state.soundtouchStatus === 'unreachable';
+    const isReload = !!state.soundtouchAddress && (state.soundtouchStatus === 'unreachable' || state.wsStatus === 'reconnecting' || state.soundtouchStatus === 'checking');
     const powerLabel = isReload ? ((t as Record<string, string>).remoteRetry || translations.en.remoteRetry) : t.remoteStandby;
     const powerIcon = isReload ? ICONS.reload : ICONS.power;
     const muteLabel = state.deviceMute ? t.remoteUnmute : t.remoteMute;
@@ -81,7 +81,7 @@ export function renderRemotePanel(state: State, t: Record<string, string>): stri
         <h2>${t.remoteTitle}</h2>
         <span class="remote-status${statusCls}">${statusText}</span>
         ${renderDeviceInfo(state, t)}
-        <button class="btn btn-secondary" id="remotePower"${isReload ? '' : (connected ? '' : ' disabled')} aria-label="${powerLabel}" title="${powerLabel}">${powerIcon}</button>
+        <button class="btn btn-secondary" id="remotePower"${isReload ? (state.soundtouchStatus === 'checking' ? ' disabled' : '') : (connected ? '' : ' disabled')} aria-label="${powerLabel}" title="${powerLabel}">${powerIcon}</button>
     </div>
     <div class="remote-nowplaying">
         ${artHtml}
