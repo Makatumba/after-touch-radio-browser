@@ -130,18 +130,36 @@ describe('remote reload — rendering', () => {
         expect(document.querySelector('#remotePlayPause')).toBeNull();
     });
 
-    it('configured + reachable → shows play/pause, disabled when not connected, not reload', () => {
+    it('not configured (address "") + available + reconnecting => no .remote-panel', () => {
+        state.soundtouchAddress = '';
+        (wsState as any).soundtouchStatus = 'available';
+        wsState.wsStatus = 'reconnecting';
+        state.skippedSetup = true;
+        render();
+        expect(document.querySelector('.remote-panel')).toBeNull();
+        expect(document.querySelector('#remotePower')).toBeNull();
+    });
+
+    it('configured + available + reconnecting => reload enabled (gap before banner), playPause/volume/mute disabled, solo preserved', () => {
         (wsState as any).soundtouchStatus = 'available';
         wsState.wsStatus = 'reconnecting';
         render();
-        const btn = document.querySelector('#remotePlayPause') as HTMLButtonElement;
-        expect(btn).not.toBeNull();
-        expect(btn.disabled).toBe(true);
-        // aria-label is remotePlay or remotePause localized, not reload
-        const label = btn.getAttribute('aria-label');
-        expect([tView.en.remotePlay, tView.en.remotePause]).toContain(label);
-        expect(btn.innerHTML).not.toContain('M17.65 6.35');
-        // next/prev/volume/mute stay disabled while disconnected
+        const powerBtn = document.querySelector('#remotePower') as HTMLButtonElement;
+        expect(powerBtn).not.toBeNull();
+        expect(powerBtn.disabled).toBe(false);
+        expect(powerBtn.innerHTML).toContain('M17.65 6.35');
+        const svg = powerBtn.querySelector('svg');
+        expect(svg).not.toBeNull();
+        expect(svg!.getAttribute('viewBox')).toBe('0 0 24 24');
+        expect(svg!.getAttribute('fill')).toBe('currentColor');
+        expect(svg!.getAttribute('aria-hidden')).toBe('true');
+        expect(svg!.getAttribute('focusable')).toBe('false');
+        expect(powerBtn.getAttribute('aria-label')).toBe(tView.en.remoteRetry);
+        expect(powerBtn.getAttribute('title')).toBe(tView.en.remoteRetry);
+        // playPause stays disabled and not reload
+        const playBtn = document.querySelector('#remotePlayPause') as HTMLButtonElement;
+        expect(playBtn.disabled).toBe(true);
+        expect(playBtn.innerHTML).not.toContain('M17.65 6.35');
         expect((document.querySelector('#remoteVolume') as HTMLInputElement).disabled).toBe(true);
         expect((document.querySelector('#remoteMute') as HTMLButtonElement).disabled).toBe(true);
         // hideRemoteSkipButtons solo still works — default true hides next/prev
@@ -149,6 +167,8 @@ describe('remote reload — rendering', () => {
         expect(document.querySelector('#remotePrev')).toBeNull();
         expect(document.querySelector('.remote-transport')).not.toBeNull();
         expect(document.querySelector('.remote-transport')!.classList.contains('remote-transport--solo')).toBe(true);
+        // status shows reconnecting localized
+        expect(document.querySelector('.remote-status')!.textContent).toContain(tView.en.remoteReconnecting);
     });
 
     it('configured + reachable + connected → play/pause enabled, not reload, aria-label localized', () => {
@@ -161,6 +181,10 @@ describe('remote reload — rendering', () => {
         expect(btn.getAttribute('aria-label')).toBe(tView.en.remotePause);
         expect(btn.getAttribute('title')).toBe(tView.en.remotePause);
         expect(btn.innerHTML).not.toContain('M17.65 6.35');
+        // power is standby, disabled false when connected
+        const powerBtn = document.querySelector('#remotePower') as HTMLButtonElement;
+        expect(powerBtn.innerHTML).not.toContain('M17.65 6.35');
+        expect(powerBtn.innerHTML).toContain('M13 3h-2v10');
         // when playing, label is Pause; when not playing it flips
         wsState.devicePlayStatus = 'STOP_STATE';
         render();
@@ -168,19 +192,28 @@ describe('remote reload — rendering', () => {
         expect(btn2.getAttribute('aria-label')).toBe(tView.en.remotePlay);
     });
 
-    it('configured + checking → while checking, button shows play/pause disabled (pinned choice)', () => {
-        // Pin: while checking the button is disabled play/pause, not reload enabled.
-        // Documented choice — implementation may keep reload disabled instead, but
-        // must document the alternative.
+    it('configured + checking (transient after reload, reconnecting->connecting) => reload icon visible but disabled, not play/pause', () => {
         (wsState as any).soundtouchStatus = 'checking';
-        wsState.wsStatus = 'reconnecting';
+        wsState.wsStatus = 'connecting';
         render();
-        const btn = document.querySelector('#remotePlayPause') as HTMLButtonElement;
-        expect(btn).not.toBeNull();
-        expect(btn.disabled).toBe(true);
-        expect(btn.innerHTML).not.toContain('M17.65 6.35');
-        // optionally shows Checking… in status, but must not be reload
-        expect(btn.getAttribute('aria-label')).not.toBe(tView.en.remoteRetry);
+        const powerBtn = document.querySelector('#remotePower') as HTMLButtonElement;
+        expect(powerBtn).not.toBeNull();
+        expect(powerBtn.innerHTML).toContain('M17.65 6.35');
+        expect(powerBtn.disabled).toBe(true);
+        expect(powerBtn.getAttribute('aria-label')).toBe(tView.en.remoteRetry);
+        expect(powerBtn.getAttribute('title')).toBe(tView.en.remoteRetry);
+        const svg = powerBtn.querySelector('svg');
+        expect(svg!.getAttribute('viewBox')).toBe('0 0 24 24');
+        expect(svg!.getAttribute('fill')).toBe('currentColor');
+        expect(svg!.getAttribute('aria-hidden')).toBe('true');
+        expect(svg!.getAttribute('focusable')).toBe('false');
+        // playPause stays disabled and not reload
+        const playBtn = document.querySelector('#remotePlayPause') as HTMLButtonElement;
+        expect(playBtn.disabled).toBe(true);
+        expect(playBtn.innerHTML).not.toContain('M17.65 6.35');
+        expect(playBtn.innerHTML).toContain('M8 5v14');
+        // status shows checking
+        expect(document.querySelector('.remote-status')!.textContent).toContain(getLabels(state).checking);
     });
 
     it('configured + unreachable (core) → #remotePower enabled with reload icon, localized aria-label/title, retains id and btn classes', () => {
@@ -246,6 +279,26 @@ describe('remote reload — rendering', () => {
     });
 
     it.each<[string, string]>([
+        ['connecting', 'checking'],
+        ['connected', 'connected'],
+        ['idle', 'idle'],
+        ['reconnecting', 'reconnecting'],
+    ])('unreachable with wsStatus %s still shows reload enabled (any wsStatus)', (wsStatus) => {
+        (wsState as any).soundtouchStatus = 'unreachable';
+        wsState.wsStatus = wsStatus;
+        render();
+        const btn = document.querySelector('#remotePower') as HTMLButtonElement;
+        expect(btn.disabled).toBe(false);
+        expect(btn.innerHTML).toContain('M17.65 6.35');
+        const svg = btn.querySelector('svg');
+        expect(svg!.getAttribute('viewBox')).toBe('0 0 24 24');
+        expect(svg!.getAttribute('fill')).toBe('currentColor');
+        expect(svg!.getAttribute('aria-hidden')).toBe('true');
+        expect(svg!.getAttribute('focusable')).toBe('false');
+        expect(btn.getAttribute('aria-label')).toBe(tView.en.remoteRetry);
+    });
+
+    it.each<[string, string]>([
         ['en', 'Retry'],
         ['de', 'Erneut versuchen'],
         ['ru', 'Повторить'],
@@ -253,6 +306,21 @@ describe('remote reload — rendering', () => {
     ])('aria-label/title === remoteRetry for language %s', (lang, expected) => {
         (state as any).language = lang as any;
         (wsState as any).soundtouchStatus = 'unreachable';
+        wsState.wsStatus = 'reconnecting';
+        render();
+        const btn = document.querySelector('#remotePower') as HTMLButtonElement;
+        expect(btn.getAttribute('aria-label')).toBe(expected);
+        expect(btn.getAttribute('title')).toBe(expected);
+    });
+
+    it.each<[string, string]>([
+        ['en', 'Retry'],
+        ['de', 'Erneut versuchen'],
+        ['ru', 'Повторить'],
+        ['ukr', 'Повторити'],
+    ])('available+reconnecting aria-label/title === remoteRetry for language %s', (lang, expected) => {
+        (state as any).language = lang as any;
+        (wsState as any).soundtouchStatus = 'available';
         wsState.wsStatus = 'reconnecting';
         render();
         const btn = document.querySelector('#remotePower') as HTMLButtonElement;
@@ -273,6 +341,22 @@ describe('remote reload — rendering', () => {
             expect(btn.getAttribute('title')).toBe(tView.en.remoteRetry);
         } finally {
             tView.ru.remoteRetry = saved;
+        }
+    });
+
+    it('available+reconnecting fallback to en when remoteRetry missing', () => {
+        const saved = tView.de.remoteRetry;
+        (tView.de as any).remoteRetry = undefined;
+        try {
+            (state as any).language = 'de';
+            (wsState as any).soundtouchStatus = 'available';
+            wsState.wsStatus = 'reconnecting';
+            render();
+            const btn = document.querySelector('#remotePower') as HTMLButtonElement;
+            expect(btn.getAttribute('aria-label')).toBe(tView.en.remoteRetry);
+            expect(btn.getAttribute('title')).toBe(tView.en.remoteRetry);
+        } finally {
+            tView.de.remoteRetry = saved;
         }
     });
 
@@ -297,6 +381,45 @@ describe('remote reload — rendering', () => {
         state.soundtouchAddress = '192.168.1.42';
         render();
         expect(document.querySelector('.remote-panel')).not.toBeNull();
+    });
+
+    it('status text: reconnecting => remoteReconnecting, connecting => checking, connected => remoteConnected', () => {
+        (wsState as any).soundtouchStatus = 'available';
+        wsState.wsStatus = 'reconnecting';
+        render();
+        expect(document.querySelector('.remote-status')!.textContent).toContain(tView.en.remoteReconnecting);
+
+        wsState.wsStatus = 'connecting';
+        render();
+        expect(document.querySelector('.remote-status')!.textContent).toContain(tView.en.checking);
+
+        wsState.wsStatus = 'connected';
+        (wsState as any).soundtouchStatus = 'available';
+        render();
+        expect(document.querySelector('.remote-status')!.textContent).toContain(tView.en.remoteConnected);
+    });
+
+    it('configured + available + idle (no reconnecting, no unreachable) => no reload, playPause disabled with play icon', () => {
+        (wsState as any).soundtouchStatus = 'available';
+        wsState.wsStatus = 'idle';
+        render();
+        const powerBtn = document.querySelector('#remotePower') as HTMLButtonElement;
+        expect(powerBtn.innerHTML).not.toContain('M17.65 6.35');
+        expect(powerBtn.innerHTML).toContain('M13 3h-2v10');
+        expect(powerBtn.disabled).toBe(true);
+        const playBtn = document.querySelector('#remotePlayPause') as HTMLButtonElement;
+        expect(playBtn.disabled).toBe(true);
+        expect(playBtn.innerHTML).toContain('M8 5v14');
+    });
+
+    it('checking with reconnecting wsStatus also shows reload disabled', () => {
+        (wsState as any).soundtouchStatus = 'checking';
+        wsState.wsStatus = 'reconnecting';
+        render();
+        const powerBtn = document.querySelector('#remotePower') as HTMLButtonElement;
+        expect(powerBtn.innerHTML).toContain('M17.65 6.35');
+        expect(powerBtn.disabled).toBe(true);
+        expect(powerBtn.getAttribute('aria-label')).toBe(tView.en.remoteRetry);
     });
 });
 
@@ -330,6 +453,46 @@ describe('remote reload — interaction', () => {
         expect(document.querySelector('#app')!.textContent).toContain(getLabels(state).checking);
     });
 
+    it('click reload when available+reconnecting triggers single fetch http://<host>:8090/info and one WS ws://<host>:8080/ gabbo, checking -> available + requestSnapshot', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({} as Response);
+        vi.stubGlobal('fetch', fetchMock);
+        (wsState as any).soundtouchStatus = 'available';
+        wsState.wsStatus = 'reconnecting';
+        render();
+        setupEvents();
+
+        document.querySelector<HTMLButtonElement>('#remotePower')!.click();
+        await flush();
+
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+        expect(url).toBe('http://192.168.1.42:8090/info');
+        expect(init.method).toBe('GET');
+        expect(init.mode).toBe('no-cors');
+        expect((init.signal as AbortSignal)).toBeInstanceOf(AbortSignal);
+
+        expect(FakeWebSocket.instances).toHaveLength(1);
+        expect(FakeWebSocket.instances[0].url).toBe('ws://192.168.1.42:8080/');
+        expect(FakeWebSocket.instances[0].protocols).toEqual(['gabbo']);
+
+        // fetch ok → available, still connecting shows Checking… until WS opens
+        expect((wsState as any).soundtouchStatus).toBe('available');
+        expect(document.querySelector('#app')!.textContent).toContain(getLabels(state).checking);
+
+        // WS open sends snapshot 3 msgs and reverts to power
+        const ws = FakeWebSocket.instances[0];
+        ws.open();
+        await flush();
+        expect(wsState.wsStatus).toBe('connected');
+        expect(ws.sent).toHaveLength(3);
+        expect(ws.sent[0]).toContain('url="now_playing"');
+        expect(ws.sent[1]).toContain('url="volume"');
+        expect(ws.sent[2]).toContain('url="info"');
+        const powerBtn = document.querySelector('#remotePower') as HTMLButtonElement;
+        expect(powerBtn.innerHTML).not.toContain('M17.65 6.35');
+        expect(powerBtn.innerHTML).toContain('M13 3h-2v10');
+    });
+
     it('honours explicit port for fetch and WS', async () => {
         const fetchMock = vi.fn().mockResolvedValue({} as Response);
         vi.stubGlobal('fetch', fetchMock);
@@ -347,6 +510,24 @@ describe('remote reload — interaction', () => {
         expect(FakeWebSocket.instances[0].url).toBe('ws://192.168.1.42:1234/');
     });
 
+    it('honours explicit port for available+reconnecting', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({} as Response);
+        vi.stubGlobal('fetch', fetchMock);
+        state.soundtouchAddress = '192.168.1.42:1234';
+        (wsState as any).soundtouchStatus = 'available';
+        wsState.wsStatus = 'reconnecting';
+        render();
+        setupEvents();
+
+        document.querySelector<HTMLButtonElement>('#remotePower')!.click();
+        await flush();
+
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(fetchMock.mock.calls[0][0]).toBe('http://192.168.1.42:1234/info');
+        expect(FakeWebSocket.instances[0].url).toBe('ws://192.168.1.42:1234/');
+        expect(FakeWebSocket.instances[0].protocols).toEqual(['gabbo']);
+    });
+
     it('second click while checking does not add fetch/WS (ignored)', async () => {
         const fetchMock = vi.fn().mockImplementation(hangingFetch());
         vi.stubGlobal('fetch', fetchMock);
@@ -362,6 +543,30 @@ describe('remote reload — interaction', () => {
         expect((wsState as any).soundtouchStatus).toBe('checking');
 
         // second click while still checking — should be ignored
+        document.querySelector<HTMLButtonElement>('#remotePower')!.click();
+        await flush();
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(FakeWebSocket.instances).toHaveLength(1);
+    });
+
+    it('second click while checking after available+reconnecting trigger is ignored (hanging fetch)', async () => {
+        const fetchMock = vi.fn().mockImplementation(hangingFetch());
+        vi.stubGlobal('fetch', fetchMock);
+        (wsState as any).soundtouchStatus = 'available';
+        wsState.wsStatus = 'reconnecting';
+        render();
+        setupEvents();
+
+        document.querySelector<HTMLButtonElement>('#remotePower')!.click();
+        await flush();
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(FakeWebSocket.instances).toHaveLength(1);
+        expect((wsState as any).soundtouchStatus).toBe('checking');
+        // reload icon visible but disabled during transient
+        const powerBtn = document.querySelector('#remotePower') as HTMLButtonElement;
+        expect(powerBtn.innerHTML).toContain('M17.65 6.35');
+        expect(powerBtn.disabled).toBe(true);
+
         document.querySelector<HTMLButtonElement>('#remotePower')!.click();
         await flush();
         expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -391,6 +596,28 @@ describe('remote reload — interaction', () => {
         expect((wsState as any).soundtouchStatus).toBe('checking');
         // stale WS should be ignored — currentHost guard keeps old socket from affecting new host
         // At least no crash, and no available status
+        expect(state.soundtouchAddress).toBe('192.168.1.99');
+    });
+
+    it('stale-host guard for available+reconnecting — host changed before probe resolves applies nothing', async () => {
+        let resolveFetch!: (v: Response) => void;
+        const fetchMock = vi.fn().mockImplementation(() => new Promise<Response>(res => { resolveFetch = res; }));
+        vi.stubGlobal('fetch', fetchMock);
+        (wsState as any).soundtouchStatus = 'available';
+        wsState.wsStatus = 'reconnecting';
+        render();
+        setupEvents();
+
+        document.querySelector<HTMLButtonElement>('#remotePower')!.click();
+        await flush();
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect((wsState as any).soundtouchStatus).toBe('checking');
+
+        state.soundtouchAddress = '192.168.1.99';
+
+        resolveFetch({} as Response);
+        await flush();
+        expect((wsState as any).soundtouchStatus).toBe('checking');
         expect(state.soundtouchAddress).toBe('192.168.1.99');
     });
 
@@ -449,6 +676,23 @@ describe('remote reload — interaction', () => {
         expect(playBtn.disabled).toBe(true);
     });
 
+    it('available+reconnecting failure → stays unreachable with banner, retains reload', async () => {
+        const fetchMock = vi.fn().mockRejectedValue(new Error('offline'));
+        vi.stubGlobal('fetch', fetchMock);
+        (wsState as any).soundtouchStatus = 'available';
+        wsState.wsStatus = 'reconnecting';
+        render();
+        setupEvents();
+
+        document.querySelector<HTMLButtonElement>('#remotePower')!.click();
+        await flush();
+        expect((wsState as any).soundtouchStatus).toBe('unreachable');
+        expect(document.querySelector('.offline-banner')).not.toBeNull();
+        const btn = document.querySelector('#remotePower') as HTMLButtonElement;
+        expect(btn.innerHTML).toContain('M17.65 6.35');
+        expect(btn.disabled).toBe(false);
+    });
+
     it('non-unreachable click does not fetch/WS (play path)', async () => {
         const fetchMock = vi.fn().mockResolvedValue({} as Response);
         vi.stubGlobal('fetch', fetchMock);
@@ -472,6 +716,31 @@ describe('remote reload — interaction', () => {
         expect(FakeWebSocket.instances).toHaveLength(0);
     });
 
+    it('non-reload available+connected click play => POST /key sender Gabbo, not /info probe, no new WS', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({} as Response);
+        vi.stubGlobal('fetch', fetchMock);
+        (wsState as any).soundtouchStatus = 'available';
+        wsState.wsStatus = 'connected';
+        wsState.devicePlayStatus = 'PLAY_STATE';
+        render();
+        setupEvents();
+        FakeWebSocket.instances = [];
+        fetchMock.mockClear();
+
+        document.querySelector<HTMLButtonElement>('#remotePlayPause')!.click();
+        await flush();
+
+        const infoCalls = fetchMock.mock.calls.filter(([url]) => String(url).includes('/info'));
+        expect(infoCalls).toHaveLength(0);
+        expect(FakeWebSocket.instances).toHaveLength(0);
+        // key press posts to /key with sender Gabbo
+        const keyCalls = fetchMock.mock.calls.filter(([url]) => String(url).includes('/key'));
+        expect(keyCalls.length).toBeGreaterThan(0);
+        for (const [, init] of keyCalls as [string, RequestInit][]) {
+            expect((init.body as string)).toContain('sender="Gabbo"');
+        }
+    });
+
     it('click via inner svg/path also triggers reload', async () => {
         const fetchMock = vi.fn().mockResolvedValue({} as Response);
         vi.stubGlobal('fetch', fetchMock);
@@ -481,6 +750,35 @@ describe('remote reload — interaction', () => {
         setupEvents();
 
         document.querySelector('#remotePower svg')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await flush();
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(FakeWebSocket.instances).toHaveLength(1);
+    });
+
+    it('click via inner svg/path inside #remotePower when available+reconnecting triggers reload (closest)', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({} as Response);
+        vi.stubGlobal('fetch', fetchMock);
+        (wsState as any).soundtouchStatus = 'available';
+        wsState.wsStatus = 'reconnecting';
+        render();
+        setupEvents();
+
+        document.querySelector('#remotePower svg')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await flush();
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(FakeWebSocket.instances).toHaveLength(1);
+        expect(fetchMock.mock.calls[0][0]).toBe('http://192.168.1.42:8090/info');
+    });
+
+    it('click via inner path inside #remotePower when available+reconnecting triggers reload', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({} as Response);
+        vi.stubGlobal('fetch', fetchMock);
+        (wsState as any).soundtouchStatus = 'available';
+        wsState.wsStatus = 'reconnecting';
+        render();
+        setupEvents();
+
+        document.querySelector('#remotePower path')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
         await flush();
         expect(fetchMock).toHaveBeenCalledTimes(1);
         expect(FakeWebSocket.instances).toHaveLength(1);
