@@ -8,14 +8,15 @@ software that keeps these speakers alive: [AfterTouch — Bose SoundTouch Toolki
 (https://gesellix.github.io/Bose-SoundTouch/). Not affiliated with Bose Corporation.
 
 Features shipped in this release and planned for the next are specified in
-[FEATURES.md](FEATURES.md) — waves 1-11 are implemented: the wave-1 station picker and
+[FEATURES.md](FEATURES.md) — waves 1-12 are implemented: the wave-1 station picker and
 setup, the wave-2 live device-state remote (FR-3), the wave-3 now-playing confirmation
 (FR-4 extension), the wave-4 station artwork (FR-6), the wave-5 settings popup fixes, the
 wave-6 settings expansion (language select in the popup, hidden remote skip buttons), the
 wave-7 settings refinement (speaker config in the popup's labeled SoundTouch section,
 device info in the Remote panel header), the wave-8 fixed-size buttons & volume/mute row
 polish, the wave-9 Radio Browser service-unavailable banner, the wave-10 remote
-standby button, and the wave-11 remote-panel artwork plays-only gate.
+standby button, the wave-11 remote-panel artwork plays-only gate, and the wave-12 Cordova
+resume & visibility resume → speaker recheck (FR-3 lifecycle, debounced).
 
 ## SoundTouch remote control
 
@@ -68,7 +69,9 @@ screen:
 
 If the connection drops (e.g. the phone leaves the home Wi-Fi), the panel keeps the last
 known state and retries; if the speaker turns out to be unreachable, the offline banner
-appears and the controls are disabled.
+appears and the controls are disabled. Returning to the app (Cordova `resume` or bringing
+the browser tab to the front) rechecks the speaker when disconnected (500 ms debounce;
+no probe when already `available` + `connected` — see [FEATURES.md](FEATURES.md) wave 12).
 
 ### Play stations on the speaker
 

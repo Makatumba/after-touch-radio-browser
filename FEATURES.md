@@ -1234,6 +1234,65 @@ the device logo (WS-first)" behavior for the not-playing case.
 - Stop→play in quick succession — the logo follows `BUFFERING_STATE`/`PLAY_STATE`
   immediately on the next render.
 
+## Implemented (wave 12)
+
+### Cordova resume & visibility resume → speaker recheck (FR-3 lifecycle extension)
+
+When the app returns to the foreground the connection to the configured speaker is rechecked — but only when disconnected. This refines the FR-3 reconnection path (capped exponential backoff + `GET /info` probe) for the common mobile case where the WebSocket freezes while the app is backgrounded and the `visibilitychange`/`resume` burst would otherwise be missed.
+
+- **Resume sources — exclusive via `isCordovaRuntime()` (`src/runtime.ts`):**
+  * In the Android Cordova wrapper (`isCordovaRuntime() === true`) the app listens **once at boot** to Cordova's `document` `resume` event (fires after `deviceready`; listener attached before `deviceready` still receives it). `visibilitychange`/`pageshow` are not subscribed in this runtime.
+  * In browsers/PWA (`isCordovaRuntime() === false`) the app listens once to `document` `visibilitychange` (triggers when `visibilityState` becomes `visible` after `hidden`) and as a bfcache defense to `window` `pageshow` (covers `event.persisted`). Cordova `resume` is not subscribed there. Never both branches at once; re-renders never stack listeners (lifetime = document).
+- **Trigger — only when disconnected (pinned):**
+  * Guard 1: `state.soundtouchAddress` (sanitized host) is non-empty.
+  * Guard 2: disconnected = `state.wsStatus !== 'connected'` (covers `idle`/`connecting`/`reconnecting`) — equivalently `soundtouchStatus === 'unreachable' || wsStatus !== 'connected'` per the existing reload-button precedent (`src/events.ts` `isReloadClick`). When `soundtouchStatus === 'available' && wsStatus === 'connected'` the handler no-ops entirely (no probe traffic).
+  * Guard 3: not already `checking` (`state.soundtouchStatus !== 'checking'`) — second event while a check is in flight is ignored (matches the reload button's `if (checking) return`).
+  * `skippedSetup` / empty address / `idle` without address → no-op.
+- **Recheck — reuses the proven manual-reload / `checkSoundtouchOnStartup` sequence; no new protocol or wire change (API-NOTES.md unchanged):**
+  1. Set `state.soundtouchStatus = 'checking'` and render (shows `⟳ Checking…`, reload icon disabled during transient).
+  2. Probe reachability: `GET http://<host>:8090/info` as `no-cors` with 5 s `AbortController` timeout (see `src/actions.ts` `pingSoundtouch`), explicit port honored (no `:8090` appended, mirrors `soundtouchBaseUrl`/`soundtouchWsUrl`), sanitized host, `state.soundtouchAddress === host` stale-guard — an obsolete probe result after an address change is ignored.
+  3. On success (`ok === true`): `soundtouchStatus = 'available'`, render, then re-attempt the live-state WebSocket `ws://<host>:8080/` with `gabbo` subprotocol (explicit port honored, single socket, `currentHost` stale-guard). While disconnected `requestSnapshot()` is a no-op (guard `wsStatus === 'connected' && socket && currentHost` in `src/soundtouch-ws.ts`); the successful `runProbe()` path does `requestSnapshot()` (no-op) + `scheduleRetry(openSocket)` — the snapshot (`now_playing`/`volume`/`info` REST-proxy `<msg>` with per-connection `requestID`) is sent via the reopened socket's `onopen` handler, where `sendSnapshot()` runs. Missed first snapshot therefore gets a second chance.
+  4. On failure: `soundtouchStatus = 'unreachable'`, `cancelSendConfirmation()`, render offline banner (FR-11), controls disabled. The existing capped exponential backoff (`1s→30s`, `PROBE_FAILURE_LIMIT=3`) continues; the handler does not reset `backoffMs`.
+  * No optimistic writes: live device state still written only from WebSocket events (no echo loops), per FR-3.
+- **Debounce — 500 ms coalescing:**
+  * First qualifying resume/visibility event arms a 500 ms timer; subsequent events within the window reset the timer; only the last event in the burst executes. A `visibilitychange` hidden→visible→hidden→visible flop collapses to one check. Timer is cleared on address change/clear. While `checking`, a debounced fire still early-returns (ignored). No new i18n keys, state fields, localStorage keys, or wire changes.
+- **Observability:** Same UI strings as manual reload — `remoteRetry`, `checking` (`⟳ Checking…`), `offlineBanner` — no new keys.
+
+#### User flows (wave 12)
+
+1. **Android background → foreground (healthy):** Open app with saved reachable speaker (`available`+`connected`) → Home → background (WS may freeze) → return (Cordova `resume`) → handler no-ops (still connected/available), panel stays live without flicker.
+2. **Wi-Fi lost while backgrounded:** Speaker `unreachable`/`reconnecting` after leaving Wi-Fi → background → return on mobile data → `resume` → debounce 500 ms → `checking` → `GET /info` times out → `unreachable` + offline banner.
+3. **Speaker rebooted / IP changed:** Dropping `reconnecting` → background → resume → recheck → `GET /info` succeeds after reboot → `available` → WS reconnects → snapshot populates new now-playing/volume in ~1 s.
+4. **PWA tab hidden → visible:** Browser tab hidden, WS drops → tab visible (`visibilitychange` to `visible`) → same 500 ms debounce and probe+WS sequence, but only if disconnected.
+5. **No speaker configured:** No address → any resume/visibility event → no fetch, no state change.
+6. **Rapid double resume:** Two `resume` events within 300 ms while `checking` → first arms debounce → second resets timer → single check executes; second while `checking` is ignored.
+
+#### Acceptance criteria (wave 12)
+
+- In Cordova (`window.__AFTER_TOUCH_RUNTIME__='cordova'` or `global.cordova` present) bootstrap registers exactly one `document` `resume` listener; dispatching `new Event('resume')` invokes handler; no `visibilitychange` listener is registered in this runtime.
+- In web/PWA (`isCordovaRuntime()==false`) `visibilitychange` (and `pageshow`) handler is registered; transitioning `visibilityState` to `visible` after `hidden` (or `pageshow` with `persisted`) with disconnected predicate true triggers recheck; when `visibilityState !== 'visible'` no recheck. Cordova `resume` is not registered there.
+- Guard — connected healthy does nothing: `soundtouchAddress='192.168.1.10'`, `soundtouchStatus='available'`, `wsStatus='connected'` → dispatch resume/visibility → `pingSoundtouch` not called, status stays.
+- Guard — disconnected triggers: `soundtouchAddress` set, `wsStatus !== 'connected'` (or `unreachable`) → resume/visibility → after 500 ms debounce `pingSoundtouch(host)` called once with sanitized host and 5 s timeout semantics; `soundtouchStatus` transitions `checking` → `available`/`unreachable`.
+- Full sequence on success: `checking` → `GET /info` ok → `available` + WS re-attempt `ws://<host>:8080/` gabbo (explicit port honored) and snapshot `now_playing`/`volume`/`info` via `onopen` (requestID continues per-connection); `currentHost`/`state.soundtouchAddress` stale-guard respected.
+- Full sequence on failure: probe `!ok` → `unreachable`, `cancelSendConfirmation()`, offline banner, `wsStatus` stays `reconnecting`.
+- Debounce: three `resume` events spaced 100 ms → handler executes exactly once ~500 ms after last dispatch; event while `checking` is ignored.
+- No address / `skippedSetup` → no fetch, no state change.
+- Calling bootstrap/render twice does not double-register listeners.
+- No duplicate `resume`/`visibilitychange` subscriptions across re-renders (lifetime = document).
+- `npm test`, `npx tsc --noEmit --skipLibCheck`, and `npm run build` pass; no new i18n keys, no API-NOTES.md wire change.
+
+#### Edge cases (wave 12)
+
+- `resume` fired before `deviceready` — listener already attached, still receives it (no deviceready gate).
+- Stale async probe: address changed between debounce arm and fire, or between `pingSoundtouch` start and resolve — stale result ignored via `state.soundtouchAddress === host` / `currentHost === host` guard.
+- Address cleared while debounce pending — timer fires and no-ops (empty host).
+- `visibilitychange` hidden→visible→hidden→visible bursts — debounce collapses to single check; `visible` without prior `hidden` is ignored.
+- Probe succeeds but `openSocket` throws synchronously (bad host) — `wsStatus` becomes `reconnecting`, backoff scheduled, no crash.
+- `document.visibilityState` unsupported (very old WebView) — `pageshow` still covers bfcache; otherwise no crash, no fetch.
+- Multiple tabs: each tab has own listener; last-write-wins remains accepted limitation (FR-3).
+- CSP `file://` shell: `ws://`/`http://` remain allowed via `cordova/www/index.html` CSP `connect-src http://*:* ws://*:*`; no CSP change required.
+- While `checking`, a third `resume` arrives — ignored until status leaves `checking`.
+
 ## Non-goals (v1)
 
 - Device discovery (SSDP/mDNS — impossible from a browser; needs a future bridge).
