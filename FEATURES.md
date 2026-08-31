@@ -1255,7 +1255,7 @@ When the app returns to the foreground the connection to the configured speaker 
   4. On failure: `soundtouchStatus = 'unreachable'`, `cancelSendConfirmation()`, render offline banner (FR-11), controls disabled. The existing capped exponential backoff (`1s→30s`, `PROBE_FAILURE_LIMIT=3`) continues; the handler does not reset `backoffMs`.
   * No optimistic writes: live device state still written only from WebSocket events (no echo loops), per FR-3.
 - **Debounce — 500 ms coalescing:**
-  * First qualifying resume/visibility event arms a 500 ms timer; subsequent events within the window reset the timer; only the last event in the burst executes. A `visibilitychange` hidden→visible→hidden→visible flop collapses to one check. Timer is cleared on address change/clear. While `checking`, a debounced fire still early-returns (ignored). No new i18n keys, state fields, localStorage keys, or wire changes.
+  * First qualifying resume/visibility event arms a 500 ms timer; subsequent events within the window reset the timer; only the last event in the burst executes. A `visibilitychange` hidden→visible→hidden→visible flop collapses to one check. A pending timer logically no-ops on address change/clear via the empty-host and stale-host guards (test helper `cancelPendingResumeCheck` clears it explicitly). While `checking`, a debounced fire still early-returns (ignored). No new i18n keys, state fields, localStorage keys, or wire changes.
 - **Observability:** Same UI strings as manual reload — `remoteRetry`, `checking` (`⟳ Checking…`), `offlineBanner` — no new keys.
 
 #### User flows (wave 12)
