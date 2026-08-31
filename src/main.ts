@@ -3,6 +3,7 @@ import {refresh, render, state, loadFilterOptions} from './app';
 import {setupEvents} from './events';
 import {checkSoundtouchOnStartup} from './soundtouch-ws';
 import {isCordovaRuntime} from './runtime';
+import {setupResumeRecheck} from './soundtouch-resume';
 
 render();
 setupEvents();
@@ -16,3 +17,4 @@ loadFilterOptions();
 document.documentElement.dataset.afterTouchRuntime = isCordovaRuntime() ? 'cordova' : 'web';
 
 if (state.soundtouchAddress) { checkSoundtouchOnStartup(state.soundtouchAddress); }
+setupResumeRecheck();
