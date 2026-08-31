@@ -113,10 +113,15 @@ Runtime behavior
 Speaker communication (the point of the wrapper)
 - [ ] Saving the speaker address shows ✓ Reachable (HTTP `POST/GET :8090`).
 - [ ] Play-on-speaker sends the station; Remote panel mirrors now-playing,
-      volume, mute over the `ws://…:8080` feed.
+       volume, mute over the `ws://…:8080` feed.
 - [ ] Transport/volume/mute commands actuate the speaker.
 - [ ] Leaving the Wi-Fi: connection lost → reconnect backoff → offline banner
-      (speaker failures stay separate from boot failures).
+       (speaker failures stay separate from boot failures).
+- [ ] Background the app (Home) while disconnected, then foreground (`resume`)
+       → `Checking…` → `available`/`unreachable` re-probe + WS reconnect when
+       `wsStatus !== 'connected'`; when already `available` + `connected` no
+       extra check fires (500 ms debounce; browser fallback is `visibilitychange`
+       → `visible` / `pageshow`).
 
 Failure paths
 - [ ] Internet off at launch: clear error message + working **Retry**; no crash.
